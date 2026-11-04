@@ -15,6 +15,12 @@ Windows／Linux 原生、日常電腦友善、能清楚解釋挖礦成效的 PEP
 
 不宣稱上述功能各自首創；產品差異來自 PEPEPOW 專用整合、原生體驗與可驗證資料。
 
+## 文件導覽
+
+- [文件索引與下一步](docs/README.md)：研究文件位置、G0 驗證入口與目前可讀狀態。
+- [產品開發計畫（03）](docs/research/03_PRODUCT_DEVELOPMENT_PLAN.md)：差異化、技術評估、里程碑與驗收。
+- [AI Coding Agent 指引](AGENTS.md)：開發前必讀、G0 優先順序及證據規範。
+
 ## 第一個里程碑
 
 先完成 [G0 技術驗證](docs/G0_TECHNICAL_VALIDATION.md)，確認 HooHash V110 與 PEPEPOW 共識實作一致，再開發 Stratum CPU CLI、桌面介面及 GPU backend。
