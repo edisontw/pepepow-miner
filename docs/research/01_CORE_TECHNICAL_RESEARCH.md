@@ -160,4 +160,4 @@ scalar oracle           │
 
 完整的工程級研究文件已整理為 `01_CORE_TECHNICAL_RESEARCH.md`，包含更完整的原始碼路徑、commit、演算法 pseudocode、Stratum message 定義、reuse/license 分析、Golden Vector schema、Mock Pool 測試矩陣、風險分級與建議實作順序：
 
-[下載 01_CORE_TECHNICAL_RESEARCH.md](sandbox:/mnt/data/01_CORE_TECHNICAL_RESEARCH.md)
+[在 GitHub 閱讀本文件](01_CORE_TECHNICAL_RESEARCH.md)
