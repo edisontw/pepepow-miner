@@ -13,7 +13,7 @@
 
 如有互相衝突的研究主張，先記錄原文、來源、commit、驗證方式與未決問題；不得直接據以修改共識演算法。研究文件不是協定權威，必須回到 Core/pool 的可追溯來源與測試。
 
-02 研究的 C++20／Qt 6／CUDA／HIP 與 03／README 的 Rust／Tauri 候選均**尚未定案**；以 `docs/ROADMAP.md` 的 G0→G1→G2→G3 驗收順序為準。研究內 `cite…` 不是 GitHub 可解析引用，須補充可核對的來源 URL、commit、檔案路徑或實測證據。
+研究整合後的架構以 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 為準：C/C++ + CMake 核心已採納規劃；Qt 是需打包／授權 spike 的有條件首選，Rust/Tauri 為替代，AMD 路線待實卡 ADR。開工前亦讀 [docs/RESEARCH_LEDGER.md](docs/RESEARCH_LEDGER.md)；以 `docs/ROADMAP.md` 的 G0→G1→G2→G3 驗收順序為準。研究內 `cite…` 不是 GitHub 可解析引用，須補充可核對的來源 URL、commit、檔案路徑或實測證據。
 
 ## 當前工作關卡
 

@@ -21,9 +21,9 @@
 
 ## 來源鎖定
 
-先前評估檢視過以下來源；下列 SHA **僅是歷史查核基準，不是本 repo 已採用的依賴**。
+2026-11-04 已重新讀取 Core master 與 pool main，與下列歷史 SHA 相同。它們是本次靜態查核快照，**不是本 repo 已採用或完成授權審查的依賴**。來源定位與差異見 [研究查核表](RESEARCH_LEDGER.md)。
 
-| 專案 | 歷史查核 SHA | 用途 |
+| 專案 | 本次查核 SHA | 用途 |
 | --- | --- | --- |
 | MattF42/PePe-core | 38e801428688dfd0aee272b4a91819ac1a13ab4e | 共識參考及 HooHash 規格 |
 | edisontw/pool-pepepow | c1298d7b40e5e9fd39f76af179c6e10a1c313147 | Stratum、序列化及向量參考 |
@@ -60,7 +60,15 @@ Expected digest 不可由待測實作在測試當下自行生成。固定已知�
 | 浮點 | 記錄 FP64、rounding、FMA／fast-math 與數學函式庫設定 |
 | 可攜性 | 各 OS 原生執行，完整輸出工具鏈與平台識別 |
 
-先前評估發現 pool 的 verify_known_vector.c 存在只比前 8 bytes、失敗仍 return 0 的測試缺口；實作前重新核對當前來源。不能直接把該工具的成功退出當成完整 parity 證據。
+本次已確認固定 pool SHA 的 verify_known_vector.c 仍只比前 8 bytes、失敗仍 return 0（見查核表 R05）。不能直接把該工具的成功退出當成完整 parity 證據。
+
+## 補充的來源與 coverage 驗收
+
+- Core 的 dev_vectors.cpp 只生成 100 組合成輸入並呼叫 hash；可作 corpus 起點，不能代替獨立 expected digest、10,000 組或真實鏈上資料。
+- 除 nonce 0、1、最大值，加入 255、256，並覆蓋 nonce 低 8 bits 全部 256 種值。每個 header 欄位獨立變動，驗證 seed/cache 失效；中間值至少覆蓋 firstPass、matrixSeed、選定 matrix cells 與 final output。
+- Nonlinear branch／NaN/Inf 路徑以可重現向量或 instrumented reference 檢查；未能觸發的路徑明列 coverage 缺口，不能虛稱覆蓋。
+- 明確分開 matrix multiplication output、hoohashv110 output 與 RPC/display encoding；後者函式已做 reverse，adapter 不可再次反轉。
+- Windows Server CI 或交叉編譯不能冒充 Windows 11 原生驗收。三個目標 OS 分別提交 debug/release 結果與實際環境，缺平台保持 pending。
 
 ## 浮點與建置
 
