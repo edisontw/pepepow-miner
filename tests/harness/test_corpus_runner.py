@@ -75,6 +75,30 @@ class CorpusContract(unittest.TestCase):
         status, calls = self.run_rows([])
         self.assertEqual((status, len(calls)), (2, 0))
 
+@unittest.skipIf(__import__("os").name == "nt", "POSIX executable script smoke test")
+class CorpusSubprocessSmoke(unittest.TestCase):
+    """Real subprocess invocation with a synthetic oracle, not HooHash parity."""
+
+    def test_real_subprocess_success_and_last_byte_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            executable = root / "synthetic_kat.py"
+            executable.write_text(
+                '#!/usr/bin/env python3\nimport sys\nsys.exit(0 if sys.argv[2] == "'
+                + DIGEST + '" else 1)\n', encoding="utf-8"
+            )
+            executable.chmod(0o755)
+            corpus = root / "cases.jsonl"
+            row = dict(case_id="synthetic", header_hex=HEADER,
+                       expected_core_function_output_hex=DIGEST)
+            corpus.write_text(json.dumps(row) + "\n", encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(runner.run_corpus(executable, corpus), 0)
+            row["expected_core_function_output_hex"] = DIGEST[:-2] + "ff"
+            corpus.write_text(json.dumps(row) + "\n", encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(runner.run_corpus(executable, corpus), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
