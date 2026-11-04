@@ -42,9 +42,13 @@ class CorpusContract(unittest.TestCase):
         altered = DIGEST[:-2] + "ff"
         row = self.row()
         row["expected_core_function_output_hex"] = altered
-        status, calls = self.run_rows([row])
-        self.assertEqual(status, 0)
+        status, calls = self.run_rows([row], returncode=1)
+        self.assertEqual(status, 1)
         self.assertEqual(calls[0].args[0][2], altered)
+
+    def test_nonzero_reference_error_returns_failure(self):
+        status, _ = self.run_rows([self.row()], returncode=2)
+        self.assertEqual(status, 1)
 
     def test_mismatch_returns_failure(self):
         status, _ = self.run_rows([self.row()], returncode=1)
