@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-04",
+  "status": "audit-only-not-approved-dependencies",
+  "checksum_format": "Git blob SHA-1 (hash of blob header plus original file bytes), not plain file SHA-1 or SHA-256",
+  "entries": [
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "COPYING",
+      "git_blob_sha1": "f9561cadf757269902fa62b42d534476eececc1c",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/COPYING",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "src/crypto/hoohash/hoohash.c",
+      "git_blob_sha1": "7337a51806b6e4db87711cb8776332032c86724d",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/hoohash/hoohash.c",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "src/crypto/hoohash/hoohash.h",
+      "git_blob_sha1": "01cc66a9ec4f8d4a76a321e0920fa8be2db23487",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/hoohash/hoohash.h",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "src/crypto/hoohash/dev_vectors.cpp",
+      "git_blob_sha1": "b5a54c9879bc6a4403b6da3497df7dc9ebf3482b",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/hoohash/dev_vectors.cpp",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "src/primitives/block.cpp",
+      "git_blob_sha1": "c7b72b7a49a69f59f9f2081f2cfe70a47ed24d19",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/primitives/block.cpp",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "src/crypto/blake3.c",
+      "git_blob_sha1": "9becead0a00cd05fd707f454b7d890beabac598d",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/blake3.c",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "src/crypto/blake3.h",
+      "git_blob_sha1": "48284e50891147a94c4a5bbc4a01ddf2a39af3cf",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/blake3.h",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "src/crypto/blake3_impl.h",
+      "git_blob_sha1": "98611c319d562b32d88872ae54cb2b345de64b9b",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/blake3_impl.h",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "src/crypto/blake3_dispatch.c",
+      "git_blob_sha1": "138f0dd9b9434dcec8085e0986cf58a6ab5fe2e9",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/blake3_dispatch.c",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "src/crypto/blake3_portable.c",
+      "git_blob_sha1": "062dd1b47fb6424f4d3db4c6edd2f90efcb92973",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/blake3_portable.c",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "configure.ac",
+      "git_blob_sha1": "52c18545331a2e5794eb3835114d8a1995ae8e1c",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/configure.ac",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "src/Makefile.am",
+      "git_blob_sha1": "508bce7fbbc631fcd9b050b7e99475b05398ff6f",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/Makefile.am",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "MattF42/PePe-core",
+      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "path": "depends/packages/openlibm.mk",
+      "git_blob_sha1": "89594fec06d529ceb9e097bfddafbdcbf9b18378",
+      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/depends/packages/openlibm.mk",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "HoosatNetwork/hoohash",
+      "commit": "9634f11410a2d71be21086e813263fa007fb6810",
+      "path": "LICENSE",
+      "git_blob_sha1": "e5e5bf698ef388501f65be047f668301d1e0fd25",
+      "url": "https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/LICENSE",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "HoosatNetwork/hoohash",
+      "commit": "9634f11410a2d71be21086e813263fa007fb6810",
+      "path": "hoohash.c",
+      "git_blob_sha1": "bddc52cb4cd92064398d5eb5e3f1d4a2798a2f4c",
+      "url": "https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/hoohash.c",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "HoosatNetwork/hoohash",
+      "commit": "9634f11410a2d71be21086e813263fa007fb6810",
+      "path": "hoohash.h",
+      "git_blob_sha1": "c276493cf512a6a9919aeecfcf73141328188014",
+      "url": "https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/hoohash.h",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "edisontw/pool-pepepow",
+      "commit": "c1298d7b40e5e9fd39f76af179c6e10a1c313147",
+      "path": "apps/pool-core/tools/verify_known_vector.c",
+      "git_blob_sha1": "2627e90746b3f838eb90df49c8189a6673bef211",
+      "url": "https://github.com/edisontw/pool-pepepow/blob/c1298d7b40e5e9fd39f76af179c6e10a1c313147/apps/pool-core/tools/verify_known_vector.c",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "edisontw/pool-pepepow",
+      "commit": "c1298d7b40e5e9fd39f76af179c6e10a1c313147",
+      "path": "tests/test_stratum_ingress.py",
+      "git_blob_sha1": "a4cca1273ca76a6987e17a3a553be3ab4d359081",
+      "url": "https://github.com/edisontw/pool-pepepow/blob/c1298d7b40e5e9fd39f76af179c6e10a1c313147/tests/test_stratum_ingress.py",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "edisontw/pool-pepepow",
+      "commit": "c1298d7b40e5e9fd39f76af179c6e10a1c313147",
+      "path": "apps/pool-core/stratum_ingress.py",
+      "git_blob_sha1": "0c473657b1ad70bb378dff55459d7fcbfa48a1c2",
+      "url": "https://github.com/edisontw/pool-pepepow/blob/c1298d7b40e5e9fd39f76af179c6e10a1c313147/apps/pool-core/stratum_ingress.py",
+      "vendored": false,
+      "redistribution_review": "pending"
+    },
+    {
+      "repository": "edisontw/pool-pepepow",
+      "commit": "c1298d7b40e5e9fd39f76af179c6e10a1c313147",
+      "path": "apps/pool-core/pepepow_pow.py",
+      "git_blob_sha1": "2984c74954800740fb6638ab32a1c24a4bdbb153",
+      "url": "https://github.com/edisontw/pool-pepepow/blob/c1298d7b40e5e9fd39f76af179c6e10a1c313147/apps/pool-core/pepepow_pow.py",
+      "vendored": false,
+      "redistribution_review": "pending"
+    }
+  ],
+  "blake3_comparison": [
+    {
+      "file": "blake3.c",
+      "core_blob": "9becead0a00cd05fd707f454b7d890beabac598d",
+      "upstream_blob": "1b44c7193457aeec7138a065261eb91341589f98",
+      "identical": false,
+      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139"
+    },
+    {
+      "file": "blake3.h",
+      "core_blob": "48284e50891147a94c4a5bbc4a01ddf2a39af3cf",
+      "upstream_blob": "48284e50891147a94c4a5bbc4a01ddf2a39af3cf",
+      "identical": true,
+      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139"
+    },
+    {
+      "file": "blake3_impl.h",
+      "core_blob": "98611c319d562b32d88872ae54cb2b345de64b9b",
+      "upstream_blob": "beab5cf53c6fab2df04beccefbf912ad8b990e50",
+      "identical": false,
+      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139"
+    },
+    {
+      "file": "blake3_dispatch.c",
+      "core_blob": "138f0dd9b9434dcec8085e0986cf58a6ab5fe2e9",
+      "upstream_blob": "af6c3dadc7bbff8e9943a033a324064e62eac4ac",
+      "identical": false,
+      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139"
+    },
+    {
+      "file": "blake3_portable.c",
+      "core_blob": "062dd1b47fb6424f4d3db4c6edd2f90efcb92973",
+      "upstream_blob": "062dd1b47fb6424f4d3db4c6edd2f90efcb92973",
+      "identical": true,
+      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139"
+    }
+  ],
+  "openlibm": {
+    "version": "0.8.7",
+    "commit": "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d",
+    "archive_sha256_from_core_recipe": "e328a1d59b94748b111e022bca6a9d2fc0481fb57d23c87d90f394b559d4f062",
+    "archive_download_verified": false,
+    "license_review": "per-file pending"
+  }
+}
