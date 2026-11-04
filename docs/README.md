@@ -1,57 +1,53 @@
-# 文件索引與下一步工作入口
+# PEPEPOW Miner 文件索引
 
-> 更新：2026-11-04。此索引以 GitHub `main` 分支實際可讀的檔案為準；研究報告與規劃文件不等於已完成程式或驗證。
+> 更新：2026-11-04。以 GitHub `main` 的實際內容為準。**研究結論不等於已經實機驗證；規劃文件不等於已完成程式。**
 
-## 核心文件
+## 文件位置與閱讀順序
 
 | 文件 | 用途 | 狀態 |
 | --- | --- | --- |
-| [專案首頁](../README.md) | 產品定位、目前狀態、平台與安全界線 | 已存在 |
-| [開發路線](ROADMAP.md) | G0–G5 階段、先後依賴與驗收門檻；**進度的主要依據** | 已存在 |
-| [G0 技術驗證計畫](G0_TECHNICAL_VALIDATION.md) | CPU HooHash V110、完整 hash parity、原生建置與證據要求 | 已存在 |
-| [03 產品開發計畫](research/03_PRODUCT_DEVELOPMENT_PLAN.md) | 競品、差異化、架構候選、UX、細部里程碑、AI Agent 規範 | 已存在 |
-| [AI Coding Agent 指引](../AGENTS.md) | 每輪開發的閱讀順序、證據標準與安全規則 | 已存在 |
+| [README](../README.md) | 產品定位與目前狀態 | 已存在 |
+| [01 核心技術研究](research/01_CORE_TECHNICAL_RESEARCH.md) | PEPEPOW HooHash V110、header、Stratum、difficulty、授權與 golden vectors | 已上傳、可讀 |
+| [02 架構與效能研究](research/02_ARCHITECTURE_PERFORMANCE.md) | CPU/GPU 架構、FP64 風險、Qt/C++ 方案、benchmark、CI | 已上傳、可讀 |
+| [03 產品開發計畫](research/03_PRODUCT_DEVELOPMENT_PLAN.md) | 競品、差異化、UX、細部里程碑、工程流程 | 已歸檔、可讀 |
+| [G0 技術驗證計畫](G0_TECHNICAL_VALIDATION.md) | 首個技術驗收的範圍、測例與完成門檻 | 待執行 |
+| [Roadmap](ROADMAP.md) | **G0–G5 階段進度與完成門檻的主要依據** | G0 待執行 |
+| [AGENTS.md](../AGENTS.md) | AI Coding Agent 的讀取順序、安全與證據規範 | 已存在 |
 
-## 深度研究報告
+三份研究報告都位於 `docs/research/`，檔名與正文保留；僅將原先無法在 GitHub 使用的 `sandbox:/mnt/data/` 下載連結改為儲存庫相對連結。**研究原文內的 `cite…` 標記不是 GitHub 可解析的引用**，因此其「已驗證」字樣仍須以原始 Core/pool、版本 SHA、授權與可重現測試重新核對，不應直接升級成工程驗收事實。
 
-三份編號文件集中於 `docs/research/`；保留原始檔名以利交叉引用。
-
-| 編號 | 預定路徑 | GitHub `main` 查核狀態 |
-| --- | --- | --- |
-| 01 核心技術研究 | `docs/research/01_CORE_TECHNICAL_RESEARCH.md` | **待確認：目前未找到原始檔** |
-| 02 架構與效能研究 | `docs/research/02_ARCHITECTURE_PERFORMANCE.md` | **待確認：目前未找到原始檔** |
-| 03 產品開發計畫 | [`docs/research/03_PRODUCT_DEVELOPMENT_PLAN.md`](research/03_PRODUCT_DEVELOPMENT_PLAN.md) | 已移入、原文完整保留 |
-
-01、02 據使用者回報已手動上傳，但目前連接的 GitHub `main` 分支未顯示這兩個檔案。**請先核對實際儲存庫、分支及上傳是否完成**。找到原始檔後應直接搬移原文，不建立假內容、不覆寫、不以推測補完。若已位於預定路徑，只需更新本索引狀態。
-
-## 目錄慣例
+## 目前文件樹
 
 ```text
 /
-├── README.md                         # 專案入口
-├── AGENTS.md                         # AI Coding Agent 操作規範
+├── README.md
+├── AGENTS.md
 └── docs/
-    ├── README.md                     # 本索引
-    ├── ROADMAP.md                    # 唯一里程碑狀態入口
-    ├── G0_TECHNICAL_VALIDATION.md    # 第一個技術驗收關卡
+    ├── README.md
+    ├── ROADMAP.md
+    ├── G0_TECHNICAL_VALIDATION.md
     └── research/
-        ├── 01_CORE_TECHNICAL_RESEARCH.md   # 預定；尚未在 main 確認
-        ├── 02_ARCHITECTURE_PERFORMANCE.md  # 預定；尚未在 main 確認
-        └── 03_PRODUCT_DEVELOPMENT_PLAN.md  # 已存在
+        ├── 01_CORE_TECHNICAL_RESEARCH.md
+        ├── 02_ARCHITECTURE_PERFORMANCE.md
+        └── 03_PRODUCT_DEVELOPMENT_PLAN.md
 ```
 
-此圖包含「預定」項目，**不是目前已存在檔案的完整清單**。未來 ADR、研究來源帳本、驗收證據等目錄，等到有實際內容時再建立，避免空架構。
+## 研究間需要釐清的選擇
 
-## 下一步：G0 的第一個可驗證交付
+| 議題 | 研究內容 | 現階段處置 |
+| --- | --- | --- |
+| GUI 與管理層 | 02 偏向 **C++20 + Qt 6**；03／README 將 **Rust + Tauri 2** 列為候選 | **未決策**。先完成 G0 CPU correctness，再以打包、維護成本、native Windows/Linux 和 UI 需求撰寫 ADR |
+| GPU 實作順序 | 02 建議 correctness 後盡早 CUDA profiling；[Roadmap](ROADMAP.md) 定義 **G0 CPU → G1 Stratum CPU CLI → G2 GUI → G3 Beta**，GPU G4/G5 分開驗收 | 以 Roadmap 的交付關卡為準；GPU 可研究但不得繞過 correctness 或宣稱已支援 |
+| HooHash／FP64／授權 | 01／02 提供特定來源、hard fork、header、openlibm 與授權風險的研究主張 | 先重新查核最新 Core/pool commit、實作、逐檔授權、KAT；不可直接引用研究文字當測試證據 |
+| 測試向量 | 01 明確指出缺少可直接使用的完整正式 golden-vector corpus | **G0-01** 先建立獨立來源的第一組完整 32-byte KAT；不虛構測例 |
 
-對應執行工作單：[G0-01｜來源、授權與首組完整 32-byte KAT](https://github.com/edisontw/pepepow-miner/issues/1)。
+## 下一步：G0-01
 
-在進行 Stratum、GUI、GPU 或效能最佳化之前：
+[**GitHub Issue #1：查核 Core/pool 來源與授權，建立首組完整 32-byte KAT**](https://github.com/edisontw/pepepow-miner/issues/1)
 
-1. 確認 01／02 原始研究檔可讀，逐項標出「已驗證」、「待驗證」及可能與 [G0 計畫](G0_TECHNICAL_VALIDATION.md) 衝突的假設。
-2. 重新查核 PEPEPOW Core 與 pool 的現行 commit、HooHash V110 實作路徑、依賴與授權；歷史 SHA 不視為已鎖定。
-3. 建立**獨立來源**的 80-byte header／完整 32-byte expected digest 已知答案測例（KAT）；不得由待測實作在測試時產生 expected 值。
-4. 建立原生 CPU CLI 測試 harness，完整比對 32 bytes，遇到任何 mismatch 或錯誤輸入必須回傳非零；刻意破壞最後一個 digest byte 必須測試失敗。
-5. 再擴充到至少 10,000 組測例，並收集 Windows 11 x64、Ubuntu 22.04／24.04 x64 **原生**建置與執行證據。
+1. 閱讀 01／02／03，將與共識相關的研究主張逐項對照 Core/pool 最新 commit、原始碼與授權；記錄證據與待確認事項。
+2. 取得獨立 reference 的 **80-byte header → 完整 32-byte expected digest**；記錄來源與 byte order。
+3. 建立 CPU CLI harness，對全部 32 bytes 比對，非法輸入與 mismatch 回傳非零；故意改壞 digest 最後一個 byte 必須失敗。
+4. 擴充至至少 **10,000** 組 parity，並收集 Windows 11 x64、Ubuntu 22.04／24.04 x64 **原生** build/run 證據，才能依 [G0 計畫](G0_TECHNICAL_VALIDATION.md) 評估是否通過。
 
-**現況：G0 尚未通過。** 只建立文件、測試框架、編譯成功或單一測例通過，都不能將 G0 標為完成。完成門檻以 [G0 技術驗證計畫](G0_TECHNICAL_VALIDATION.md) 和 [Roadmap](ROADMAP.md) 為準。
+**目前狀態：只有研究與規劃文件；尚無已驗收的礦工程式、hash parity、accepted shares 或發行檔。**
