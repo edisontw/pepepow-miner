@@ -44,6 +44,8 @@
 
 ## 下一步：G0 的第一個可驗證交付
 
+對應執行工作單：[G0-01｜來源、授權與首組完整 32-byte KAT](https://github.com/edisontw/pepepow-miner/issues/1)。
+
 在進行 Stratum、GUI、GPU 或效能最佳化之前：
 
 1. 確認 01／02 原始研究檔可讀，逐項標出「已驗證」、「待驗證」及可能與 [G0 計畫](G0_TECHNICAL_VALIDATION.md) 衝突的假設。
