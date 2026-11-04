@@ -9,9 +9,11 @@
 3. `docs/ROADMAP.md` — 唯一階段狀態來源。
 4. `docs/G0_TECHNICAL_VALIDATION.md` — 當前第一關的具體驗收。
 5. `docs/research/03_PRODUCT_DEVELOPMENT_PLAN.md` — 產品與工程規劃。
-6. `docs/research/01_CORE_TECHNICAL_RESEARCH.md`、`docs/research/02_ARCHITECTURE_PERFORMANCE.md` — **檔案存在時**再讀取；目前未在 `main` 確認，勿假裝已閱讀。
+6. `docs/research/01_CORE_TECHNICAL_RESEARCH.md`、`docs/research/02_ARCHITECTURE_PERFORMANCE.md` — 兩份研究原文已上傳 `main`；開工前均須閱讀並逐項核對來源。
 
 如有互相衝突的研究主張，先記錄原文、來源、commit、驗證方式與未決問題；不得直接據以修改共識演算法。研究文件不是協定權威，必須回到 Core/pool 的可追溯來源與測試。
+
+02 研究的 C++20／Qt 6／CUDA／HIP 與 03／README 的 Rust／Tauri 候選均**尚未定案**；以 `docs/ROADMAP.md` 的 G0→G1→G2→G3 驗收順序為準。研究內 `cite…` 不是 GitHub 可解析引用，須補充可核對的來源 URL、commit、檔案路徑或實測證據。
 
 ## 當前工作關卡
 
