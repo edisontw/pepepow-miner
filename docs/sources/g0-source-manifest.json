@@ -191,7 +191,8 @@
       "core_blob": "9becead0a00cd05fd707f454b7d890beabac598d",
       "upstream_blob": "1b44c7193457aeec7138a065261eb91341589f98",
       "identical": false,
-      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139"
+      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139",
+      "diff_review": "static review completed; see docs/G0_IMPLEMENTATION_NOTES.md; runtime parity pending"
     },
     {
       "file": "blake3.h",
@@ -205,14 +206,16 @@
       "core_blob": "98611c319d562b32d88872ae54cb2b345de64b9b",
       "upstream_blob": "beab5cf53c6fab2df04beccefbf912ad8b990e50",
       "identical": false,
-      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139"
+      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139",
+      "diff_review": "static review completed; see docs/G0_IMPLEMENTATION_NOTES.md; runtime parity pending"
     },
     {
       "file": "blake3_dispatch.c",
       "core_blob": "138f0dd9b9434dcec8085e0986cf58a6ab5fe2e9",
       "upstream_blob": "af6c3dadc7bbff8e9943a033a324064e62eac4ac",
       "identical": false,
-      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139"
+      "upstream_commit": "54930c95227daaac4dcf1eb3028e2f4e0768d139",
+      "diff_review": "static review completed; see docs/G0_IMPLEMENTATION_NOTES.md; runtime parity pending"
     },
     {
       "file": "blake3_portable.c",
@@ -228,5 +231,13 @@
     "archive_sha256_from_core_recipe": "e328a1d59b94748b111e022bca6a9d2fc0481fb57d23c87d90f394b559d4f062",
     "archive_download_verified": false,
     "license_review": "per-file pending"
+  },
+  "hoohash_relicense_evidence": {
+    "commit": "9634f11410a2d71be21086e813263fa007fb6810",
+    "author": "Toni Lukkaroinen",
+    "date": "2025-10-14",
+    "message": "Change GPLv3 to MIT for more permissive algorithm usage.",
+    "status": "upstream-relicense-intent-confirmed; stale GPL file headers recorded; final distribution review pending",
+    "url": "https://github.com/HoosatNetwork/hoohash/commit/9634f11410a2d71be21086e813263fa007fb6810"
   }
 }

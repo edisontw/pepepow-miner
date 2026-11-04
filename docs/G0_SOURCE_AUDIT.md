@@ -1,7 +1,7 @@
 # G0-01：來源與候選向量查核
 
 日期：2026-11-04。基準 main：`9e2c3c671f300ba8efaa72969b5172ad855328e8`。
-狀態：**來源盤點已交付；授權確認、獨立 Core KAT、C harness 與原生 parity 仍 pending。Issue #1 不關閉，G0 不通過。**
+狀態：**本頁為首輪來源盤點；後續已確認 upstream 改授權提交、三個 BLAKE3 差異，並完成 C harness 前端測試，見 [實作紀錄](G0_IMPLEMENTATION_NOTES.md)。獨立 Core KAT 與原生 hash parity 仍 pending。Issue #1 不關閉，G0 不通過。**
 
 ## 交付
 
@@ -20,7 +20,7 @@ Core hoohash.c 指向 Hoosat `9634f11410a2d71be21086e813263fa007fb6810`。
 Core 自己的 COPYING／hoohash.c 則標 MIT。這是原始檔觀察，並非斷言哪一授權依法優先，也不是已完成相容性審查。
 
 [AGENTS.md](../AGENTS.md) 規定「未驗證來源授權前不複製或發行第三方程式碼」；因此本交付不 vendor、不發布 binary、不擅自替專案選 LICENSE。
-解除條件：取得可追溯的授權澄清或完成逐檔 lineage／相容性審查與採用決策。單純願意開源、改檔頭或重寫，不代替來源審查。
+後續更正：已找到該作者明確把 GPLv3 改為 MIT 的提交；不可再將缺少改授權依據列為全面阻擋。舊檔頭與改授權提交需一併記錄，其他依賴及最終散布 notices 仍逐項整理。詳見實作紀錄。
 
 ### 2. BLAKE3 不能僅依 version string 視為原版
 
@@ -35,7 +35,7 @@ Core blake3.h 為 1.5.1；以 upstream tag 的 commit
 | blake3_impl.h | 否 |
 | blake3_dispatch.c | 否 |
 
-上游 LICENSE 提供 CC0-1.0 或 Apache-2.0。尚須審查三個不同檔案的 diff／patch 來源與 notices；本次只確認 bytes 不同，未把差異推定為語義變更。
+上游 LICENSE 提供 CC0-1.0 或 Apache-2.0。三個不同檔案後續已完成靜態差異分類，見實作紀錄；runtime parity 與完整 notices 仍待驗證。
 
 ### 3. openlibm 版本已定位，但不能默默 fallback
 
@@ -97,4 +97,4 @@ foreach ($entry in $m.entries) {
 3. 以候選 header 取得獨立 Core output，確認 canonical/raw 映射與鏈上來源，再升格正式 KAT。
 4. 建立全 32-byte harness，最後一個 byte 故意修改必須非零退出；非法 hex、錯長、缺資料皆拒絕。之後才擴至 10,000 組。
 
-來源查核可以繼續；第三方核心整合須先解決上列授權問題。不可把本交付視為 G0-01 完成。
+上述測試結果與環境限制為首輪快照；後續 C harness 前端測試及工具鏈取得結果以實作紀錄為準。不可把前端測試視為 G0-01 完成。

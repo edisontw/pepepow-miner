@@ -23,6 +23,8 @@ Windows／Linux 原生、日常電腦友善、能清楚解釋挖礦成效的 PEP
 - [產品開發計畫（03）](docs/research/03_PRODUCT_DEVELOPMENT_PLAN.md)：差異化、技術評估、里程碑與驗收。
 - [AI Coding Agent 指引](AGENTS.md)：開發前必讀、G0 優先順序及證據規範。
 
+目前已有 [離線 KAT 前端與測試紀錄](docs/G0_IMPLEMENTATION_NOTES.md)：synthetic 前端測試通過，尚未連結真正 Core reference，不可用來挖礦。
+
 ## 第一個里程碑
 
 先完成 [G0 技術驗證](docs/G0_TECHNICAL_VALIDATION.md)，確認 HooHash V110 與 PEPEPOW 共識實作一致，再開發 Stratum CPU CLI、桌面介面及 GPU backend。
