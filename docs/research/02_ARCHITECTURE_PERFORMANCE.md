@@ -16,7 +16,7 @@ Qt 6 對 Windows/Linux 有成熟原生支援，Windows 也提供 `windeployqt` �
 
 本研究的完整 Markdown 交付物已建立：
 
-[下載 02_ARCHITECTURE_PERFORMANCE.md](sandbox:/mnt/data/02_ARCHITECTURE_PERFORMANCE.md)
+[在 GitHub 閱讀本文件](02_ARCHITECTURE_PERFORMANCE.md)
 
 ## 架構設計
 
@@ -176,4 +176,4 @@ GitHub Artifact Attestations 使用 Sigstore 機制產生 build provenance；它
 
 完整的架構圖、Repository directory tree、Backend interface、benchmark matrix、CI/CD、正式驗收門檻與風險矩陣收錄於交付文件：
 
-[02_ARCHITECTURE_PERFORMANCE.md](sandbox:/mnt/data/02_ARCHITECTURE_PERFORMANCE.md)
+[在 GitHub 閱讀本文件](02_ARCHITECTURE_PERFORMANCE.md)
