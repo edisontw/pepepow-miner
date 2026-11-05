@@ -91,6 +91,34 @@ jobs:
           grep -Fxq 'MISMATCH' "$RUNNER_TEMP/kat-smoke.out"
           echo "Valid-header HooHash invocation and full-digest mismatch path passed."
           echo "This is NOT independent parity evidence and must not count toward G0 KATs."
+      - name: Verify full-digest round-trip and final-byte rejection (same reference only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This checks the real reference executable's output and comparator.
+          # It is a SELF-CONSISTENCY test, not an independent golden KAT.
+          header="$(printf '00%.0s' {1..80})"
+          wrong="$(printf '00%.0s' {1..32})"
+          set +e
+          output="$(build/pepepow-kat "$header" "$wrong" 2>&1)"
+          status=$?
+          set -e
+          test "$status" -eq 1
+          actual="$(printf '%s\\n' "$output" | sed -n 's/^actual=\\([0-9a-f]\\{64\\}\\)$/\\1/p')"
+          test "${#actual}" -eq 64
+          build/pepepow-kat "$header" "$actual" >"$RUNNER_TEMP/kat-roundtrip.out"
+          grep -Fxq 'MATCH' "$RUNNER_TEMP/kat-roundtrip.out"
+          last="${actual:62:2}"
+          if [ "$last" = "00" ]; then replacement="01"; else replacement="00"; fi
+          corrupted="${actual:0:62}$replacement"
+          set +e
+          build/pepepow-kat "$header" "$corrupted" >"$RUNNER_TEMP/kat-last-byte.out" 2>&1
+          corrupt_status=$?
+          set -e
+          test "$corrupt_status" -eq 1
+          grep -Fxq 'MISMATCH' "$RUNNER_TEMP/kat-last-byte.out"
+          echo "Real Core output round-trip and last-byte mismatch rejection passed."
+          echo "Expected digest came from the SAME binary: independent parity remains pending."
       - name: Evidence boundary
         run: |
           echo "Real pinned Core reference build/link succeeded."
