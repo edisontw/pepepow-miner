@@ -36,7 +36,7 @@ if mode == "bad-exit":
     print("MISMATCH")
     sys.exit(0)
 print("actual=" + "ab" * 32)
-print("MISMATCH")
+print("MISMATCH", file=sys.stderr if mode == "stderr-marker" else sys.stdout)
 sys.exit(1)
 """ % mode
         self.kat.write_text(script, encoding="ascii")
@@ -49,6 +49,12 @@ sys.exit(1)
         self.assertEqual(self.output.read_text(encoding="ascii"),
                          f"g0-synthetic-00000\t{HEADER}\t{DIGEST}\n")
         self.assertIn("Not independent parity evidence", stdout.getvalue())
+
+    def test_accepts_mismatch_marker_on_stderr(self):
+        self.fake_kat("stderr-marker")
+        with contextlib.redirect_stdout(io.StringIO()):
+            export(str(self.kat), str(self.corpus), str(self.output), 1)
+        self.assertIn(DIGEST, self.output.read_text(encoding="ascii"))
 
     def test_rejects_missing_digest(self):
         self.fake_kat("missing")
