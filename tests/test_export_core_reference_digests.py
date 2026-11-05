@@ -31,6 +31,11 @@ mode = %r
 if mode == "missing":
     print("MISMATCH")
     sys.exit(1)
+if mode == "ambiguous":
+    print("actual=" + "ab" * 32)
+    print("MISMATCH")
+    print("MATCH", file=sys.stderr)
+    sys.exit(1)
 if mode == "bad-exit":
     print("actual=" + "ab" * 32)
     print("MISMATCH")
@@ -55,6 +60,11 @@ sys.exit(1)
         with contextlib.redirect_stdout(io.StringIO()):
             export(str(self.kat), str(self.corpus), str(self.output), 1)
         self.assertIn(DIGEST, self.output.read_text(encoding="ascii"))
+
+    def test_rejects_conflicting_status_markers(self):
+        self.fake_kat("ambiguous")
+        with self.assertRaisesRegex(RuntimeError, "reference result inconsistent"):
+            export(str(self.kat), str(self.corpus), str(self.output), 1)
 
     def test_rejects_missing_digest(self):
         self.fake_kat("missing")
