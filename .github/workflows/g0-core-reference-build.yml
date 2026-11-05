@@ -104,7 +104,7 @@ jobs:
           status=$?
           set -e
           test "$status" -eq 1
-          actual="$(printf '%s\n' "$output" | grep -E '^actual=[0-9a-f]{64}
+          actual="$(printf '%s\\n' "$output" | grep -E '^actual=[0-9a-f]{64}$' | cut -d= -f2)"
           test "${#actual}" -eq 64
           build/pepepow-kat "$header" "$actual" >"$RUNNER_TEMP/kat-roundtrip.out"
           grep -Fxq 'MATCH' "$RUNNER_TEMP/kat-roundtrip.out"
