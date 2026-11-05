@@ -26,6 +26,7 @@ jobs:
           persist-credentials: false
       # Ubuntu 24.04 does not provide libopenlibm-dev in the runner apt sources.
       # Build an explicitly pinned upstream dependency instead of using system libm.
+      # Link directly from the build tree: upstream CMake install tries /pkgconfig.
       - name: Checkout pinned OpenLibm
         uses: actions/checkout@v4
         with:
@@ -39,13 +40,14 @@ jobs:
           cmake -S openlibm -B openlibm-build -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/openlibm"
           cmake --build openlibm-build --parallel 2
-          cmake --install openlibm-build
-          test -f "$RUNNER_TEMP/openlibm/include/openlibm_math.h"
+          test -f openlibm-build/libopenlibm.a
+          test -f openlibm/include/openlibm_math.h
       - name: Configure real Core reference (synthetic disabled)
         run: |
           cmake -S miner -B build -DCMAKE_BUILD_TYPE=Release \
             -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
-            -DCMAKE_PREFIX_PATH="$RUNNER_TEMP/openlibm" \
+            -DOPENLIBM_INCLUDE_DIR="$GITHUB_WORKSPACE/openlibm/include" \
+            -DOPENLIBM_LIBRARY="$GITHUB_WORKSPACE/openlibm-build/libopenlibm.a" \
             -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
             -DPEPEPOW_CORE_EXPECTED_SHA=c1394e652045a8abef3cb54f87eafec0844d3b1f
       - name: Build and link real Core reference
