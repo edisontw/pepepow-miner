@@ -119,6 +119,37 @@ jobs:
           grep -Fxq 'MISMATCH' "$RUNNER_TEMP/kat-last-byte.out"
           echo "Real Core output round-trip and last-byte mismatch rejection passed."
           echo "Expected digest came from the SAME binary: independent parity remains pending."
+      - name: Probe pool-supplied candidate vector against pinned Core (diagnostic only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Candidate copied from pool-pepepow@c1298d7b40e5e9fd39f76af179c6e10a1c313147
+          # apps/pool-core/tools/verify_known_vector.c. Its original tool checks
+          # only 8 bytes of an intermediate matrix result and returns 0 on FAIL.
+          # It is NOT yet an independently established final HooHash KAT.
+          header="0040002038e31388c54124146478ff691985eecd02610db91efbc9cd7aabca490000000007647f0508057dbf8c99ddaa87543c04e31dfe3f383e7386903d50c91728fabe830be16971e3021da96d9d33"
+          candidate="00000001fb895a82973fca52938848908d6a6cb3c0dfb93995dc61020ced0a6b"
+          test "${#header}" -eq 160
+          test "${#candidate}" -eq 64
+          set +e
+          build/pepepow-kat "$header" "$candidate" >"$RUNNER_TEMP/pool-candidate.out" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/pool-candidate.out"
+          test "$status" -eq 0 || test "$status" -eq 1
+          grep -Eq '^actual=[0-9a-f]{64}
+        run: |
+          echo "Real pinned Core reference build/link succeeded."
+          echo "No golden vectors, digest parity, GPU, Stratum, or pool submit tested."
+ "$RUNNER_TEMP/pool-candidate.out"
+          if [ "$status" -eq 0 ]; then
+            grep -Fxq 'MATCH' "$RUNNER_TEMP/pool-candidate.out"
+            echo "Pool candidate matches full Core output; independent provenance still requires review."
+          else
+            grep -Fxq 'MISMATCH' "$RUNNER_TEMP/pool-candidate.out"
+            echo "::notice::Pool candidate differs from final Core digest; investigate intermediate-vs-final encoding before treating it as a golden vector."
+          fi
+          echo "Diagnostic only: neither outcome establishes independent G0 parity."
       - name: Evidence boundary
         run: |
           echo "Real pinned Core reference build/link succeeded."
