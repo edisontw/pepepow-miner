@@ -2,10 +2,13 @@
 """Export Core-reference results; NOT independent golden-vector parity."""
 import argparse
 import hashlib
+from pathlib import Path
 import re
 import subprocess
 
 def export(kat, corpus, output, limit):
+    if Path(corpus).resolve() == Path(output).resolve():
+        raise ValueError("corpus and output must be different files")
     checksum = hashlib.sha256()
     count = 0
     with open(corpus, encoding="ascii") as source, open(output, "w", encoding="ascii", newline="\n") as dest:
