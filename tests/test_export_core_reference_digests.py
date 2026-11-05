@@ -90,6 +90,13 @@ sys.exit(1)
         with self.assertRaisesRegex(ValueError, "invalid case id/columns at row 1"):
             export(str(self.kat), str(self.corpus), str(self.output), 1)
 
+    def test_rejects_output_overwriting_corpus(self):
+        self.fake_kat()
+        original = self.corpus.read_bytes()
+        with self.assertRaisesRegex(ValueError, "corpus and output must be different"):
+            export(str(self.kat), str(self.corpus), str(self.corpus), 1)
+        self.assertEqual(self.corpus.read_bytes(), original)
+
     def test_rejects_short_header(self):
         self.fake_kat()
         self.corpus.write_text("g0-synthetic-00000\t00\n", encoding="ascii")
