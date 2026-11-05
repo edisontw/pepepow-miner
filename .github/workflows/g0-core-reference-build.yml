@@ -104,7 +104,45 @@ jobs:
           status=$?
           set -e
           test "$status" -eq 1
-          actual="$(printf '%s\\n' "$output" | grep -E '^actual=[0-9a-f]{64}$' | cut -d= -f2)"
+          actual="$(printf '%s\n' "$output" | grep -E '^actual=[0-9a-f]{64}
+          test "${#actual}" -eq 64
+          build/pepepow-kat "$header" "$actual" >"$RUNNER_TEMP/kat-roundtrip.out"
+          grep -Fxq 'MATCH' "$RUNNER_TEMP/kat-roundtrip.out"
+          last="${actual:62:2}"
+          if [ "$last" = "00" ]; then replacement="01"; else replacement="00"; fi
+          corrupted="${actual:0:62}$replacement"
+          set +e
+          build/pepepow-kat "$header" "$corrupted" >"$RUNNER_TEMP/kat-last-byte.out" 2>&1
+          corrupt_status=$?
+          set -e
+          test "$corrupt_status" -eq 1
+          grep -Fxq 'MISMATCH' "$RUNNER_TEMP/kat-last-byte.out"
+          echo "Real Core output round-trip and last-byte mismatch rejection passed."
+          echo "Expected digest came from the SAME binary: independent parity remains pending."
+      - name: Evidence boundary
+        run: |
+          echo "Real pinned Core reference build/link succeeded."
+          echo "No golden vectors, digest parity, GPU, Stratum, or pool submit tested."
+ | cut -d= -f2)"
+          test "${#actual}" -eq 64
+          build/pepepow-kat "$header" "$actual" >"$RUNNER_TEMP/kat-roundtrip.out"
+          grep -Fxq 'MATCH' "$RUNNER_TEMP/kat-roundtrip.out"
+          last="${actual:62:2}"
+          if [ "$last" = "00" ]; then replacement="01"; else replacement="00"; fi
+          corrupted="${actual:0:62}$replacement"
+          set +e
+          build/pepepow-kat "$header" "$corrupted" >"$RUNNER_TEMP/kat-last-byte.out" 2>&1
+          corrupt_status=$?
+          set -e
+          test "$corrupt_status" -eq 1
+          grep -Fxq 'MISMATCH' "$RUNNER_TEMP/kat-last-byte.out"
+          echo "Real Core output round-trip and last-byte mismatch rejection passed."
+          echo "Expected digest came from the SAME binary: independent parity remains pending."
+      - name: Evidence boundary
+        run: |
+          echo "Real pinned Core reference build/link succeeded."
+          echo "No golden vectors, digest parity, GPU, Stratum, or pool submit tested."
+ | cut -d= -f2)"
           test "${#actual}" -eq 64
           build/pepepow-kat "$header" "$actual" >"$RUNNER_TEMP/kat-roundtrip.out"
           grep -Fxq 'MATCH' "$RUNNER_TEMP/kat-roundtrip.out"
