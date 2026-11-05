@@ -146,6 +146,32 @@ jobs:
           grep -Fxq 'MISMATCH' "$RUNNER_TEMP/pool-endian-wrong.out"
           echo "Full 32-byte candidate-to-Core byte reversal verified; display-order negative test passed."
           echo "Candidate provenance remains provisional: this is not independent G0 parity."
+      - name: Run offline digest exporter regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=miner/tests python3 -m unittest discover -s miner/tests -p 'test_export_core_reference_digests.py' -v
+      - name: Export 16 pinned Core reference digests (not independent parity)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 miner/tests/generate_g0_headers.py --count 16 > "$RUNNER_TEMP/g0-headers.tsv"
+          python3 miner/tests/export_core_reference_digests.py \
+            --kat "$GITHUB_WORKSPACE/build/pepepow-kat" \
+            --corpus "$RUNNER_TEMP/g0-headers.tsv" \
+            --output "$RUNNER_TEMP/g0-core-digests.tsv" --limit 16
+          python3 - "$RUNNER_TEMP/g0-core-digests.tsv" <<'PY'
+          import pathlib, re, sys
+          rows = pathlib.Path(sys.argv[1]).read_text(encoding="ascii").splitlines()
+          assert len(rows) == 16, len(rows)
+          for i, row in enumerate(rows):
+              case, header, digest = row.split("\t")
+              assert case == f"g0-synthetic-{i:05d}"
+              assert re.fullmatch(r"[0-9a-f]{160}", header)
+              assert re.fullmatch(r"[0-9a-f]{64}", digest)
+          print("Core digest TSV smoke: 16 complete rows")
+          print("Self-reference export only; independent parity pending")
+          PY
       - name: Evidence boundary
         run: |
           echo "Real pinned Core reference build/link succeeded."
