@@ -13,7 +13,7 @@ def export(kat, corpus, output, limit):
             if count == limit:
                 break
             fields = row.rstrip("\n").split("\t")
-            if len(fields) != 2 or not re.fullmatch(r"g0-synthetic-[0-9]{5}", fields[0]):
+            if len(fields) != 2 or fields[0] != f"g0-synthetic-{count:05d}":
                 raise ValueError(f"invalid case id/columns at row {count + 1}")
             if len(fields[1]) != 160 or not re.fullmatch(r"[0-9a-f]{160}", fields[1]):
                 raise ValueError(f"invalid 80-byte header at row {count + 1}")
