@@ -17,6 +17,13 @@ class SyntheticHeadersTest(unittest.TestCase):
             make_header(-1)
         with self.assertRaises(ValueError):
             make_header(2**32)
+        # The generator accepts the full uint32 index domain; timestamp wraps
+        # modulo 2**32 rather than overflowing Python int.to_bytes().
+        boundary = 2**32 - 1
+        header = make_header(boundary)
+        self.assertEqual(len(header), 80)
+        self.assertEqual(int.from_bytes(header[68:72], "little"), (1700000000 + boundary) & 0xffffffff)
+        self.assertEqual(int.from_bytes(header[76:80], "little"), boundary)
 
 
 if __name__ == "__main__":
