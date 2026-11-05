@@ -87,15 +87,7 @@ jobs:
           set -e
           cat "$RUNNER_TEMP/kat-smoke.out"
           test "$status" -eq 1
-          grep -Eq '^actual=[0-9a-f]{64}
-          grep -Fxq 'MISMATCH' "$RUNNER_TEMP/kat-smoke.out"
-          echo "Valid-header HooHash invocation and full-digest mismatch path passed."
-          echo "This is NOT independent parity evidence and must not count toward G0 KATs."
-      - name: Evidence boundary
-        run: |
-          echo "Real pinned Core reference build/link succeeded."
-          echo "No golden vectors, digest parity, GPU, Stratum, or pool submit tested."
- "$RUNNER_TEMP/kat-smoke.out"
+          grep -Eq '^actual=[0-9a-f]{64}$' "$RUNNER_TEMP/kat-smoke.out"
           grep -Fxq 'MISMATCH' "$RUNNER_TEMP/kat-smoke.out"
           echo "Valid-header HooHash invocation and full-digest mismatch path passed."
           echo "This is NOT independent parity evidence and must not count toward G0 KATs."
