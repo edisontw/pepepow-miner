@@ -76,6 +76,20 @@ sys.exit(1)
         with self.assertRaisesRegex(RuntimeError, "reference result inconsistent"):
             export(str(self.kat), str(self.corpus), str(self.output), 1)
 
+    def test_rejects_duplicate_case_ids(self):
+        self.fake_kat()
+        self.corpus.write_text(
+            f"g0-synthetic-00000\\t{HEADER}\\n"
+            f"g0-synthetic-00000\\t{HEADER}\\n", encoding="ascii")
+        with self.assertRaisesRegex(ValueError, "invalid case id/columns at row 2"):
+            export(str(self.kat), str(self.corpus), str(self.output), 2)
+
+    def test_rejects_out_of_order_case_ids(self):
+        self.fake_kat()
+        self.corpus.write_text(f"g0-synthetic-00001\\t{HEADER}\\n", encoding="ascii")
+        with self.assertRaisesRegex(ValueError, "invalid case id/columns at row 1"):
+            export(str(self.kat), str(self.corpus), str(self.output), 1)
+
     def test_rejects_short_header(self):
         self.fake_kat()
         self.corpus.write_text("g0-synthetic-00000\t00\n", encoding="ascii")
