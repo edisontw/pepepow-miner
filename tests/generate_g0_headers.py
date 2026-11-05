@@ -13,7 +13,7 @@ def make_header(index: int) -> bytes:
     seed = hashlib.sha256(b"PEPEPOW-G0-SYNTHETIC-HEADER-v1" + index.to_bytes(4, "little")).digest()
     prevhash = hashlib.sha256(b"prevhash" + seed).digest()
     merkle = hashlib.sha256(b"merkle" + seed).digest()
-    timestamp = (1700000000 + index).to_bytes(4, "little")
+    timestamp = ((1700000000 + index) & 0xffffffff).to_bytes(4, "little")
     bits = bytes.fromhex("ffff001d")
     # Cover all 256 low-byte nonce values, then explicit boundary cases.
     nonce = (index if index < 256 else (0, 1, 255, 256, 0xffffffff)[index - 256]
