@@ -54,6 +54,24 @@ jobs:
         run: cmake --build build --config Release --parallel 2
       - name: Check reference executable exists without invoking hashing
         run: test -x build/pepepow-kat
+      - name: Execute real reference binary and verify invalid-input exit codes
+        shell: bash
+        run: |
+          set -euo pipefail
+          # An executable existing is not proof that it starts or rejects bad input.
+          set +e
+          build/pepepow-kat >"$RUNNER_TEMP/kat-noargs.out" 2>&1
+          noargs_status=$?
+          build/pepepow-kat "$(printf '00%.0s' {1..79})" "$(printf '00%.0s' {1..32})" >"$RUNNER_TEMP/kat-short.out" 2>&1
+          short_status=$?
+          build/pepepow-kat "$(printf '00%.0s' {1..80})" "$(printf '00%.0s' {1..31})" >"$RUNNER_TEMP/kat-digest.out" 2>&1
+          digest_status=$?
+          set -e
+          test "$noargs_status" -eq 2
+          test "$short_status" -eq 2
+          test "$digest_status" -eq 2
+          echo "Pinned reference binary starts and rejects missing/short arguments (exit 2)."
+          echo "No valid HooHash input was evaluated; digest parity remains untested."
       - name: Evidence boundary
         run: |
           echo "Real pinned Core reference build/link succeeded."
