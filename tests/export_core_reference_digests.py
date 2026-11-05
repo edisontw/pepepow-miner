@@ -25,7 +25,9 @@ def export(kat, corpus, output, limit):
             actual = matches[0]
             expected_code = 0 if actual == "00" * 32 else 1
             expected_marker = "MATCH" if expected_code == 0 else "MISMATCH"
-            markers = [line for line in (run.stdout.splitlines() + run.stderr.splitlines())\n                       if line in ("MATCH", "MISMATCH")]\n            if run.returncode != expected_code or markers != [expected_marker]:
+            markers = [line for line in (run.stdout.splitlines() + run.stderr.splitlines())
+                       if line in ("MATCH", "MISMATCH")]
+            if run.returncode != expected_code or markers != [expected_marker]:
                 raise RuntimeError(f"reference result inconsistent: {fields[0]}")
             line = f"{fields[0]}\t{fields[1]}\t{actual}\n"
             dest.write(line)
