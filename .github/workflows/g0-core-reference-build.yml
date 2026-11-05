@@ -72,6 +72,28 @@ jobs:
           test "$digest_status" -eq 2
           echo "Pinned reference binary starts and rejects missing/short arguments (exit 2)."
           echo "No valid HooHash input was evaluated; digest parity remains untested."
+      - name: Execute pinned Core HooHash on a valid 80-byte header (mismatch smoke only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # All-zero digest is deliberately NOT an independent golden vector.
+          # This checks that a syntactically valid input reaches the real hash
+          # function and that a mismatched full digest returns exit code 1.
+          header="$(printf '00%.0s' {1..80})"
+          wrong_digest="$(printf '00%.0s' {1..32})"
+          set +e
+          build/pepepow-kat "$header" "$wrong_digest" >"$RUNNER_TEMP/kat-smoke.out" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/kat-smoke.out"
+          test "$status" -eq 1
+          grep -Eq '^actual=[0-9a-f]{64}        run: |
+          echo "Real pinned Core reference build/link succeeded."
+          echo "No golden vectors, digest parity, GPU, Stratum, or pool submit tested."
+ "$RUNNER_TEMP/kat-smoke.out"
+          grep -Fxq 'MISMATCH' "$RUNNER_TEMP/kat-smoke.out"
+          echo "Valid-header HooHash invocation and full-digest mismatch path passed."
+          echo "This is NOT independent parity evidence and must not count toward G0 KATs."
       - name: Evidence boundary
         run: |
           echo "Real pinned Core reference build/link succeeded."
