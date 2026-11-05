@@ -37,6 +37,8 @@ jobs:
             exe="build/kat-contract-test"
           fi
           python tests/harness/test_contract.py "$exe"
+      - name: Verify offline corpus runner failure propagation (synthetic only)
+        run: python -m unittest discover -s tests/harness -p test_corpus_runner.py -v
       - name: Confirm no real reference library is silently substituted
         shell: bash
         run: |
