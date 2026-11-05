@@ -1,0 +1,44 @@
+name: G0 pinned Core reference build (no parity claim)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-reference-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout miner
+        uses: actions/checkout@v4
+        with:
+          path: miner
+          persist-credentials: false
+      - name: Checkout pinned PEPEPOW Core
+        uses: actions/checkout@v4
+        with:
+          repository: edisontw/PePe-core
+          ref: c1394e652045a8abef3cb54f87eafec0844d3b1f
+          path: core
+          persist-credentials: false
+      - name: Install native reference dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenlibm-dev
+      - name: Configure real Core reference (synthetic disabled)
+        run: |
+          cmake -S miner -B build -DCMAKE_BUILD_TYPE=Release \
+            -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
+            -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
+            -DPEPEPOW_CORE_EXPECTED_SHA=c1394e652045a8abef3cb54f87eafec0844d3b1f
+      - name: Build and link real Core reference
+        run: cmake --build build --config Release --parallel 2
+      - name: Check reference executable exists without invoking hashing
+        run: test -x build/pepepow-kat
+      - name: Evidence boundary
+        run: |
+          echo "Real pinned Core reference build/link succeeded."
+          echo "No golden vectors, digest parity, GPU, Stratum, or pool submit tested."
