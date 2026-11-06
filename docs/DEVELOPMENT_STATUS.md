@@ -26,3 +26,8 @@
 - Latest observed main: `3ab4e56b16140f61f30d1af7ddc324d84040067b` (PR #4 merged); PR #2 head `3c141c53302fe53166912d34050989da1996efc6`, three head-specific CI checks successful (runs 42219852682, 42219852661, 42219852622). These are NOT independent parity.
 - New Draft PR #8: https://github.com/edisontw/pepepow-miner/pull/8 (head `475b794449b925e9de95f5d77c4f31f67cb04c70`): C++20 offline Stratum job lifecycle guard; local Linux focused test PASS. No network, mining, pool submit, Windows native or independent G0 parity test. Conservative latest-job-only policy: concurrent non-clean jobs are not supported yet.
 - PR #5, #6, #7 remain open; PR #3 closed without merge, PR #4 merged. Do not duplicate their prevhash/target helpers. Next: independently establish full 32-byte V110 expected digest with provenance; in parallel improve PR #8 job semantics and native CI only if focused, validated work is available.
+
+## 2026-11-06 22:36+08 run update
+- Main still `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #2 head before this status edit `d9c5af1f2054dee33a22760fabfdc7ddfa41b43c`, with 3/3 head-specific workflows successful (runs 42227117124, 42227117242, 42227117143). No independent parity evidence; G0 remains pending.
+- PR #8 updated: `b2f27622ee9f5609c99c3b405d6c50c75416e443`. Fixed stale snapshot reuse when a pool reissues the same job ID with `clean_jobs=false`; latest-job-only state now advances generation for every notification. Added regression coverage for repeated IDs and non-clean replacement. Focused Linux C++20 test PASS; native Windows and PR #8 CI pending. No networking or pool submit.
+- Next: add focused Windows/Linux CI to PR #8 and validate the new head; independently sourced HooHash full-digest golden vector still blocks G0.
