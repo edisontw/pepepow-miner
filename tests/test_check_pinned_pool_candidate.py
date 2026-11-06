@@ -27,13 +27,12 @@ class PinnedCandidateTests(unittest.TestCase):
         with patch.object(candidate.subprocess, "run", side_effect=responses) as run:
             candidate.check("fake-kat")
         self.assertEqual(run.call_count, 3)
-        first, second = (call.args[0] for call in run.call_args_list)
+        first, second, third = (call.args[0] for call in run.call_args_list)
         self.assertEqual(first, ["fake-kat", candidate.HEADER, raw])
         self.assertEqual(second[:2], ["fake-kat", candidate.HEADER])
         self.assertEqual(second[2][:-2], raw[:-2])
         self.assertNotEqual(second[2][-2:], raw[-2:])
-        third = run.call_args_list[2].args[0]
-        self.assertEqual(third[2], raw)
+                self.assertEqual(third[2], raw)
         self.assertNotEqual(third[1], candidate.HEADER)
         self.assertEqual(len(third[1]), 160)
 
