@@ -146,6 +146,12 @@ jobs:
           grep -Fxq 'MISMATCH' "$RUNNER_TEMP/pool-endian-wrong.out"
           echo "Full 32-byte candidate-to-Core byte reversal verified; display-order negative test passed."
           echo "Candidate provenance remains provisional: this is not independent G0 parity."
+      - name: Verify pinned pool candidate full digest and last-byte failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 miner/tests/check_pinned_pool_candidate.py --kat "$GITHUB_WORKSPACE/build/pepepow-kat"
+          echo "Pinned pool candidate is provisional, not independently established consensus parity."
       - name: Run offline digest exporter regression tests
         shell: bash
         run: |
