@@ -31,6 +31,9 @@ class JobState {
     active_ = JobSnapshot{std::move(id), generation_, difficulty_};
     return true;
   }
+  // Call on an in-session work invalidation (e.g. extranonce update).
+  // Do not allow a previously queued share to survive a template reset.
+  void invalidate_work() { ++generation_; active_.reset(); }
   std::optional<JobSnapshot> active() const { return active_; }
   bool can_submit(const JobSnapshot& job) const {
     return authorized_ && active_ && job.generation == generation_ &&
