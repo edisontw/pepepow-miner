@@ -42,6 +42,18 @@ int main() {
   assert(state.set_difficulty(32.0));
   assert(state.notify("job4", false));
   assert(state.active()->difficulty == 32.0);
+  auto current = *state.active();
+  assert(state.can_submit(current));
+  // A candidate must retain the difficulty/target bound to its job.
+  auto tampered = current;
+  tampered.difficulty = 1.0;
+  assert(!state.can_submit(tampered));
+  // A later set_difficulty applies to a future job, not an in-flight job.
+  assert(state.set_difficulty(64.0));
+  assert(state.can_submit(current));
+  assert(state.notify("job5", false));
+  assert(!state.can_submit(current));
+  assert(state.active()->difficulty == 64.0);
   state.authorized(false);
   assert(!state.can_submit(third));
 }
