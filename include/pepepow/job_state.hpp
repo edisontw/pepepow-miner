@@ -14,8 +14,8 @@ struct JobSnapshot {
 
 class JobState {
  public:
-  void connected() { ++generation_; authorized_ = false; active_.reset(); }
-  void disconnected() { ++generation_; authorized_ = false; active_.reset(); }
+  void connected() { reset_session(); }
+  void disconnected() { reset_session(); }
   void authorized(bool ok) { authorized_ = ok; if (!ok) { ++generation_; active_.reset(); } }
   bool set_difficulty(double value) {
     if (!(value > 0.0) || !finite(value)) return false;
@@ -37,6 +37,12 @@ class JobState {
            job.generation == active_->generation && job.id == active_->id;
   }
  private:
+  void reset_session() {
+    ++generation_;
+    authorized_ = false;
+    active_.reset();
+    difficulty_ = 1.0;  // Do not reuse the previous pool session's target.
+  }
   static bool finite(double value) { return value <= 1.7976931348623157e308; }
   std::uint64_t generation_ = 0;
   double difficulty_ = 1.0;
