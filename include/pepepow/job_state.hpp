@@ -43,6 +43,12 @@ class JobState {
     double difficulty = 0.0;
     std::string job_id;
     bool clean_jobs = false;
+    Event(EventKind kind_value, bool authorized_value = false,
+          double difficulty_value = 0.0, std::string job_id_value = {},
+          bool clean_jobs_value = false)
+        : kind(kind_value), authorized(authorized_value),
+          difficulty(difficulty_value), job_id(std::move(job_id_value)),
+          clean_jobs(clean_jobs_value) {}
   };
   bool apply(const Event& event) {
     switch (event.kind) {
