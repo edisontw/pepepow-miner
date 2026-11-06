@@ -152,6 +152,12 @@ jobs:
           set -euo pipefail
           python3 miner/tests/check_pinned_pool_candidate.py --kat "$GITHUB_WORKSPACE/build/pepepow-kat"
           echo "Pinned pool candidate is provisional, not independently established consensus parity."
+      - name: Run offline pinned pool candidate runner regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=miner/tests python3 -m unittest discover -s miner/tests -p 'test_check_pinned_pool_candidate.py' -v
+          echo "Mock runner tests only; independent HooHash parity remains pending."
       - name: Run offline digest exporter regression tests
         shell: bash
         run: |
