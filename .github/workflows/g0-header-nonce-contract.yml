@@ -1,0 +1,47 @@
+name: G0 portable header nonce contract (not HooHash parity)
+
+on:
+  pull_request:
+    paths:
+      - "include/pepepow/header_nonce.h"
+      - "tests/test_header_nonce.c"
+      - ".github/workflows/g0-header-nonce-contract.yml"
+  push:
+    branches:
+      - "g0-header-nonce-c-contract-20261104"
+
+jobs:
+  header-nonce:
+    name: Header nonce contract / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, windows-2022]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile and execute native C11 contract test (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cc -std=c11 -Wall -Wextra -Werror -pedantic -O2 \
+            -Iinclude tests/test_header_nonce.c -o "$RUNNER_TEMP/header_nonce_test"
+          "$RUNNER_TEMP/header_nonce_test"
+
+      - name: Compile and execute native C11 contract test (Windows Server)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          if errorlevel 1 exit /b 1
+          cl /nologo /W4 /WX /std:c11 /O2 /Iinclude tests\test_header_nonce.c /Fe:"%RUNNER_TEMP%\header_nonce_test.exe"
+          if errorlevel 1 exit /b 1
+          "%RUNNER_TEMP%\header_nonce_test.exe"
+
+      - name: Evidence boundary
+        shell: bash
+        run: |
+          echo "Only the 80-byte nonce read/write contract was tested."
+          echo "No HooHash digest parity, mining, pool submission, or Windows 11 proof."
