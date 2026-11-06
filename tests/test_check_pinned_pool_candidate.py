@@ -32,7 +32,7 @@ class PinnedCandidateTests(unittest.TestCase):
         self.assertEqual(second[:2], ["fake-kat", candidate.HEADER])
         self.assertEqual(second[2][:-2], raw[:-2])
         self.assertNotEqual(second[2][-2:], raw[-2:])
-                self.assertEqual(third[2], raw)
+        self.assertEqual(third[2], raw)
         self.assertNotEqual(third[1], candidate.HEADER)
         self.assertEqual(len(third[1]), 160)
 
