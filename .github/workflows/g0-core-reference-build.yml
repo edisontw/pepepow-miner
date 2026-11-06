@@ -151,6 +151,12 @@ jobs:
         run: |
           set -euo pipefail
           PYTHONPATH=miner/tests python3 -m unittest discover -s miner/tests -p 'test_export_core_reference_digests.py' -v
+      - name: Run offline digest parity comparator regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=miner/tests python3 -m unittest discover -s miner/tests -p 'test_compare_digest_parity.py' -v
+          echo "Comparator fixture tests only; independent HooHash parity remains pending."
       - name: Export 16 pinned Core reference digests (not independent parity)
         shell: bash
         run: |
