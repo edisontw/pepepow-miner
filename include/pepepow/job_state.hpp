@@ -34,6 +34,29 @@ class JobState {
   // Call on an in-session work invalidation (e.g. extranonce update).
   // Do not allow a previously queued share to survive a template reset.
   void invalidate_work() { ++generation_; active_.reset(); }
+  // Typed events are the boundary between a future strict Stratum JSON parser
+  // and the offline job lifecycle. No wire data or networking is handled here.
+  enum class EventKind { Connected, Disconnected, Authorized, Difficulty, Notify, ExtranonceChanged };
+  struct Event {
+    EventKind kind;
+    bool authorized = false;
+    double difficulty = 0.0;
+    std::string job_id;
+    bool clean_jobs = false;
+  };
+  bool apply(const Event& event) {
+    switch (event.kind) {
+      case EventKind::Connected: connected(); return true;
+      case EventKind::Disconnected: disconnected(); return true;
+      case EventKind::Authorized: authorized(event.authorized); return true;
+      case EventKind::Difficulty: return authorized_ && set_difficulty(event.difficulty);
+      case EventKind::Notify: return notify(event.job_id, event.clean_jobs);
+      case EventKind::ExtranonceChanged:
+        if (!authorized_) return false;
+        invalidate_work(); return true;
+    }
+    return false;
+  }
   std::optional<JobSnapshot> active() const { return active_; }
   bool can_submit(const JobSnapshot& job) const {
     return authorized_ && active_ && job.generation == generation_ &&
