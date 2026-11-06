@@ -47,3 +47,8 @@
 - PR #8 changed `include/pepepow/job_state.hpp` and `tests/test_job_state.cpp`: `can_submit()` now also requires the candidate snapshot difficulty to match the active job difficulty; added tampered-difficulty rejection and in-flight job target preservation checks. Commits `9afd8db` and `5cd58cf`. This is an offline guard, not difficulty-to-target consensus validation.
 - GitHub updates succeeded; focused local compile/run was not executed this round (container has no GitHub network access). CI pending. G0 independent full digest parity remains NOT PASSED.
 - Next: inspect head-specific native CI, then add a minimal offline Stratum event-to-JobState adapter with explicit dialect fixtures; avoid another standalone guard-only iteration.
+
+## 2026-11-07 04:35+08 run update
+- `main` observed at `3ab4e56b16140f61f30d1af7ddc324d84040067b`. PR #8 previous head `5cd58cfc3ea05925101045ebb466f675651fb0c5` had completed successful native workflow run `42281246315`; this does **not** validate the new commits.
+- PR #8 added typed `JobState::Event` dispatch for connection, authorization, difficulty, notify, extranonce reset, and disconnect; regression checks cover unauthorized messages, invalid difficulty, stale job invalidation and session reset. Commits `74797edd70f95cedaffa6a26c620ec72b3c8daa1` and `8d154abf02956f6059c0391d9d3454b86fdbb0df`. This is a decoded-event boundary, **not** a JSON parser or live Stratum client.
+- New head native CI and local compilation pending at this handoff; no pool connection/submit. Next: check head-specific CI and build a bounded offline Stratum JSON line decoder with fixed pool dialect fixtures, wired to these typed events. G0 independent full 32-byte parity remains NOT PASSED.
