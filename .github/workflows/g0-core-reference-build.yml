@@ -178,6 +178,33 @@ jobs:
           print("Core digest TSV smoke: 16 complete rows")
           print("Self-reference export only; independent parity pending")
           PY
+      - name: Exercise parity CLI against exported Core TSV (self-consistency only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="$RUNNER_TEMP/g0-core-digests.tsv"
+          candidate="$RUNNER_TEMP/g0-candidate-copy.tsv"
+          cp "$ref" "$candidate"
+          python3 miner/tests/compare_digest_parity.py "$ref" "$candidate" --count 16
+          python3 - "$candidate" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          lines = path.read_text(encoding="ascii").splitlines()
+          assert len(lines) == 16
+          case, header, digest = lines[-1].split("\t")
+          replacement = "00" if digest[-2:] != "00" else "01"
+          lines[-1] = "\t".join((case, header, digest[:-2] + replacement))
+          path.write_text("\n".join(lines) + "\n", encoding="ascii")
+          PY
+          set +e
+          python3 miner/tests/compare_digest_parity.py "$ref" "$candidate" --count 16 >"$RUNNER_TEMP/parity-negative.out" 2>&1
+          status=$?
+          set -e
+          test "$status" -eq 1
+          grep -Fq 'full 32-byte digest mismatch at row 16' "$RUNNER_TEMP/parity-negative.out"
+          echo "CLI round-trip and last-byte corruption rejection passed (same Core TSV only)."
+          echo "Independent HooHash implementation parity remains pending."
       - name: Evidence boundary
         run: |
           echo "Real pinned Core reference build/link succeeded."
