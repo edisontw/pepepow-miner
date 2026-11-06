@@ -24,7 +24,7 @@ class JobState {
   }
   bool notify(std::string id, bool clean_jobs) {
     if (!authorized_ || id.empty()) return false;
-    if (clean_jobs) ++generation_;
+    // Latest-job-only: every notification replaces the active snapshot, even\n    // with a repeated ID and clean_jobs=false. Never revive superseded work.\n    (void)clean_jobs;\n    ++generation_;
     active_ = JobSnapshot{std::move(id), generation_, difficulty_};
     return true;
   }
