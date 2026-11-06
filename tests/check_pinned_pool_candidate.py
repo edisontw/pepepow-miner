@@ -33,7 +33,16 @@ def check(kat):
     if (negative.returncode != 1 or
             negative.stderr.splitlines().count("MISMATCH") != 1):
         raise RuntimeError("last-byte negative KAT failed")
-    print("PASS: provisional pool candidate, 32-byte match and last-byte rejection")
+    # A changed header must not validate against the original digest. This
+    # exercises the real reference's header sensitivity, not just its digest
+    # comparator; it is still not independent consensus parity.
+    changed_header = ("01" if HEADER[:2] != "01" else "02") + HEADER[2:]
+    changed = subprocess.run([kat, changed_header, raw], capture_output=True,
+                             text=True, timeout=120, check=False)
+    if (changed.returncode != 1 or
+            changed.stderr.splitlines().count("MISMATCH") != 1):
+        raise RuntimeError("mutated-header negative KAT failed")
+    print("PASS: provisional pool candidate, full digest and negative controls")
     print("Provenance remains provisional; not an independent G0 consensus KAT.")
 
 
