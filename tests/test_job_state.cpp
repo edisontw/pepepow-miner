@@ -25,6 +25,12 @@ int main() {
   assert(!state.can_submit(replacement));
   auto nonclean = *state.active();
   assert(state.can_submit(nonclean));
+  state.invalidate_work();
+  assert(!state.active() && !state.can_submit(nonclean));
+  assert(state.notify("job-after-reset", false));
+  auto after_reset = *state.active();
+  assert(state.can_submit(after_reset));
+  assert(!state.can_submit(nonclean));
   state.disconnected();
   assert(!state.can_submit(nonclean) && !state.active());
   state.connected();
