@@ -173,7 +173,7 @@ jobs:
           for i, row in enumerate(rows):
               case, header, digest = row.split("\t")
               assert case == f"g0-synthetic-{i:05d}"
-              assert re.fullmatch(r"[0-9a-f]{320}", header)
+              assert re.fullmatch(r"[0-9a-f]{160}", header)
               assert re.fullmatch(r"[0-9a-f]{64}", digest)
           print("Core digest TSV smoke: 32 complete rows")
           print("Self-reference export only; independent parity pending")
