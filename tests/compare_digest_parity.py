@@ -4,6 +4,7 @@
 Matching output alone does NOT establish independent implementation provenance.
 """
 import argparse
+import os
 import re
 import sys
 
@@ -22,6 +23,8 @@ def rows(path):
 def compare(reference, candidate, count):
     if not 1 <= count <= 10000:
         raise ValueError('count must be 1..10000')
+    if os.path.samefile(reference, candidate):
+        raise ValueError('reference and candidate are the same file')
     a, b = rows(reference), rows(candidate)
     for index in range(count):
         left = next(a, None)
