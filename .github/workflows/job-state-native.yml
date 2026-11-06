@@ -1,0 +1,24 @@
+name: Offline Stratum Job State Native
+on:
+  pull_request:
+    paths:
+      - 'include/pepepow/job_state.hpp'
+      - 'tests/test_job_state.cpp'
+      - 'tests/job_state/CMakeLists.txt'
+      - '.github/workflows/job-state-native.yml'
+  workflow_dispatch:
+jobs:
+  job-state:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S tests/job_state -B build/job-state -DCMAKE_BUILD_TYPE=Debug
+      - name: Build
+        run: cmake --build build/job-state --config Debug
+      - name: Run
+        run: ctest --test-dir build/job-state -C Debug --output-on-failure
