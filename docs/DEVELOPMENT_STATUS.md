@@ -21,3 +21,8 @@
 2. Audit PEPEPOW Core and HooHash upstream exact source SHA and header/nonce/endianness. Produce one truly independent 80-byte header -> full 32-byte digest KAT with provenance, then scale parity to >=10,000 cases.
 3. Keep changes small, use focused tests, no real wallet keys, no live mining, no production pool submit, no release, no automatic merge.
 4. Report start/end main SHA, changed paths, commit/PR, actual test outcomes, remaining evidence and next task. Maintain this single handoff/status source rather than spawning duplicate progress documents.
+
+## 2026-11-06 21:37+08 run update
+- Latest observed main: `3ab4e56b16140f61f30d1af7ddc324d84040067b` (PR #4 merged); PR #2 head `3c141c53302fe53166912d34050989da1996efc6`, three head-specific CI checks successful (runs 42219852682, 42219852661, 42219852622). These are NOT independent parity.
+- New Draft PR #8: https://github.com/edisontw/pepepow-miner/pull/8 (head `475b794449b925e9de95f5d77c4f31f67cb04c70`): C++20 offline Stratum job lifecycle guard; local Linux focused test PASS. No network, mining, pool submit, Windows native or independent G0 parity test. Conservative latest-job-only policy: concurrent non-clean jobs are not supported yet.
+- PR #5, #6, #7 remain open; PR #3 closed without merge, PR #4 merged. Do not duplicate their prevhash/target helpers. Next: independently establish full 32-byte V110 expected digest with provenance; in parallel improve PR #8 job semantics and native CI only if focused, validated work is available.
