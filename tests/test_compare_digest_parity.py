@@ -34,6 +34,20 @@ class ParityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'same file'):
             compare(self.ref, alias, 1)
 
+    def test_symlink_alias_rejected(self):
+        alias = Path(self.tmp.name) / 'symlink.tsv'
+        try:
+            alias.symlink_to(self.ref)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(f'symlinks unavailable: {exc}')
+        with self.assertRaisesRegex(ValueError, 'same file'):
+            compare(self.ref, alias, 1)
+
+    def test_distinct_files_with_identical_content_are_not_independent_proof(self):
+        # The comparator checks bytes, not implementation provenance.
+        self.assertNotEqual(self.ref.stat().st_ino, self.candidate.stat().st_ino)
+        self.assertEqual(compare(self.ref, self.candidate, 1), 1)
+
     def test_last_byte_mismatch(self):
         self.candidate.write_text(self.line.replace(DIGEST, DIGEST[:-2] + 'ac'), encoding='ascii')
         with self.assertRaisesRegex(ValueError, 'full 32-byte digest mismatch'):
