@@ -37,7 +37,8 @@ class JobState {
   std::optional<JobSnapshot> active() const { return active_; }
   bool can_submit(const JobSnapshot& job) const {
     return authorized_ && active_ && job.generation == generation_ &&
-           job.generation == active_->generation && job.id == active_->id;
+           job.generation == active_->generation && job.id == active_->id &&
+           job.difficulty == active_->difficulty;
   }
  private:
   void reset_session() {
