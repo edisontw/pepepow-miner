@@ -32,6 +32,10 @@ int main() {
   assert(state.notify("job2", true));
   assert(!state.can_submit(second));
   auto third = *state.active();
+  assert(third.difficulty == 1.0);  // A new session must not inherit 16.0.
+  assert(state.set_difficulty(32.0));
+  assert(state.notify("job4", false));
+  assert(state.active()->difficulty == 32.0);
   state.authorized(false);
   assert(!state.can_submit(third));
 }
