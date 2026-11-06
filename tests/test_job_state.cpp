@@ -56,4 +56,30 @@ int main() {
   assert(state.active()->difficulty == 64.0);
   state.authorized(false);
   assert(!state.can_submit(third));
+  // Protocol-decoded events must use the same lifecycle rules as direct calls.
+  using Kind = pepepow::JobState::EventKind;
+  using Event = pepepow::JobState::Event;
+  pepepow::JobState wired;
+  assert(wired.apply(Event{Kind::Connected}));
+  assert(!wired.apply(Event{Kind::Difficulty, false, 8.0}));
+  assert(!wired.apply(Event{Kind::Notify, false, 0.0, "early", true}));
+  assert(wired.apply(Event{Kind::Authorized, true}));
+  assert(!wired.apply(Event{Kind::Difficulty, false, 0.0}));
+  assert(wired.apply(Event{Kind::Difficulty, false, 8.0}));
+  assert(wired.apply(Event{Kind::Notify, false, 0.0, "event-job", true}));
+  auto queued = *wired.active();
+  assert(queued.difficulty == 8.0 && wired.can_submit(queued));
+  assert(wired.apply(Event{Kind::ExtranonceChanged}));
+  assert(!wired.can_submit(queued) && !wired.active());
+  assert(wired.apply(Event{Kind::Notify, false, 0.0, "event-job", false}));
+  auto renewed = *wired.active();
+  assert(wired.can_submit(renewed) && !wired.can_submit(queued));
+  assert(wired.apply(Event{Kind::Disconnected}));
+  assert(!wired.can_submit(renewed));
+  assert(!wired.apply(Event{Kind::ExtranonceChanged}));
+  assert(wired.apply(Event{Kind::Connected}));
+  assert(wired.apply(Event{Kind::Authorized, true}));
+  assert(wired.apply(Event{Kind::Notify, false, 0.0, "new-session", true}));
+  assert(wired.active()->difficulty == 1.0);
+
 }
