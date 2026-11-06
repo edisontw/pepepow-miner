@@ -21,6 +21,19 @@ class ParityTests(unittest.TestCase):
     def test_match(self):
         self.assertEqual(compare(self.ref, self.candidate, 1), 1)
 
+    def test_same_file_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'same file'):
+            compare(self.ref, self.ref, 1)
+
+    def test_hardlink_alias_rejected(self):
+        alias = Path(self.tmp.name) / 'alias.tsv'
+        try:
+            alias.hardlink_to(self.ref)
+        except OSError as exc:
+            self.skipTest(f'hardlinks unavailable: {exc}')
+        with self.assertRaisesRegex(ValueError, 'same file'):
+            compare(self.ref, alias, 1)
+
     def test_last_byte_mismatch(self):
         self.candidate.write_text(self.line.replace(DIGEST, DIGEST[:-2] + 'ac'), encoding='ascii')
         with self.assertRaisesRegex(ValueError, 'full 32-byte digest mismatch'):
