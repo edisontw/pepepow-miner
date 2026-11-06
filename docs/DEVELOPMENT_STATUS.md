@@ -31,3 +31,8 @@
 - Main still `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #2 head before this status edit `d9c5af1f2054dee33a22760fabfdc7ddfa41b43c`, with 3/3 head-specific workflows successful (runs 42227117124, 42227117242, 42227117143). No independent parity evidence; G0 remains pending.
 - PR #8 updated: `b2f27622ee9f5609c99c3b405d6c50c75416e443`. Fixed stale snapshot reuse when a pool reissues the same job ID with `clean_jobs=false`; latest-job-only state now advances generation for every notification. Added regression coverage for repeated IDs and non-clean replacement. Focused Linux C++20 test PASS; native Windows and PR #8 CI pending. No networking or pool submit.
 - Next: add focused Windows/Linux CI to PR #8 and validate the new head; independently sourced HooHash full-digest golden vector still blocks G0.
+
+## 2026-11-06 23:38+08 run update
+- Main checked at `3ab4e56b16140f61f30d1af7ddc324d84040067b` (unchanged); PR #2 head before status update `d4bda9e7c4405e207421fef8f0b1922047c172cd`.
+- Found literal `\\n` text embedded in PR #8 `include/pepepow/job_state.hpp` after the latest-job comment; this broke actual C++ parsing and invalidated the previous reported test confidence. Fixed only those escaped newlines in PR #8 commit `8c3afa2ad13a88695a4a309856d20f5964d63dfa`. Focused local Linux C++20 test against the corrected header and existing test body PASS (`-Wall -Wextra -Werror -pedantic`). GitHub confirms file has no literal `\\n` and PR #8 head matches; no PR #8 workflow runs reported yet. Windows native still untested.
+- Next: add a minimal Ubuntu/Windows native CI workflow to PR #8, and confirm head-specific results. G0 independent 32-byte HooHash parity remains unverified; no pool submit or GPU test.
