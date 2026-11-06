@@ -16,8 +16,17 @@ int main() {
   assert(!state.can_submit(first));
   auto second = *state.active();
   assert(state.can_submit(second));
+  // A reused job ID and non-clean notification must not revive stale work.
+  assert(state.notify("job2", false));
+  assert(!state.can_submit(second));
+  auto replacement = *state.active();
+  assert(state.can_submit(replacement));
+  assert(state.notify("job3", false));
+  assert(!state.can_submit(replacement));
+  auto nonclean = *state.active();
+  assert(state.can_submit(nonclean));
   state.disconnected();
-  assert(!state.can_submit(second) && !state.active());
+  assert(!state.can_submit(nonclean) && !state.active());
   state.connected();
   state.authorized(true);
   assert(state.notify("job2", true));
