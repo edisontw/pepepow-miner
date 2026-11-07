@@ -72,3 +72,8 @@
 - `main` confirmed `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #2 head before this handoff update `a82deed636540b112d5c5a820efdc66a05681798`; PR #8 new head `053e10589b498acd080557c4bb4bbb421db3084d`.
 - PR #8 now accepts a `mining.set_difficulty` event after connection but before authorization reply; real Stratum messages may arrive in that order. Commits `7ae3ffb687f209d2e9fc9701717a77e16e9b2140`, `053e10589b498acd080557c4bb4bbb421db3084d` update job state and focused test. Prior head CI `42319182532` passed; latest head CI pending. Local clone/CTest blocked by DNS resolution failure, **not tested locally**. No mining/network/submit.
 - G0 remains NOT PASSED; no independently sourced full 32-byte digest parity. Next: check head-specific PR #8 native CI and implement bounded strict offline Stratum JSON decoder, without expanding isolated mocks.
+
+## 2026-11-07 10:37+08 run update
+- Re-fetched main at `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #8 previous head `053e10589b498acd080557c4bb4bbb421db3084d` had successful head-specific native workflow run `42325134132`.
+- PR #8 offline framer now rejects embedded or repeated raw CR rather than passing malformed JSON-line bytes through; preserves split CRLF. Changes: `include/pepepow/stratum_line_framer.hpp` (`e6486bd`) and `tests/test_stratum_line_framer.cpp` (`59707d3`). No local compile/run because container GitHub DNS failed; new-head CI pending. This is input hardening, NOT JSON parsing or real mining.
+- G0 independent full 32-byte HooHash parity still NOT PASSED. Next: verify head-specific native CI; implement strict JSON decoder and typed event integration instead of more isolated framer tests.
