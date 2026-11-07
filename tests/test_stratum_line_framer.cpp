@@ -13,7 +13,7 @@ int main() {
   assert(d.rejected == 1 && d.lines.size() == 1 && d.lines[0] == "{}");
   auto e = f.feed(std::string("a\0b\n", 4));
   assert(e.rejected == 1 && e.lines.empty());
-  f.feed("partial"); f.reset();
+  // A raw carriage return is only valid immediately before LF.\n  assert(f.feed("bad\\rdata\\n").rejected == 1);\n  assert(f.feed("bad\\r\\r\\n").rejected == 1);\n  assert(f.feed("{}\\r").lines.empty());\n  assert(f.feed("\\n").lines.size() == 1);\n  f.feed("partial"); f.reset();
   assert(f.feed("{}\n").lines[0] == "{}");
   assert(f.feed(std::string(65536, 'x') + "\n").lines.size() == 1);
   assert(f.feed(std::string(65536, 'x') + "\r\n").lines.size() == 1);
