@@ -29,6 +29,14 @@ int main() {
   pepepow::SubscribeWorkGuard guard;
   jobs.apply({pepepow::JobState::EventKind::Connected});
   jobs.apply({pepepow::JobState::EventKind::Authorized, true});
+  auto malformed = *parsed;
+  malformed.extranonce1 = "0g";
+  CHECK(!guard.accept(malformed, jobs));
+  malformed.extranonce1 = "abc";
+  CHECK(!guard.accept(malformed, jobs));
+  malformed.extranonce1 = "00";
+  malformed.extranonce2_size = 33;
+  CHECK(!guard.accept(malformed, jobs));
   CHECK(guard.accept(*parsed, jobs));
   CHECK(jobs.apply({pepepow::JobState::EventKind::Notify, false, 0.0, "job1"}));
   auto old = jobs.active();
