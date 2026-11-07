@@ -56,7 +56,8 @@ class OfflineStratumSession {
   // No network request is emitted by this offline component.
   bool track_submit(std::string_view request_id, const JobSnapshot& job) {
     if (!connected_ || !jobs_.can_submit(job) || request_id.empty() ||
-        (request_id.size() > 1 && request_id.front() == '0')) return false;
+        ((request_id.size() > 1 && request_id.front() == '0') ||
+        request_id.size() > 20 || pending_submits_.size() >= 4096) return false;
     for (char c : request_id) if (c < '0' || c > '9') return false;
     return pending_submits_.insert(std::string(request_id)).second;
   }
