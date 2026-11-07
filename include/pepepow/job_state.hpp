@@ -58,7 +58,7 @@ class JobState {
       case EventKind::Connected: connected(); return true;
       case EventKind::Disconnected: disconnected(); return true;
       case EventKind::Authorized: authorized(event.authorized); return true;
-      case EventKind::Difficulty: return authorized_ && set_difficulty(event.difficulty);
+      case EventKind::Difficulty: return connected_ && set_difficulty(event.difficulty);
       case EventKind::Notify: return notify(event.job_id, event.clean_jobs);
       case EventKind::ExtranonceChanged:
         if (!authorized_) return false;
