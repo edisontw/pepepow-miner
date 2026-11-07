@@ -14,16 +14,19 @@ struct JobSnapshot {
 
 class JobState {
  public:
-  void connected() { reset_session(); }
+  void connected() { reset_session(); connected_ = true; }
   void disconnected() { reset_session(); }
-  void authorized(bool ok) { authorized_ = ok; if (!ok) { ++generation_; active_.reset(); } }
+  void authorized(bool ok) {
+    authorized_ = connected_ && ok;
+    if (!authorized_) { ++generation_; active_.reset(); }
+  }
   bool set_difficulty(double value) {
     if (!(value > 0.0) || !finite(value)) return false;
     difficulty_ = value;
     return true;
   }
   bool notify(std::string id, bool clean_jobs) {
-    if (!authorized_ || id.empty()) return false;
+    if (!connected_ || !authorized_ || id.empty()) return false;
     // Latest-job-only: every notification replaces the active snapshot, even
     // with a repeated ID and clean_jobs=false. Never revive superseded work.
     (void)clean_jobs;
@@ -73,6 +76,7 @@ class JobState {
   void reset_session() {
     ++generation_;
     authorized_ = false;
+    connected_ = false;
     active_.reset();
     difficulty_ = 1.0;  // Do not reuse the previous pool session's target.
   }
@@ -80,6 +84,7 @@ class JobState {
   std::uint64_t generation_ = 0;
   double difficulty_ = 1.0;
   bool authorized_ = false;
+  bool connected_ = false;
   std::optional<JobSnapshot> active_;
 };
 }  // namespace pepepow
