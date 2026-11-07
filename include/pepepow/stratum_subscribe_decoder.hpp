@@ -66,7 +66,12 @@ inline std::optional<SubscribeReply> decode_subscribe_reply(
 class SubscribeWorkGuard {
  public:
   bool accept(const SubscribeReply& reply, JobState& jobs) {
-    if (reply.extranonce1.empty() || reply.extranonce2_size == 0) return false;
+    if (reply.extranonce1.empty() || reply.extranonce1.size() % 2 != 0 ||
+        reply.extranonce2_size == 0 || reply.extranonce2_size > 32) return false;
+    for (char c : reply.extranonce1) {
+      if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
+            (c >= 'A' && c <= 'F'))) return false;
+    }
     if (current_ && (current_->extranonce1 != reply.extranonce1 ||
                      current_->extranonce2_size != reply.extranonce2_size)) {
       // Do not silently accept a reset when the session is not authorized.
