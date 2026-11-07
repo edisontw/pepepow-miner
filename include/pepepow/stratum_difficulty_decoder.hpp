@@ -47,4 +47,36 @@ inline std::optional<JobState::Event> decode_difficulty(std::string_view line) {
   if (i != line.size()) return std::nullopt;
   return JobState::Event{JobState::EventKind::Difficulty, false, difficulty};
 }
+
+ // Strict offline authorization response decoder. The caller supplies the
+ // outstanding authorize request ID; unrelated replies cannot authorize work.
+inline std::optional<JobState::Event> decode_authorize_reply(
+    std::string_view line, std::string_view expected_id) {
+  if (line.size() > 65536 || expected_id.empty()) return std::nullopt;
+  std::size_t i = 0;
+  auto ws = [&] { while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) ++i; };
+  auto take = [&](char c) {
+    ws(); if (i == line.size() || line[i] != c) return false;
+    ++i; return true;
+  };
+  auto literal = [&](std::string_view s) {
+    ws(); if (line.substr(i, s.size()) != s) return false;
+    i += s.size(); return true;
+  };
+  // IDs are positive decimal integers, not JSON strings or arbitrary tokens.
+  if (!take('{') || !literal("\"id\"") || !take(':')) return std::nullopt;
+  ws();
+  const auto start = i;
+  while (i < line.size() && line[i] >= '0' && line[i] <= '9') ++i;
+  if (start == i || line.substr(start, i - start) != expected_id ||
+      !take(',') || !literal("\"result\"") || !take(':')) return std::nullopt;
+  bool authorized = false;
+  if (literal("true")) authorized = true;
+  else if (!literal("false")) return std::nullopt;
+  if (!take(',') || !literal("\"error\"") || !take(':') ||
+      !literal("null") || !take('}')) return std::nullopt;
+  ws();
+  if (i != line.size()) return std::nullopt;
+  return JobState::Event{JobState::EventKind::Authorized, authorized};
+}
 } // namespace pepepow
