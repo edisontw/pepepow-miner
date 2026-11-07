@@ -66,9 +66,12 @@ int main() {
   using Event = pepepow::JobState::Event;
   pepepow::JobState wired;
   assert(wired.apply(Event{Kind::Connected}));
-  assert(!wired.apply(Event{Kind::Difficulty, false, 8.0}));
+  assert(wired.apply(Event{Kind::Difficulty, false, 8.0}));
   assert(!wired.apply(Event{Kind::Notify, false, 0.0, "early", true}));
   assert(wired.apply(Event{Kind::Authorized, true}));
+  // Difficulty may arrive before authorize response on a live Stratum session.
+  assert(wired.apply(Event{Kind::Notify, false, 0.0, "preauth-diff", true}));
+  assert(wired.active()->difficulty == 8.0);
   assert(!wired.apply(Event{Kind::Difficulty, false, 0.0}));
   assert(wired.apply(Event{Kind::Difficulty, false, 8.0}));
   assert(wired.apply(Event{Kind::Notify, false, 0.0, "event-job", true}));
