@@ -3,7 +3,9 @@ on:
   pull_request:
     paths:
       - 'include/pepepow/job_state.hpp'
+      - 'include/pepepow/stratum_line_framer.hpp'
       - 'tests/test_job_state.cpp'
+      - 'tests/test_stratum_line_framer.cpp'
       - 'tests/job_state/CMakeLists.txt'
       - '.github/workflows/job-state-native.yml'
   workflow_dispatch:
