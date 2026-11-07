@@ -25,7 +25,7 @@ class StratumLineFramer {
         }
         buffer_.clear();
         discarding_ = false;
-      } else if (discarding_ || c == '\0' || buffer_.size() >= max_line + (c == '\r' ? 1u : 0u)) {
+      } else if (discarding_ || c == '\0' || (c == '\r' && !buffer_.empty() && buffer_.back() == '\r') || (c != '\r' && !buffer_.empty() && buffer_.back() == '\r') || buffer_.size() >= max_line + (c == '\r' ? 1u : 0u)) {
         discarding_ = true;
         buffer_.clear();
       } else {
