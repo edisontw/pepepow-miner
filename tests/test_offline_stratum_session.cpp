@@ -22,6 +22,7 @@ int main() {
   CHECK(session.notify(job));
   auto old = session.jobs().active();
   CHECK(old && old->difficulty == 2.0 && session.jobs().can_submit(*old));
+  CHECK(!session.track_submit(std::string(21, '9'), *old));
   CHECK(session.track_submit("3", *old));
   CHECK(!session.track_submit("3", *old));
   CHECK(!session.track_submit("03", *old));
@@ -29,6 +30,10 @@ int main() {
   CHECK(session.submit_reply(R"({"id":3,"result":true,"error":null})", "3") == pepepow::SubmitOutcome::Accepted);
   CHECK(!session.submit_reply(R"({"id":3,"result":true,"error":null})", "3"));
   CHECK(session.track_submit("4", *old));
+  for (unsigned i = 10; i < 4105; ++i) {
+    CHECK(session.track_submit(std::to_string(i), *old));
+  }
+  CHECK(!session.track_submit("4105", *old));
   CHECK(session.subscribe(sub, "1"));
   CHECK(session.jobs().can_submit(*old));
   auto changed = sub;
