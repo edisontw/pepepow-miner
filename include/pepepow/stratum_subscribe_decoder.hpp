@@ -1,4 +1,5 @@
 #pragma once
+#include "pepepow/job_state.hpp"
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -59,4 +60,24 @@ inline std::optional<SubscribeReply> decode_subscribe_reply(
   ws(); if (i!=line.size()) return std::nullopt;
   return SubscribeReply{std::move(*extranonce),size};
 }
+
+// A subscription response is session state, not an active mining job.
+// A changed extranonce invalidates queued work before any new notify.
+class SubscribeWorkGuard {
+ public:
+  bool accept(const SubscribeReply& reply, JobState& jobs) {
+    if (reply.extranonce1.empty() || reply.extranonce2_size == 0) return false;
+    if (current_ && (current_->extranonce1 != reply.extranonce1 ||
+                     current_->extranonce2_size != reply.extranonce2_size)) {
+      // Do not silently accept a reset when the session is not authorized.
+      if (!jobs.apply(JobState::Event{JobState::EventKind::ExtranonceChanged}))
+        return false;
+    }
+    current_ = reply;
+    return true;
+  }
+  void reset() { current_.reset(); }
+ private:
+  std::optional<SubscribeReply> current_;
+};
 } // namespace pepepow
