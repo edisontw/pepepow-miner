@@ -3,6 +3,9 @@
 #include <limits>
 int main() {
   pepepow::JobState state;
+  // A stale authorize response must not revive a disconnected session.
+  state.authorized(true);
+  assert(!state.notify("offline", true));
   state.connected();
   assert(!state.notify("job1", true));
   state.authorized(true);
@@ -33,6 +36,8 @@ int main() {
   assert(!state.can_submit(nonclean));
   state.disconnected();
   assert(!state.can_submit(nonclean) && !state.active());
+  state.authorized(true);
+  assert(!state.notify("late-auth", true));
   state.connected();
   state.authorized(true);
   assert(state.notify("job2", true));
