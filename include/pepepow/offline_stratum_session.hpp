@@ -12,16 +12,18 @@ class OfflineStratumSession {
   void connected() {
     subscription_.reset();
     subscribed_ = false;
+    connected_ = true;
     jobs_.apply({JobState::EventKind::Connected});
   }
   void disconnected() {
     jobs_.apply({JobState::EventKind::Disconnected});
     subscription_.reset();
     subscribed_ = false;
+    connected_ = false;
   }
   bool subscribe(std::string_view line, std::string_view request_id) {
     auto reply = decode_subscribe_reply(line, request_id);
-    if (!reply || !subscription_.accept(*reply, jobs_)) return false;
+    if (!connected_ || !reply || !subscription_.accept(*reply, jobs_)) return false;
     subscribed_ = true;
     return true;
   }
@@ -45,5 +47,6 @@ class OfflineStratumSession {
   JobState jobs_;
   SubscribeWorkGuard subscription_;
   bool subscribed_ = false;
+  bool connected_ = false;
 };
 } // namespace pepepow
