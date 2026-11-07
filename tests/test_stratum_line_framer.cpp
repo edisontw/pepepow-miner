@@ -18,6 +18,7 @@ int main() {
   assert(f.feed("bad\r\r\n").rejected == 1);
   assert(f.feed("{}\r").lines.empty());
   assert(f.feed("\n").lines.size() == 1);
+
   f.feed("partial"); f.reset();
   assert(f.feed("{}\n").lines[0] == "{}");
   assert(f.feed(std::string(65536, 'x') + "\n").lines.size() == 1);
