@@ -68,7 +68,8 @@ inline std::optional<JobState::Event> decode_authorize_reply(
   ws();
   const auto start = i;
   while (i < line.size() && line[i] >= '0' && line[i] <= '9') ++i;
-  if (start == i || line.substr(start, i - start) != expected_id ||
+  if (start == i || (i - start > 1 && line[start] == '0') ||
+      line.substr(start, i - start) != expected_id ||
       !take(',') || !literal("\"result\"") || !take(':')) return std::nullopt;
   bool authorized = false;
   if (literal("true")) authorized = true;
