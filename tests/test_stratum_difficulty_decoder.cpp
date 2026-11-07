@@ -22,6 +22,8 @@ int main() {
   assert(denied && !denied->authorized);
   assert(auth_state.apply(*denied));
   assert(!auth_state.active());
+  // Even if the caller supplies the same text, 02 is not a legal JSON number.
+  assert(!decode_authorize_reply(R"({"id":02,"result":true,"error":null})", "02"));
   for (std::string_view bad : {
       R"({"id":3,"result":true,"error":null})",
       R"({"id":2,"result":true,"error":[20,"denied",null]})",
