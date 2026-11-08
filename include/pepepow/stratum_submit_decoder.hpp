@@ -19,6 +19,29 @@ class JsonValueValidator {
       unsigned char c = static_cast<unsigned char>(s_[i_++]);
       if (c == '"') return true;
       if (c < 0x20) return false;
+      if (c >= 0x80) {
+        unsigned remaining = 0;
+        unsigned char low = 0x80, high = 0xbf;
+        if (c >= 0xc2 && c <= 0xdf) remaining = 1;
+        else if (c >= 0xe0 && c <= 0xef) {
+          remaining = 2;
+          if (c == 0xe0) low = 0xa0;
+          if (c == 0xed) high = 0x9f;
+        } else if (c >= 0xf0 && c <= 0xf4) {
+          remaining = 3;
+          if (c == 0xf0) low = 0x90;
+          if (c == 0xf4) high = 0x8f;
+        } else return false;
+        if (i_ == s_.size()) return false;
+        auto first = static_cast<unsigned char>(s_[i_++]);
+        if (first < low || first > high) return false;
+        for (unsigned n = 1; n < remaining; ++n) {
+          if (i_ == s_.size()) return false;
+          auto next = static_cast<unsigned char>(s_[i_++]);
+          if (next < 0x80 || next > 0xbf) return false;
+        }
+        continue;
+      }
       if (c != '\\') continue;
       if (i_ == s_.size()) return false;
       char e = s_[i_++];
