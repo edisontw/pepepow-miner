@@ -20,6 +20,7 @@ on:
       - 'tests/test_offline_stratum_controller.cpp'
       - 'tests/test_stratum_request_encoder.cpp'
       - 'tests/test_stratum_submit_decoder.cpp'
+      - 'tools/offline_stratum_replay.cpp'
       - 'tests/job_state/CMakeLists.txt'
       - '.github/workflows/job-state-native.yml'
   workflow_dispatch:
