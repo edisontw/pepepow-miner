@@ -98,3 +98,7 @@
 - Main `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #8 previous head `217cf5896af9466b0df5b4c067b6565512dde1c4` native CI run 42440445048 succeeded.
 - PR #8 commit `d5fbb4c12ff80c60afa02983a93e93fd81c6b585` requires monotonically increasing numeric submit IDs per connection, preventing a delayed duplicate reply from resolving a reused ID; reconnect resets the sequence. Updated focused session test. Linux container g++ C++20 with warnings as errors passed; new head CI pending. No live transport or pool submit tested.
 - G0 independent full-digest parity remains unverified. Next: verify new head native CI and integrate a bounded request-ID allocator shared across subscribe, authorize and submit; avoid reusing IDs across request types.
+
+## 2026-11-08 structured submit error validation
+- PR #8 previous head `d5fbb4c12ff80c60afa02983a93e93fd81c6b585` native CI 42450221905 passed. Commit `1f60c35119abebe246ea4213f8ac3d26a953feb4` validates array/object JSON error structure with depth limit 32 before settling pending share; nested data remains supported. The validator checks JSON grammar and escapes but does not validate UTF-8 encoding. Focused Linux container C++20 submit decoder and session tests passed; new head CI pending.
+- G0 independent full 32-byte parity remains unverified; no live network or GPU. Next check native CI, then integrate request IDs across subscribe/authorize/submit.
