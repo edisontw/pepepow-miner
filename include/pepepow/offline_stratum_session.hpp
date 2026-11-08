@@ -23,6 +23,7 @@ class OfflineStratumSession {
     ++session_generation_;
     subscription_.reset();
     pending_submits_.clear();
+    last_submit_id_.clear();
     counters_ = {};
     subscribed_ = false;
     connected_ = true;
@@ -61,13 +62,21 @@ class OfflineStratumSession {
   }
   // Track a share only while its job is current. Once sent, its reply can
   // arrive after a new job or extranonce invalidates the old work.
+  // IDs must increase within a connection, so late duplicate replies cannot
+  // resolve a different share. A reconnect starts a new ID sequence.
   // No network request is emitted by this offline component.
   bool track_submit(std::string_view request_id, const JobSnapshot& job) {
     if (!connected_ || !jobs_.can_submit(job) || request_id.empty() ||
         ((request_id.size() > 1 && request_id.front() == '0') ||
         request_id.size() > 20 || pending_submits_.size() >= 4096)) return false;
     for (char c : request_id) if (c < '0' || c > '9') return false;
-    return pending_submits_.insert(std::string(request_id)).second;
+    if (!last_submit_id_.empty() &&
+        (request_id.size() < last_submit_id_.size() ||
+         (request_id.size() == last_submit_id_.size() && request_id <= last_submit_id_)))
+      return false;
+    auto inserted = pending_submits_.insert(std::string(request_id)).second;
+    if (inserted) last_submit_id_ = request_id;
+    return inserted;
   }
   // The transport must tag replies with the generation of the connection
   // that received them; request IDs alone are not unique across reconnects.
@@ -94,6 +103,7 @@ class OfflineStratumSession {
   JobState jobs_;
   ShareCounters counters_;
   std::unordered_set<std::string> pending_submits_;
+  std::string last_submit_id_;
   SubscribeWorkGuard subscription_;
   bool subscribed_ = false;
   bool connected_ = false;
