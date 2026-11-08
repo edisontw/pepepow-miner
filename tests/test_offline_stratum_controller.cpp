@@ -39,5 +39,30 @@ int main() {
   CHECK(c.subscribe_reply(sub, c.session().session_generation()));
   CHECK(c.begin_authorize() == 2);
   CHECK(!c.cancel_request(2, g));
+  // Atomic request encoding: invalid data must not reserve or consume IDs.
+  pepepow::OfflineStratumController wire;
+  wire.connected();
+  const auto wg = wire.session().session_generation();
+  CHECK(!wire.make_authorize_request("wallet"));
+  CHECK(wire.make_subscribe_request() ==
+        "{\\"id\\":1,\\"method\\":\\"mining.subscribe\\",\\"params\\":[]}\\n");
+  CHECK(!wire.make_subscribe_request());
+  CHECK(wire.subscribe_reply(sub, wg));
+  CHECK(!wire.make_authorize_request("bad\\nlogin"));
+  CHECK(wire.make_authorize_request("WALLET.worker") ==
+        "{\\"id\\":2,\\"method\\":\\"mining.authorize\\",\\"params\\":[\\"WALLET.worker\\",\\"x\\"]}\\n");
+  CHECK(wire.authorize_reply(auth, wg));
+  CHECK(wire.notify(job));
+  auto active = wire.session().jobs().active(); CHECK(active);
+  CHECK(!wire.make_submit_request(*active, "WALLET.worker", "xx", 1, "67500000", "12345678"));
+  CHECK(wire.make_submit_request(*active, "WALLET.worker", "00", 1, "67500000", "12345678") ==
+        "{\\"id\\":3,\\"method\\":\\"mining.submit\\",\\"params\\":[\\"WALLET.worker\\",\\"job1\\",\\"00\\",\\"67500000\\",\\"12345678\\"]}\\n");
+  CHECK(wire.cancel_request(3, wg));
+  CHECK(!wire.submit_reply(R"({"id":3,"result":true,"error":null})", 3, wg));
+  CHECK(wire.make_submit_request(*active, "WALLET.worker", "01", 1, "67500000", "12345678") .has_value());
+  wire.disconnected(); wire.connected();
+  CHECK(!wire.make_submit_request(*active, "WALLET.worker", "01", 1, "67500000", "12345678"));
+  CHECK(!wire.cancel_request(4, wg));
+  CHECK(wire.make_subscribe_request().has_value());
   return EXIT_SUCCESS;
 }
