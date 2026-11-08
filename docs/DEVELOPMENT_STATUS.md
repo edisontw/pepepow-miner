@@ -201,3 +201,10 @@
 - Local native compile unavailable because container cannot resolve github.com; do not claim new fixture passed until exact-head CI is green. No live socket, pool submission, GPU, mining or Windows 11 hardware tests.
 - G0 **NOT PASSED**: independent full 32-byte HooHash V110 digest provenance and 10,000 independent parity cases still missing.
 - Next: verify exact-head CI; if green, add a bounded offline loopback transport exercising outbound request delivery and inbound response on a controlled local socket.
+
+## 2026-11-09 07:45+08 run update
+- Rechecked main start/end `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #8 began `037336035a64493ff351808fffc5c4326e49938f`, ended `3526f56cc9e104cae50f8def691f0bd8d697c272`; PR #2 began `a32b4e8d665172eae9638f729ddcc6c76be5b6ad`.
+- Previous PR #8 exact-head workflow [42531789613](https://github.com/edisontw/pepepow-miner/actions/runs/42531789613) returned success. New head-specific CI is not yet verified.
+- PR #8 updated `tools/offline_stratum_replay.cpp` and `tests/job_state/CMakeLists.txt`: added `--self-test-cancel` and focused CTest to check cancelled subscribe ID cannot be reused, stale reply cannot subscribe, subsequent ID succeeds, and old generation cancellation fails after reconnect. Commits `7072a707`, `29ddf8cb`, `3526f56c`. No local native compilation; new test pending CI verification. No socket or live pool traffic.
+- G0 **NOT PASSED**: independent full 32-byte V110 digest parity and 10,000 independent comparisons absent; Windows 11, GPU, live pool not tested.
+- Next: verify exact-head CI, fix failures from logs, then implement one bounded local loopback socket receive/send vertical slice with generation isolation.
