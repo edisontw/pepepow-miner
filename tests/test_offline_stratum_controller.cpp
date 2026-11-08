@@ -101,6 +101,32 @@ int main() {
   auto hw = handshake.receive_work_events(diff + "\n" + job + "\n", hg);
   CHECK(hw.applied == 2 && handshake.session().jobs().active());
   CHECK(handshake.receive_work_events(sub + "\n", hg).ignored == 1);
+  // Framed submit replies must match a pending ID and current generation.
+  auto current = handshake.session().jobs().active(); CHECK(current);
+  CHECK(handshake.begin_submit(*current) == 3);
+  auto accepted = handshake.receive_work_events(
+      R"({"id":3,"result":true,"error":null})" "\n", hg);
+  CHECK(accepted.shares_accepted == 1 && accepted.ignored == 0);
+  CHECK(handshake.session().share_counters().accepted == 1);
+  CHECK(handshake.receive_work_events(
+      R"({"id":3,"result":true,"error":null})" "\n", hg).ignored == 1);
+  CHECK(handshake.begin_submit(*current) == 4);
+  CHECK(handshake.receive_work_events(
+      R"({"id":5,"result":true,"error":null})" "\n", hg).ignored == 1);
+  CHECK(handshake.receive_work_events(
+      R"({"id":4,"result":true,"error":null,"extra":1})" "\n", hg).ignored == 1);
+  CHECK(handshake.receive_work_events(
+      R"({"id":4,"result":false,"error":null})" "\n", hg).shares_rejected == 1);
+  CHECK(handshake.begin_submit(*current) == 5);
+  CHECK(handshake.receive_work_events(
+      R"({"id":5,"result":null,"error":[23,"low difficulty",null]})" "\n", hg).shares_pool_errors == 1);
+  CHECK(handshake.begin_submit(*current) == 6);
+  CHECK(handshake.receive_work_events(
+      R"({"id":18446744073709551616,"result":true,"error":null})" "\n", hg).ignored == 1);
+  CHECK(handshake.receive_work_events(
+      R"({"id":6,"result":true,"error":null})" "\n", hg + 1).shares_accepted == 0);
+  CHECK(handshake.receive_work_events(
+      R"({"id":6,"result":true,"error":null})" "\n", hg).shares_accepted == 1);
   handshake.disconnected();
   handshake.connected();
   CHECK(handshake.receive_work_events(auth + "\n", hg).authorized == 0);
