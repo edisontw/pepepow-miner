@@ -11,6 +11,7 @@ int main() {
   const std::string job = "{\"id\":null,\"method\":\"mining.notify\",\"params\":[\"job1\",\"" + prev + "\",\"\",\"\",[],\"00004000\",\"1d00ffff\",\"67500000\",true]}";
   CHECK(!session.subscribe(sub, "1"));
   session.connected();
+  const auto first_generation = session.session_generation();
   CHECK(!session.authorize(auth, "2"));
   CHECK(!session.notify(job));
   CHECK(!session.subscribe(sub, "9"));
@@ -26,9 +27,9 @@ int main() {
   CHECK(session.track_submit("3", *old));
   CHECK(!session.track_submit("3", *old));
   CHECK(!session.track_submit("03", *old));
-  CHECK(!session.submit_reply(R"({"id":4,"result":true,"error":null})", "3"));
-  CHECK(session.submit_reply(R"({"id":3,"result":true,"error":null})", "3") == pepepow::SubmitOutcome::Accepted);
-  CHECK(!session.submit_reply(R"({"id":3,"result":true,"error":null})", "3"));
+  CHECK(!session.submit_reply(R"({"id":4,"result":true,"error":null})", "3", first_generation));
+  CHECK(session.submit_reply(R"({"id":3,"result":true,"error":null})", "3", first_generation) == pepepow::SubmitOutcome::Accepted);
+  CHECK(!session.submit_reply(R"({"id":3,"result":true,"error":null})", "3", first_generation));
   CHECK(session.track_submit("4", *old));
   for (unsigned i = 10; i < 4105; ++i) {
     CHECK(session.track_submit(std::to_string(i), *old));
@@ -40,23 +41,28 @@ int main() {
   changed.replace(changed.find("0102abcd"), 8, "0102abce");
   CHECK(session.subscribe(changed, "1"));
   CHECK(!session.jobs().can_submit(*old) && !session.jobs().active());
-  CHECK(!session.submit_reply(R"({"id":4,"result":true,"error":null})", "4"));
+  CHECK(!session.submit_reply(R"({"id":4,"result":true,"error":null})", "4", first_generation));
   CHECK(!session.track_submit("5", *old));
   CHECK(session.notify(job));
   auto fresh = session.jobs().active();
   CHECK(fresh && session.jobs().can_submit(*fresh));
   CHECK(session.track_submit("6", *fresh));
-  CHECK(session.submit_reply(R"({"id":6,"result":false,"error":null})", "6") == pepepow::SubmitOutcome::Rejected);
+  CHECK(session.submit_reply(R"({"id":6,"result":false,"error":null})", "6", first_generation) == pepepow::SubmitOutcome::Rejected);
   CHECK(session.track_submit("7", *fresh));
   session.disconnected();
-  CHECK(!session.submit_reply(R"({"id":7,"result":true,"error":null})", "7"));
+  CHECK(!session.submit_reply(R"({"id":7,"result":true,"error":null})", "7", first_generation));
   CHECK(!session.jobs().can_submit(*fresh));
   CHECK(!session.notify(job));
   session.connected();
+  CHECK(session.session_generation() != first_generation);
   CHECK(session.subscribe(sub, "1"));
   CHECK(!session.notify(job));
   CHECK(session.authorize(auth, "2"));
   CHECK(session.notify(job));
   CHECK(session.jobs().active() && !session.jobs().can_submit(*fresh));
+  auto new_job = session.jobs().active();
+  CHECK(new_job && session.track_submit("7", *new_job));
+  CHECK(!session.submit_reply(R"({"id":7,"result":true,"error":null})", "7", first_generation));
+  CHECK(session.submit_reply(R"({"id":7,"result":true,"error":null})", "7", session.session_generation()) == pepepow::SubmitOutcome::Accepted);
   return EXIT_SUCCESS;
 }
