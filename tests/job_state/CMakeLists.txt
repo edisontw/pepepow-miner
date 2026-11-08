@@ -35,3 +35,6 @@ set_tests_properties(offline_replay_malformed PROPERTIES WILL_FAIL TRUE)
 
 # Reconnect must clear partial frames and reject stale transport generations.
 add_test(NAME offline_replay_reconnect COMMAND offline_stratum_replay --self-test-reconnect)
+
+# Cancelled IDs cannot be reused, including across reconnects.
+add_test(NAME offline_replay_cancel COMMAND offline_stratum_replay --self-test-cancel)
