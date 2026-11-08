@@ -1,4 +1,5 @@
 #include "pepepow/offline_stratum_controller.hpp"
+#include <array>
 #include <iostream>
 #include <string>
 
@@ -20,11 +21,15 @@ int main(int argc, char** argv) {
   }
   // Show the request that a future transport would send, without sending it.
   std::cout << *subscribe;
-  std::string line;
+  std::array<char, 4096> buffer{};
   std::size_t applied = 0, ignored = 0, rejected = 0;
   std::size_t subscribed = 0, authorized = 0;
-  while (std::getline(std::cin, line)) {
-    auto events = controller.receive_work_events(line + "\n", generation);
+  while (std::cin) {
+    std::cin.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    const auto count = std::cin.gcount();
+    if (count <= 0) break;
+    auto events = controller.receive_work_events(
+        std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation);
     applied += events.applied;
     ignored += events.ignored;
     rejected += events.framing_rejected;
