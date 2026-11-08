@@ -1,6 +1,7 @@
 #include "pepepow/offline_stratum_controller.hpp"
 #include <array>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 int main(int argc, char** argv) {
@@ -10,7 +11,13 @@ int main(int argc, char** argv) {
     return argc == 2 ? 0 : 2;
   }
 
-  const std::string login = argv[1];
+  const bool self_test = std::string(argv[1]) == "--self-test";
+  const std::string login = self_test ? "WALLET.worker" : argv[1];
+  std::istringstream fixture(
+      std::string(R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})") + "\n" +
+      R"({"id":2,"result":true,"error":null})" "\n" +
+      R"({"id":null,"method":"mining.set_difficulty","params":[2]})" "\n");
+  std::istream& input = self_test ? static_cast<std::istream&>(fixture) : std::cin;
   pepepow::OfflineStratumController controller;
   controller.connected();
   const auto generation = controller.session().session_generation();
@@ -24,9 +31,9 @@ int main(int argc, char** argv) {
   std::array<char, 4096> buffer{};
   std::size_t applied = 0, ignored = 0, rejected = 0;
   std::size_t subscribed = 0, authorized = 0;
-  while (std::cin) {
-    std::cin.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-    const auto count = std::cin.gcount();
+  while (input) {
+    input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    const auto count = input.gcount();
     if (count <= 0) break;
     auto events = controller.receive_work_events(
         std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation);
@@ -44,7 +51,7 @@ int main(int argc, char** argv) {
       std::cout << *request;
     }
   }
-  if (std::cin.bad()) {
+  if (input.bad()) {
     std::cerr << "Transcript read failed\n";
     return 2;
   }
@@ -57,5 +64,6 @@ int main(int argc, char** argv) {
             << " shares_accepted=" << shares.accepted
             << " shares_rejected=" << shares.rejected
             << " shares_pool_errors=" << shares.pool_errors << '\n';
-  return (subscribed == 1 && authorized == 1) ? 0 : 1;
+  return (subscribed == 1 && authorized == 1 &&
+          (!self_test || (applied == 1 && ignored == 0 && rejected == 0))) ? 0 : 1;
 }
