@@ -139,5 +139,20 @@ int main() {
   events.disconnected();
   events.connected();
   CHECK(events.receive_work_events(diff + "\n", eg).applied == 0);
+  // Saturation must not burn an ID; freeing one slot resumes at the next ID.
+  pepepow::OfflineStratumController bounded;
+  bounded.connected();
+  const auto bg = bounded.session().session_generation();
+  CHECK(bounded.begin_subscribe() == 1);
+  CHECK(bounded.subscribe_reply(sub, bg));
+  CHECK(bounded.begin_authorize() == 2);
+  CHECK(bounded.authorize_reply(auth, bg));
+  CHECK(bounded.notify(job));
+  auto bw = bounded.session().jobs().active(); CHECK(bw);
+  for (std::uint64_t id = 3; id < 4099; ++id)
+    CHECK(bounded.begin_submit(*bw) == id);
+  CHECK(!bounded.begin_submit(*bw));
+  CHECK(bounded.cancel_request(3, bg));
+  CHECK(bounded.begin_submit(*bw) == 4099);
   return EXIT_SUCCESS;
 }
