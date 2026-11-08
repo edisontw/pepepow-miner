@@ -39,7 +39,6 @@ class OfflineStratumSession {
   bool subscribe(std::string_view line, std::string_view request_id) {
     auto reply = decode_subscribe_reply(line, request_id);
     if (!connected_ || !reply || !subscription_.accept(*reply, jobs_)) return false;
-    if (!jobs_.active()) pending_submits_.clear();
     subscribed_ = true;
     return true;
   }
@@ -47,7 +46,6 @@ class OfflineStratumSession {
     if (!subscribed_) return false;
     auto event = decode_authorize_reply(line, request_id);
     if (!event || !jobs_.apply(*event)) return false;
-    if (!event->authorized) pending_submits_.clear();
     return true;
   }
   bool difficulty(std::string_view line) {
@@ -59,10 +57,10 @@ class OfflineStratumSession {
     if (!subscribed_) return false;
     auto event = decode_notify(line);
     if (!event || !jobs_.apply(*event)) return false;
-    pending_submits_.clear();
     return true;
   }
-  // Only account for a response to an explicitly tracked, still-current share.
+  // Track a share only while its job is current. Once sent, its reply can
+  // arrive after a new job or extranonce invalidates the old work.
   // No network request is emitted by this offline component.
   bool track_submit(std::string_view request_id, const JobSnapshot& job) {
     if (!connected_ || !jobs_.can_submit(job) || request_id.empty() ||
