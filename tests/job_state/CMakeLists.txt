@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(pepepow_job_state_tests LANGUAGES CXX)
 enable_testing()
-foreach(name IN ITEMS job_state stratum_line_framer stratum_difficulty_decoder stratum_notify_decoder stratum_subscribe_decoder offline_stratum_session stratum_submit_decoder)
+foreach(name IN ITEMS job_state stratum_line_framer stratum_difficulty_decoder stratum_notify_decoder stratum_subscribe_decoder offline_stratum_session offline_stratum_controller stratum_submit_decoder)
   add_executable(test_${name} ../test_${name}.cpp)
   target_compile_features(test_${name} PRIVATE cxx_std_20)
   target_include_directories(test_${name} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../include")

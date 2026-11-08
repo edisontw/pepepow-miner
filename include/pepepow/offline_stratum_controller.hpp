@@ -1,0 +1,78 @@
+#pragma once
+#include "pepepow/offline_stratum_session.hpp"
+#include <cstdint>
+#include <limits>
+#include <optional>
+#include <string>
+#include <string_view>
+
+namespace pepepow {
+// Offline request correlation only. The caller must send requests and deliver
+// replies from the corresponding transport generation; no socket is opened.
+class OfflineStratumController {
+ public:
+  void connected() {
+    session_.connected();
+    connected_ = true;
+    subscribed_ = false;
+    next_ = 1;
+    subscribe_id_.reset();
+    authorize_id_.reset();
+  }
+  void disconnected() {
+    session_.disconnected();
+    connected_ = false;
+    subscribed_ = false;
+    subscribe_id_.reset();
+    authorize_id_.reset();
+  }
+  std::optional<std::uint64_t> begin_subscribe() {
+    if (!connected_ || subscribe_id_) return std::nullopt;
+    subscribe_id_ = allocate();
+    return subscribe_id_;
+  }
+  std::optional<std::uint64_t> begin_authorize() {
+    if (!connected_ || authorize_id_ || !subscribed_) return std::nullopt;
+    authorize_id_ = allocate();
+    return authorize_id_;
+  }
+  bool subscribe_reply(std::string_view line, std::uint64_t generation) {
+    if (!connected_ || generation != session_.session_generation() || !subscribe_id_) return false;
+    if (!session_.subscribe(line, std::to_string(*subscribe_id_))) return false;
+    subscribe_id_.reset();
+    subscribed_ = true;
+    return true;
+  }
+  bool authorize_reply(std::string_view line, std::uint64_t generation) {
+    if (!connected_ || generation != session_.session_generation() || !authorize_id_) return false;
+    if (!session_.authorize(line, std::to_string(*authorize_id_))) return false;
+    authorize_id_.reset();
+    return true;
+  }
+  bool difficulty(std::string_view line) { return session_.difficulty(line); }
+  bool notify(std::string_view line) { return session_.notify(line); }
+  std::optional<std::uint64_t> begin_submit(const JobSnapshot& job) {
+    if (!connected_) return std::nullopt;
+    auto id = allocate();
+    if (!id || !session_.track_submit(std::to_string(*id), job)) return std::nullopt;
+    return id;
+  }
+  std::optional<SubmitOutcome> submit_reply(std::string_view line, std::uint64_t id,
+                                           std::uint64_t generation) {
+    return session_.submit_reply(line, std::to_string(id), generation);
+  }
+  const OfflineStratumSession& session() const { return session_; }
+ private:
+  std::optional<std::uint64_t> allocate() {
+    if (next_ == 0) return std::nullopt;
+    auto id = next_;
+    next_ = id == std::numeric_limits<std::uint64_t>::max() ? 0 : id + 1;
+    return id;
+  }
+  OfflineStratumSession session_;
+  std::uint64_t next_ = 1;
+  std::optional<std::uint64_t> subscribe_id_, authorize_id_;
+  bool connected_ = false;
+  bool subscribed_ = false;
+};
+} // namespace pepepow
