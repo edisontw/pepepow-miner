@@ -180,3 +180,10 @@
 - Exact-head [CI 42516962418](https://github.com/edisontw/pepepow-miner/actions/runs/42516962418) queued at check time; no local compiler/test execution, so the new executable is **NOT YET VERIFIED**. This is stdin transcript replay, not a socket transport, miner, GPU backend, accepted-share evidence, or actual pool connection.
 - G0 **NOT PASSED**: independent full 32-byte HooHash V110 digest provenance, 10,000 independent parity cases and Windows 11 native acceptance still missing.
 - Next: inspect latest-head native CI; fix concrete build/test failures if any. If green, add bounded offline loopback/socket harness only after focused protocol verification, without live pool submit.
+
+## 2026-11-09 04:46 Asia/Taipei — autonomous run
+- Rechecked main `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #8 started `376004955776339a6afa21dae1fa33d912fd365c`, ended `a7088632b8b3142af1955d83e7f1f8c5ffeab52e`. PR #2 started `758417987b369bd988853f1f1f0d50390d60b2d8`.
+- Prior PR #8 native workflow https://github.com/edisontw/pepepow-miner/actions/runs/42516962418 confirmed successful on Ubuntu 22.04, Ubuntu 24.04 and Windows Server 2022 (all three Configure/Build/Run succeeded). New head CI remains pending confirmation.
+- PR #8 changed `tools/offline_stratum_replay.cpp` and `tests/job_state/CMakeLists.txt`: replay now rejects an unterminated trailing JSONL frame with nonzero exit, even after a successful handshake; added `--self-test-truncated` negative CTest. Commits `0cfb6582550eacaeb054a556f7884308fd60082a`, `a7088632b8b3142af1955d83e7f1f8c5ffeab52e`. No local compiler run; head-specific CI is pending.
+- G0 **NOT PASSED**: no independently established 80-byte header to full 32-byte V110 digest parity or >=10,000 independent cases; Windows 11 and live pool/GPU untested. No real pool submission or release.
+- Next: inspect new head-specific CI; fix any failure, then build a bounded offline loopback transport for the CLI, preserving generation and request-ID checks.
