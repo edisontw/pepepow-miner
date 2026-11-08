@@ -102,3 +102,7 @@
 ## 2026-11-08 structured submit error validation
 - PR #8 previous head `d5fbb4c12ff80c60afa02983a93e93fd81c6b585` native CI 42450221905 passed. Commit `1f60c35119abebe246ea4213f8ac3d26a953feb4` validates array/object JSON error structure with depth limit 32 before settling pending share; nested data remains supported. The validator checks JSON grammar and escapes but does not validate UTF-8 encoding. Focused Linux container C++20 submit decoder and session tests passed; new head CI pending.
 - G0 independent full 32-byte parity remains unverified; no live network or GPU. Next check native CI, then integrate request IDs across subscribe/authorize/submit.
+
+## 2026-11-08 submit error UTF-8 validation
+- PR #8 previous head `1f60c35119abebe246ea4213f8ac3d26a953feb4` passed native CI 42457645657. Commit `954a4f6a4e510e68e299b715b523965d520dc95d` validates raw UTF-8 in structured error JSON strings, rejecting invalid sequences, overlong encodings, encoded surrogates and codepoints above U+10FFFF. ASCII JSON escapes remain supported; this does not validate Unicode surrogate pairing in escaped sequences or every Stratum message.
+- Focused Linux container g++ C++20 decoder and session tests passed. New head CI pending. G0 independent full-digest parity not established. Next check CI then integrate shared request-ID management for subscribe/authorize/submit.
