@@ -138,7 +138,7 @@ class OfflineStratumController {
   bool notify(std::string_view line) { return session_.notify(line); }
   std::optional<std::uint64_t> begin_submit(const JobSnapshot& job) {
     // A stale or unauthorized job must not consume a request ID.
-    if (!connected_ || !session_.jobs().can_submit(job)) return std::nullopt;
+    if (!connected_ || !session_.can_track_submit(job)) return std::nullopt;
     auto id = allocate();
     if (!id || !session_.track_submit(std::to_string(*id), job)) return std::nullopt;
     return id;
