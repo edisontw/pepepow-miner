@@ -12,3 +12,14 @@ foreach(name IN ITEMS job_state stratum_line_framer stratum_difficulty_decoder s
   endif()
   add_test(NAME ${name} COMMAND test_${name})
 endforeach()
+
+# A runnable offline CLI: no network, hashing or live pool submission.
+add_executable(offline_stratum_replay ../../tools/offline_stratum_replay.cpp)
+target_compile_features(offline_stratum_replay PRIVATE cxx_std_20)
+target_include_directories(offline_stratum_replay PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../include")
+if(MSVC)
+  target_compile_options(offline_stratum_replay PRIVATE /W4 /WX)
+else()
+  target_compile_options(offline_stratum_replay PRIVATE -Wall -Wextra -Werror -pedantic)
+endif()
+add_test(NAME offline_replay_help COMMAND offline_stratum_replay --help)
