@@ -43,11 +43,11 @@ static int cancellation_self_test() {
   const auto second = controller.make_subscribe_request();
   if (!second || second->find("\"id\":2") == std::string::npos) return 1;
   const auto stale = controller.receive_work_events(
-      R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\\n",
+      R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n",
       generation);
   if (stale.subscribed || stale.authorized) return 1;
   const auto fresh = controller.receive_work_events(
-      R"({"id":2,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\\n",
+      R"({"id":2,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n",
       generation);
   if (fresh.subscribed != 1) return 1;
   controller.disconnected();
