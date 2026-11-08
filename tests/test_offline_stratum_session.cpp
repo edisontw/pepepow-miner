@@ -29,6 +29,7 @@ int main() {
   CHECK(!session.track_submit("03", *old));
   CHECK(!session.submit_reply(R"({"id":4,"result":true,"error":null})", "3", first_generation));
   CHECK(session.submit_reply(R"({"id":3,"result":true,"error":null})", "3", first_generation) == pepepow::SubmitOutcome::Accepted);
+  CHECK(session.share_counters().accepted == 1);
   CHECK(!session.submit_reply(R"({"id":3,"result":true,"error":null})", "3", first_generation));
   CHECK(session.track_submit("4", *old));
   for (unsigned i = 10; i < 4105; ++i) {
@@ -48,6 +49,7 @@ int main() {
   CHECK(fresh && session.jobs().can_submit(*fresh));
   CHECK(session.track_submit("6", *fresh));
   CHECK(session.submit_reply(R"({"id":6,"result":false,"error":null})", "6", first_generation) == pepepow::SubmitOutcome::Rejected);
+  CHECK(session.share_counters().rejected == 1);
   CHECK(session.track_submit("7", *fresh));
   session.disconnected();
   CHECK(!session.submit_reply(R"({"id":7,"result":true,"error":null})", "7", first_generation));
@@ -55,6 +57,7 @@ int main() {
   CHECK(!session.notify(job));
   session.connected();
   CHECK(session.session_generation() != first_generation);
+  CHECK(session.share_counters().accepted == 0 && session.share_counters().rejected == 0);
   CHECK(session.subscribe(sub, "1"));
   CHECK(!session.notify(job));
   CHECK(session.authorize(auth, "2"));
@@ -64,5 +67,6 @@ int main() {
   CHECK(new_job && session.track_submit("7", *new_job));
   CHECK(!session.submit_reply(R"({"id":7,"result":true,"error":null})", "7", first_generation));
   CHECK(session.submit_reply(R"({"id":7,"result":true,"error":null})", "7", session.session_generation()) == pepepow::SubmitOutcome::Accepted);
+  CHECK(session.share_counters().accepted == 1 && session.share_counters().rejected == 0);
   return EXIT_SUCCESS;
 }
