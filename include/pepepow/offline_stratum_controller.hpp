@@ -1,5 +1,6 @@
 #pragma once
 #include "pepepow/offline_stratum_session.hpp"
+#include "pepepow/stratum_request_encoder.hpp"
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -35,6 +36,31 @@ class OfflineStratumController {
     if (!connected_ || authorize_id_ || !subscribed_) return std::nullopt;
     authorize_id_ = allocate();
     return authorize_id_;
+  }
+  // Atomically validate and register an outbound request. Invalid input must
+  // never consume an ID or leave a pending request behind.
+  std::optional<std::string> make_subscribe_request() {
+    if (!connected_ || subscribe_id_) return std::nullopt;
+    auto id = begin_subscribe();
+    return id ? encode_subscribe_request(*id) : std::nullopt;
+  }
+  std::optional<std::string> make_authorize_request(
+      std::string_view login, std::string_view password = "x") {
+    if (!connected_ || !subscribed_ || authorize_id_ ||
+        !encode_authorize_request(1, login, password)) return std::nullopt;
+    auto id = begin_authorize();
+    return id ? encode_authorize_request(*id, login, password) : std::nullopt;
+  }
+  std::optional<std::string> make_submit_request(
+      const JobSnapshot& job, std::string_view login,
+      std::string_view extranonce2, unsigned extranonce2_size,
+      std::string_view ntime, std::string_view nonce) {
+    if (!connected_ || !session_.jobs().can_submit(job) ||
+        !encode_submit_request(1, login, job.id, extranonce2,
+                               extranonce2_size, ntime, nonce)) return std::nullopt;
+    auto id = begin_submit(job);
+    return id ? encode_submit_request(*id, login, job.id, extranonce2,
+                                      extranonce2_size, ntime, nonce) : std::nullopt;
   }
   bool subscribe_reply(std::string_view line, std::uint64_t generation) {
     if (!connected_ || generation != session_.session_generation() || !subscribe_id_) return false;
