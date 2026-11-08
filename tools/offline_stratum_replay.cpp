@@ -35,20 +35,27 @@ int main(int argc, char** argv) {
     input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
     const auto count = input.gcount();
     if (count <= 0) break;
-    auto events = controller.receive_work_events(
-        std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation);
-    applied += events.applied;
-    ignored += events.ignored;
-    rejected += events.framing_rejected;
-    subscribed += events.subscribed;
-    authorized += events.authorized;
-    if (events.subscribed) {
-      auto request = controller.make_authorize_request(login);
-      if (!request) {
-        std::cerr << "Invalid login or authorization request\n";
-        return 2;
+    // Process one completed line at a time: an authorization reply must not
+    // race ahead of registration of the authorization request.
+    std::string_view bytes(buffer.data(), static_cast<std::size_t>(count));
+    while (!bytes.empty()) {
+      const auto newline = bytes.find('\n');
+      const auto length = newline == std::string_view::npos ? bytes.size() : newline + 1;
+      const auto events = controller.receive_work_events(bytes.substr(0, length), generation);
+      applied += events.applied;
+      ignored += events.ignored;
+      rejected += events.framing_rejected;
+      subscribed += events.subscribed;
+      authorized += events.authorized;
+      if (events.subscribed) {
+        auto request = controller.make_authorize_request(login);
+        if (!request) {
+          std::cerr << "Invalid login or authorization request\n";
+          return 2;
+        }
+        std::cout << *request;
       }
-      std::cout << *request;
+      bytes.remove_prefix(length);
     }
   }
   if (input.bad()) {
