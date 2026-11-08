@@ -12,7 +12,8 @@ int main(int argc, char** argv) {
   }
 
   const bool truncated_test = std::string(argv[1]) == "--self-test-truncated";
-  const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test;
+  const bool malformed_test = std::string(argv[1]) == "--self-test-malformed";
+  const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test || malformed_test;
   const std::string login = self_test ? "WALLET.worker" : argv[1];
   std::istringstream fixture(
       std::string(R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})") + "\n" +
@@ -23,6 +24,10 @@ int main(int argc, char** argv) {
                 R"({"id":2,"result":true,"error":null})" "\n" +
                 R"({"id":null,"method":"mining.set_difficulty","params":[2]})" "\n" +
                 R"({"id":null,"method":"mining.notify","params":[)");
+    fixture.clear();
+  }
+  if (malformed_test) {
+    fixture.str(fixture.str() + std::string(65537, 'x') + "\n");
     fixture.clear();
   }
   std::istream& input = self_test ? static_cast<std::istream&>(fixture) : std::cin;
@@ -75,6 +80,10 @@ int main(int argc, char** argv) {
   if (input.bad()) {
     std::cerr << "Transcript read failed\n";
     return 2;
+  }
+  if (rejected != 0) {
+    std::cerr << "Transcript contains rejected Stratum frames: " << rejected << '\n';
+    return 1;
   }
   const auto shares = controller.session().share_counters();
   std::cerr << "offline: subscribed=" << subscribed
