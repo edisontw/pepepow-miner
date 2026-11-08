@@ -1,5 +1,6 @@
 #pragma once
 #include "pepepow/offline_stratum_session.hpp"
+#include "pepepow/stratum_line_framer.hpp"
 #include "pepepow/stratum_request_encoder.hpp"
 #include <cstdint>
 #include <limits>
@@ -13,6 +14,7 @@ namespace pepepow {
 class OfflineStratumController {
  public:
   void connected() {
+    framer_.reset();
     session_.connected();
     connected_ = true;
     subscribed_ = false;
@@ -21,11 +23,19 @@ class OfflineStratumController {
     authorize_id_.reset();
   }
   void disconnected() {
+    framer_.reset();
     session_.disconnected();
     connected_ = false;
     subscribed_ = false;
     subscribe_id_.reset();
     authorize_id_.reset();
+  }
+  // Bounded offline receive framing. The transport must supply bytes from
+  // only the current connection; framing is cleared on every reconnect.
+  StratumLineFramer::Result receive_bytes(std::string_view bytes,
+                                         std::uint64_t generation) {
+    if (!connected_ || generation != session_.session_generation()) return {};
+    return framer_.feed(bytes);
   }
   std::optional<std::uint64_t> begin_subscribe() {
     if (!connected_ || subscribe_id_) return std::nullopt;
@@ -105,6 +115,7 @@ class OfflineStratumController {
     return id;
   }
   OfflineStratumSession session_;
+  StratumLineFramer framer_;
   std::uint64_t next_ = 1;
   std::optional<std::uint64_t> subscribe_id_, authorize_id_;
   bool connected_ = false;
