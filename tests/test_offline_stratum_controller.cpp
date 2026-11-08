@@ -61,6 +61,7 @@ int main() {
   CHECK(!wire.submit_reply(R"({"id":3,"result":true,"error":null})", 3, wg));
   CHECK(wire.make_submit_request(*active, "WALLET.worker", "01", 1, "67500000", "12345678").has_value());
   wire.disconnected(); wire.connected();
+  CHECK(!wire.begin_submit(*active)); // stale job must not consume the next ID
   CHECK(!wire.make_submit_request(*active, "WALLET.worker", "01", 1, "67500000", "12345678"));
   CHECK(!wire.cancel_request(4, wg));
   CHECK(wire.make_subscribe_request().has_value());
