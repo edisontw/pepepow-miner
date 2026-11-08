@@ -2,6 +2,7 @@
 #include "pepepow/offline_stratum_session.hpp"
 #include "pepepow/stratum_line_framer.hpp"
 #include "pepepow/stratum_request_encoder.hpp"
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -46,6 +47,9 @@ class OfflineStratumController {
     std::size_t framing_rejected = 0;
     std::size_t subscribed = 0;
     std::size_t authorized = 0;
+    std::size_t shares_accepted = 0;
+    std::size_t shares_rejected = 0;
+    std::size_t shares_pool_errors = 0;
   };
   WorkEvents receive_work_events(std::string_view bytes,
                                  std::uint64_t generation) {
@@ -60,6 +64,12 @@ class OfflineStratumController {
         ++events.subscribed;
       } else if (authorize_reply(line, generation)) {
         ++events.authorized;
+      } else if (auto outcome = framed_submit_reply(line, generation)) {
+        switch (*outcome) {
+          case SubmitOutcome::Accepted: ++events.shares_accepted; break;
+          case SubmitOutcome::Rejected: ++events.shares_rejected; break;
+          case SubmitOutcome::PoolError: ++events.shares_pool_errors; break;
+        }
       } else if (session_.difficulty(line) || session_.notify(line)) {
         ++events.applied;
       } else {
@@ -139,6 +149,22 @@ class OfflineStratumController {
   }
   const OfflineStratumSession& session() const { return session_; }
  private:
+  // Extract only a canonical decimal ID from the fixed-dialect prefix.
+  // Full JSON validation and pending-request checks happen in submit_reply.
+  std::optional<SubmitOutcome> framed_submit_reply(
+      std::string_view line, std::uint64_t generation) {
+    constexpr std::string_view prefix = "{\"id\":";
+    if (line.substr(0, prefix.size()) != prefix) return std::nullopt;
+    auto digits = line.substr(prefix.size());
+    std::uint64_t id = 0;
+    const char* first = digits.data();
+    const char* last = first + digits.size();
+    auto parsed = std::from_chars(first, last, id);
+    if (parsed.ec != std::errc{} || parsed.ptr == first ||
+        parsed.ptr == last || *parsed.ptr != ',' ||
+        (parsed.ptr - first > 1 && *first == '0')) return std::nullopt;
+    return submit_reply(line, id, generation);
+  }
   std::optional<std::uint64_t> allocate() {
     if (next_ == 0) return std::nullopt;
     auto id = next_;
