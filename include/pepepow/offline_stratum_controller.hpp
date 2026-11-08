@@ -44,6 +44,8 @@ class OfflineStratumController {
     std::size_t applied = 0;
     std::size_t ignored = 0;
     std::size_t framing_rejected = 0;
+    std::size_t subscribed = 0;
+    std::size_t authorized = 0;
   };
   WorkEvents receive_work_events(std::string_view bytes,
                                  std::uint64_t generation) {
@@ -52,10 +54,17 @@ class OfflineStratumController {
     auto framed = receive_bytes(bytes, generation);
     events.framing_rejected = framed.rejected;
     for (const auto& line : framed.lines) {
-      if (session_.difficulty(line) || session_.notify(line))
+      // Correlate control replies before accepting work notifications.
+      // The strict decoders reject wrong IDs and unrelated JSON-RPC replies.
+      if (subscribe_reply(line, generation)) {
+        ++events.subscribed;
+      } else if (authorize_reply(line, generation)) {
+        ++events.authorized;
+      } else if (session_.difficulty(line) || session_.notify(line)) {
         ++events.applied;
-      else
+      } else {
         ++events.ignored;
+      }
     }
     return events;
   }
