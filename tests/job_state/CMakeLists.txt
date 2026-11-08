@@ -32,3 +32,6 @@ set_tests_properties(offline_replay_truncated PROPERTIES WILL_FAIL TRUE)
 # Oversized framed input after a valid handshake must fail the replay CLI.
 add_test(NAME offline_replay_malformed COMMAND offline_stratum_replay --self-test-malformed)
 set_tests_properties(offline_replay_malformed PROPERTIES WILL_FAIL TRUE)
+
+# Reconnect must clear partial frames and reject stale transport generations.
+add_test(NAME offline_replay_reconnect COMMAND offline_stratum_replay --self-test-reconnect)
