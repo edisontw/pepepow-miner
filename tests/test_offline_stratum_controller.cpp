@@ -88,13 +88,13 @@ int main() {
   CHECK(events.make_authorize_request("WALLET.worker").has_value());
   CHECK(events.authorize_reply(auth, eg));
   CHECK(events.receive_work_events(diff.substr(0, 9), eg).applied == 0);
-  auto difficulty_events = events.receive_work_events(diff.substr(9) + "\\n", eg);
+  auto difficulty_events = events.receive_work_events(diff.substr(9) + "\n", eg);
   CHECK(difficulty_events.applied == 1 && difficulty_events.ignored == 0);
-  auto notify_events = events.receive_work_events(job + "\\n", eg);
+  auto notify_events = events.receive_work_events(job + "\n", eg);
   CHECK(notify_events.applied == 1 && events.session().jobs().active());
-  CHECK(events.receive_work_events("not json\\n", eg).ignored == 1);
+  CHECK(events.receive_work_events("not json\n", eg).ignored == 1);
   events.disconnected();
   events.connected();
-  CHECK(events.receive_work_events(diff + "\\n", eg).applied == 0);
+  CHECK(events.receive_work_events(diff + "\n", eg).applied == 0);
   return EXIT_SUCCESS;
 }
