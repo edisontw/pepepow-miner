@@ -4,6 +4,33 @@
 #include <sstream>
 #include <string>
 
+// Exercise a real controller disconnect/reconnect without opening a socket.
+static int reconnect_self_test() {
+  pepepow::OfflineStratumController controller;
+  controller.connected();
+  const auto old_generation = controller.session().session_generation();
+  if (!controller.make_subscribe_request()) return 1;
+  const auto partial = controller.receive_work_events(
+      R"({"id":1,"result":[)", old_generation);
+  if (partial.subscribed || partial.framing_rejected) return 1;
+  controller.disconnected();
+  controller.connected();
+  const auto new_generation = controller.session().session_generation();
+  if (new_generation == old_generation || !controller.make_subscribe_request()) return 1;
+  const auto stale = controller.receive_work_events(
+      R"({"id":1,"result":true,"error":null})" "\n", old_generation);
+  if (stale.subscribed || stale.authorized || stale.applied || stale.ignored) return 1;
+  const auto fresh = controller.receive_work_events(
+      R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n",
+      new_generation);
+  if (fresh.subscribed != 1 || fresh.ignored || fresh.framing_rejected) return 1;
+  // A stale fragment from the previous connection must not corrupt the new frame.
+  if (!controller.make_authorize_request("WALLET.worker")) return 1;
+  const auto auth = controller.receive_work_events(
+      R"({"id":2,"result":true,"error":null})" "\n", new_generation);
+  return auth.authorized == 1 && auth.ignored == 0 && auth.framing_rejected == 0 ? 0 : 1;
+}
+
 int main(int argc, char** argv) {
   if (argc != 2 || std::string(argv[1]) == "--help") {
     std::cout << "Usage: offline_stratum_replay LOGIN < transcript.jsonl\n"
@@ -11,6 +38,7 @@ int main(int argc, char** argv) {
     return argc == 2 ? 0 : 2;
   }
 
+  if (std::string(argv[1]) == "--self-test-reconnect") return reconnect_self_test();
   const bool truncated_test = std::string(argv[1]) == "--self-test-truncated";
   const bool malformed_test = std::string(argv[1]) == "--self-test-malformed";
   const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test || malformed_test;
