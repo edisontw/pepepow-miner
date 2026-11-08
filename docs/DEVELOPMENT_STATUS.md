@@ -93,3 +93,8 @@
 - Main verified unchanged at `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #8 pre-change head `4cee71f481d4b52e42d102d985494636a44d0fd3` native CI run `42343531205` completed successfully. PR #2 head before this edit `e88a9b069cdbc485dc8279f5fd67d5cda787f78c`.
 - PR #8 authorization decoder accepted invalid JSON numeric ID `02` if caller's expected ID was also `02`. Reject noncanonical leading-zero IDs in `include/pepepow/stratum_difficulty_decoder.hpp`, with regression in `tests/test_stratum_difficulty_decoder.cpp`. Commits `50a1dc020cf024eb4f7dfb094a8ce0de5c645eec`, `35e35844ef9f66859ca94ff4e9647aecd02b1a93`. New head CI pending; no local compilation executed.
 - Next: verify head-specific native CI and inspect actual PEPEPOW pool `mining.notify` dialect before implementing its offline decoder. G0 independent 32-byte parity remains NOT PASSED. No production pool traffic or merge.
+
+## 2026-11-08 submit ID reuse fix
+- Main `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #8 previous head `217cf5896af9466b0df5b4c067b6565512dde1c4` native CI run 42440445048 succeeded.
+- PR #8 commit `d5fbb4c12ff80c60afa02983a93e93fd81c6b585` requires monotonically increasing numeric submit IDs per connection, preventing a delayed duplicate reply from resolving a reused ID; reconnect resets the sequence. Updated focused session test. Linux container g++ C++20 with warnings as errors passed; new head CI pending. No live transport or pool submit tested.
+- G0 independent full-digest parity remains unverified. Next: verify new head native CI and integrate a bounded request-ID allocator shared across subscribe, authorize and submit; avoid reusing IDs across request types.
