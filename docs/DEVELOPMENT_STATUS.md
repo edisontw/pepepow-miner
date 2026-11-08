@@ -110,3 +110,7 @@
 ## 2026-11-08 offline request controller
 - PR #8 head `954a4f6a4e510e68e299b715b523965d520dc95d` native CI 42461969505 passed. Commit `3c19769c56ecfc725daad86844973f712268cb2c` adds an offline controller that allocates unique increasing uint64 IDs across subscribe, authorize and submit, correlates pending replies and checks connection generation. The controller sends no network traffic; callers must use this controller consistently. There is no timeout/cancellation path yet.
 - Focused Linux container C++20 controller test passed; registered test in native CMake matrix, new CI pending. G0 independent 32-byte parity remains unverified. Next verify CI and add timeout/cancellation behavior before network transport.
+
+## 2026-11-08 offline request cancellation
+- PR #8 previous head `3c19769c56ecfc725daad86844973f712268cb2c` native CI 42465940267 passed. Commit `27a52ea82d340effc2df8be7963e5ece0a411b0f` supports generation-checked cancellation for pending subscribe, authorize and submit. Canceled submit outcome is unknown, counters unchanged; late replies are ignored and IDs are not reused in-session.
+- Focused Linux container C++20 controller and session tests passed; new head CI pending. Timeout detection/scheduling remains caller responsibility, and no transport or live pool was tested. G0 independent full-digest parity not established. Next verify CI then add transport with deterministic loopback fixtures.
