@@ -2,6 +2,7 @@
 #include "pepepow/offline_stratum_session.hpp"
 #include "pepepow/stratum_line_framer.hpp"
 #include "pepepow/stratum_request_encoder.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -36,6 +37,27 @@ class OfflineStratumController {
                                          std::uint64_t generation) {
     if (!connected_ || generation != session_.session_generation()) return {};
     return framer_.feed(bytes);
+  }
+  // Feed complete framed lines into the existing fixed-dialect work decoders.
+  // Replies remain explicitly correlated by request ID through reply methods.
+  struct WorkEvents {
+    std::size_t applied = 0;
+    std::size_t ignored = 0;
+    std::size_t framing_rejected = 0;
+  };
+  WorkEvents receive_work_events(std::string_view bytes,
+                                 std::uint64_t generation) {
+    WorkEvents events;
+    if (!connected_ || generation != session_.session_generation()) return events;
+    auto framed = receive_bytes(bytes, generation);
+    events.framing_rejected = framed.rejected;
+    for (const auto& line : framed.lines) {
+      if (session_.difficulty(line) || session_.notify(line))
+        ++events.applied;
+      else
+        ++events.ignored;
+    }
+    return events;
   }
   std::optional<std::uint64_t> begin_subscribe() {
     if (!connected_ || subscribe_id_) return std::nullopt;
