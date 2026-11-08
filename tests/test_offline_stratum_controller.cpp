@@ -1,6 +1,7 @@
 #include "pepepow/offline_stratum_controller.hpp"
 #include <cstdlib>
 #include <string>
+#include <vector>
 #define CHECK(x) do { if (!(x)) return EXIT_FAILURE; } while (false)
 int main() {
   pepepow::OfflineStratumController c;
@@ -64,6 +65,19 @@ int main() {
   CHECK(!wire.begin_submit(*active)); // stale job must not consume the next ID
   CHECK(!wire.make_submit_request(*active, "WALLET.worker", "01", 1, "67500000", "12345678"));
   CHECK(!wire.cancel_request(4, wg));
+  // Fragmented transport data must not leak across connection generations.
+  CHECK(wire.receive_bytes("partial", wg).lines.empty());
+  CHECK(wire.receive_bytes("ignored\\n", wg).lines.empty());
+  const auto new_generation = wire.session().session_generation();
+  CHECK(wire.receive_bytes("first\\nsecond", new_generation).lines ==
+        std::vector<std::string>({"first"}));
+  CHECK(wire.receive_bytes(" line\\n", new_generation).lines ==
+        std::vector<std::string>({"second line"}));
+  wire.disconnected();
+  CHECK(wire.receive_bytes("ignored\\n", new_generation).lines.empty());
+  wire.connected();
+  CHECK(wire.receive_bytes("fresh\\n", wire.session().session_generation()).lines ==
+        std::vector<std::string>({"fresh"}));
   CHECK(wire.make_subscribe_request().has_value());
   return EXIT_SUCCESS;
 }
