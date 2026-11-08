@@ -3,6 +3,7 @@
 #include "pepepow/stratum_notify_decoder.hpp"
 #include "pepepow/stratum_subscribe_decoder.hpp"
 #include "pepepow/stratum_submit_decoder.hpp"
+#include <cstdint>
 #include <string>
 #include <unordered_set>
 #include <string_view>
@@ -13,6 +14,7 @@ namespace pepepow {
 class OfflineStratumSession {
  public:
   void connected() {
+    ++session_generation_;
     subscription_.reset();
     pending_submits_.clear();
     subscribed_ = false;
@@ -20,6 +22,7 @@ class OfflineStratumSession {
     jobs_.apply({JobState::EventKind::Connected});
   }
   void disconnected() {
+    ++session_generation_;
     jobs_.apply({JobState::EventKind::Disconnected});
     subscription_.reset();
     pending_submits_.clear();
@@ -61,14 +64,19 @@ class OfflineStratumSession {
     for (char c : request_id) if (c < '0' || c > '9') return false;
     return pending_submits_.insert(std::string(request_id)).second;
   }
+  // The transport must tag replies with the generation of the connection
+  // that received them; request IDs alone are not unique across reconnects.
   std::optional<SubmitOutcome> submit_reply(std::string_view line,
-                                            std::string_view request_id) {
+                                            std::string_view request_id,
+                                            std::uint64_t reply_generation) {
+    if (!connected_ || reply_generation != session_generation_) return std::nullopt;
     auto it = pending_submits_.find(std::string(request_id));
     if (it == pending_submits_.end()) return std::nullopt;
     auto result = decode_submit_reply(line, request_id);
     if (result) pending_submits_.erase(it);
     return result;
   }
+  std::uint64_t session_generation() const { return session_generation_; }
   const JobState& jobs() const { return jobs_; }
  private:
   JobState jobs_;
@@ -76,5 +84,6 @@ class OfflineStratumSession {
   SubscribeWorkGuard subscription_;
   bool subscribed_ = false;
   bool connected_ = false;
+  std::uint64_t session_generation_ = 0;
 };
 } // namespace pepepow
