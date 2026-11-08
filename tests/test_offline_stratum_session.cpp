@@ -33,6 +33,7 @@ int main() {
   CHECK(!session.submit_reply(R"({"id":3,"result":true,"error":null})", "3", first_generation));
   CHECK(!session.track_submit("3", *old));
   CHECK(session.track_submit("4", *old));
+  CHECK(!session.submit_reply(R"({"id":4,"result":null,"error":[oops]})", "4", first_generation));
   for (unsigned i = 10; i < 4105; ++i) {
     CHECK(session.track_submit(std::to_string(i), *old));
   }

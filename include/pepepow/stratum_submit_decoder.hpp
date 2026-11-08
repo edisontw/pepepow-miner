@@ -2,6 +2,77 @@
 #include <optional>
 #include <string_view>
 namespace pepepow {
+// Validates one JSON value with bounded nesting, without allocating.
+class JsonValueValidator {
+ public:
+  explicit JsonValueValidator(std::string_view input) : s_(input) {}
+  bool parse(std::size_t& pos) { i_ = pos; if (!value(0)) return false; pos = i_; return true; }
+ private:
+  std::string_view s_;
+  std::size_t i_ = 0;
+  void ws() { while (i_ < s_.size() && (s_[i_] == ' ' || s_[i_] == '\t' || s_[i_] == '\r' || s_[i_] == '\n')) ++i_; }
+  bool consume(char c) { ws(); if (i_ == s_.size() || s_[i_] != c) return false; ++i_; return true; }
+  bool literal(std::string_view v) { if (s_.substr(i_, v.size()) != v) return false; i_ += v.size(); return true; }
+  bool string() {
+    if (!consume('"')) return false;
+    while (i_ < s_.size()) {
+      unsigned char c = static_cast<unsigned char>(s_[i_++]);
+      if (c == '"') return true;
+      if (c < 0x20) return false;
+      if (c != '\\') continue;
+      if (i_ == s_.size()) return false;
+      char e = s_[i_++];
+      if (e == 'u') {
+        for (int j = 0; j < 4; ++j) {
+          if (i_ == s_.size()) return false;
+          char x = s_[i_++];
+          if (!((x >= '0' && x <= '9') || (x >= 'a' && x <= 'f') || (x >= 'A' && x <= 'F'))) return false;
+        }
+      } else if (e != '"' && e != '\\' && e != '/' && e != 'b' && e != 'f' && e != 'n' && e != 'r' && e != 't') return false;
+    }
+    return false;
+  }
+  bool number() {
+    if (i_ < s_.size() && s_[i_] == '-') ++i_;
+    if (i_ == s_.size()) return false;
+    if (s_[i_] == '0') ++i_;
+    else {
+      if (s_[i_] < '1' || s_[i_] > '9') return false;
+      while (i_ < s_.size() && s_[i_] >= '0' && s_[i_] <= '9') ++i_;
+    }
+    if (i_ < s_.size() && s_[i_] == '.') {
+      ++i_; std::size_t start = i_;
+      while (i_ < s_.size() && s_[i_] >= '0' && s_[i_] <= '9') ++i_;
+      if (i_ == start) return false;
+    }
+    if (i_ < s_.size() && (s_[i_] == 'e' || s_[i_] == 'E')) {
+      ++i_; if (i_ < s_.size() && (s_[i_] == '+' || s_[i_] == '-')) ++i_;
+      std::size_t start = i_;
+      while (i_ < s_.size() && s_[i_] >= '0' && s_[i_] <= '9') ++i_;
+      if (i_ == start) return false;
+    }
+    return true;
+  }
+  bool value(unsigned depth) {
+    ws(); if (i_ == s_.size()) return false;
+    char c = s_[i_];
+    if (c == '"') return string();
+    if (c == 't') return literal("true");
+    if (c == 'f') return literal("false");
+    if (c == 'n') return literal("null");
+    if (c != '[' && c != '{') return number();
+    if (depth >= 32) return false;
+    ++i_; const bool object = c == '{'; char end = object ? '}' : ']';
+    ws(); if (i_ < s_.size() && s_[i_] == end) { ++i_; return true; }
+    while (true) {
+      if (object && (!string() || !consume(':'))) return false;
+      if (!value(depth + 1)) return false;
+      ws(); if (i_ < s_.size() && s_[i_] == end) { ++i_; return true; }
+      if (!consume(',')) return false;
+    }
+  }
+};
+
 enum class SubmitOutcome { Accepted, Rejected, PoolError };
 // Strict fixed-dialect JSON-RPC response. Never treats malformed input as accepted.
 inline std::optional<SubmitOutcome> decode_submit_reply(std::string_view line,
@@ -28,20 +99,8 @@ inline std::optional<SubmitOutcome> decode_submit_reply(std::string_view line,
   }
   ws();
   if (i >= line.size() || (line[i] != '[' && line[i] != '{')) return std::nullopt;
-  char opener = line[i++];
-  int depth = 1;
-  bool in_string = false, escape = false;
-  while (i < line.size() && depth) {
-    char c = line[i++];
-    if (in_string) {
-      if (escape) escape = false;
-      else if (c == '\\') escape = true;
-      else if (c == '"') in_string = false;
-    } else if (c == '"') in_string = true;
-    else if (c == opener) ++depth;
-    else if (c == (opener == '[' ? ']' : '}')) --depth;
-  }
-  if (depth || in_string || !take('}')) return std::nullopt;
+  JsonValueValidator validator(line);
+  if (!validator.parse(i) || !take('}')) return std::nullopt;
   ws();
   if (i != line.size() || accepted == true) return std::nullopt;
   return SubmitOutcome::PoolError;
