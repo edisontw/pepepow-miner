@@ -24,3 +24,7 @@ else()
 endif()
 add_test(NAME offline_replay_help COMMAND offline_stratum_replay --help)
 add_test(NAME offline_replay_handshake COMMAND offline_stratum_replay --self-test)
+
+# An incomplete final JSONL frame must not be silently accepted.
+add_test(NAME offline_replay_truncated COMMAND offline_stratum_replay --self-test-truncated)
+set_tests_properties(offline_replay_truncated PROPERTIES WILL_FAIL TRUE)
