@@ -31,6 +31,31 @@ static int reconnect_self_test() {
   return auth.authorized == 1 && auth.ignored == 0 && auth.framing_rejected == 0 ? 0 : 1;
 }
 
+// Verify cancelled request IDs are not reused within a connection.
+static int cancellation_self_test() {
+  pepepow::OfflineStratumController controller;
+  controller.connected();
+  const auto generation = controller.session().session_generation();
+  const auto first = controller.make_subscribe_request();
+  if (!first || first->find("\"id\":1") == std::string::npos) return 1;
+  if (!controller.cancel_request(1, generation)) return 1;
+  if (controller.cancel_request(1, generation)) return 1;
+  const auto second = controller.make_subscribe_request();
+  if (!second || second->find("\"id\":2") == std::string::npos) return 1;
+  const auto stale = controller.receive_work_events(
+      R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\\n",
+      generation);
+  if (stale.subscribed || stale.authorized) return 1;
+  const auto fresh = controller.receive_work_events(
+      R"({"id":2,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\\n",
+      generation);
+  if (fresh.subscribed != 1) return 1;
+  controller.disconnected();
+  controller.connected();
+  return !controller.cancel_request(2, generation) &&
+         controller.make_subscribe_request().has_value() ? 0 : 1;
+}
+
 int main(int argc, char** argv) {
   if (argc != 2 || std::string(argv[1]) == "--help") {
     std::cout << "Usage: offline_stratum_replay LOGIN < transcript.jsonl\n"
@@ -39,6 +64,7 @@ int main(int argc, char** argv) {
   }
 
   if (std::string(argv[1]) == "--self-test-reconnect") return reconnect_self_test();
+  if (std::string(argv[1]) == "--self-test-cancel") return cancellation_self_test();
   const bool truncated_test = std::string(argv[1]) == "--self-test-truncated";
   const bool malformed_test = std::string(argv[1]) == "--self-test-malformed";
   const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test || malformed_test;
