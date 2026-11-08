@@ -78,6 +78,11 @@ class OfflineStratumSession {
     if (inserted) last_submit_id_ = request_id;
     return inserted;
   }
+  // Preflight the bounded queue before allocating an outbound request ID.
+  // The caller still must track_submit after allocation; this is not a reservation.
+  bool can_track_submit(const JobSnapshot& job) const {
+    return connected_ && jobs_.can_submit(job) && pending_submits_.size() < 4096;
+  }
   // Cancellation means the outcome is unknown, not accepted or rejected.
   bool cancel_submit(std::string_view request_id, std::uint64_t generation) {
     if (!connected_ || generation != session_generation_) return false;
