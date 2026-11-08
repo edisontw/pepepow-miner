@@ -13,10 +13,17 @@ namespace pepepow {
 // A session must subscribe and authorize before accepting mining work.
 class OfflineStratumSession {
  public:
+  struct ShareCounters {
+    std::uint64_t accepted = 0;
+    std::uint64_t rejected = 0;
+    std::uint64_t pool_errors = 0;
+  };
+  ShareCounters share_counters() const { return counters_; }
   void connected() {
     ++session_generation_;
     subscription_.reset();
     pending_submits_.clear();
+    counters_ = {};
     subscribed_ = false;
     connected_ = true;
     jobs_.apply({JobState::EventKind::Connected});
@@ -73,13 +80,21 @@ class OfflineStratumSession {
     auto it = pending_submits_.find(std::string(request_id));
     if (it == pending_submits_.end()) return std::nullopt;
     auto result = decode_submit_reply(line, request_id);
-    if (result) pending_submits_.erase(it);
+    if (result) {
+      pending_submits_.erase(it);
+      switch (*result) {
+        case SubmitOutcome::Accepted: ++counters_.accepted; break;
+        case SubmitOutcome::Rejected: ++counters_.rejected; break;
+        case SubmitOutcome::PoolError: ++counters_.pool_errors; break;
+      }
+    }
     return result;
   }
   std::uint64_t session_generation() const { return session_generation_; }
   const JobState& jobs() const { return jobs_; }
  private:
   JobState jobs_;
+  ShareCounters counters_;
   std::unordered_set<std::string> pending_submits_;
   SubscribeWorkGuard subscription_;
   bool subscribed_ = false;
