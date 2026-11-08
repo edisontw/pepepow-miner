@@ -106,3 +106,7 @@
 ## 2026-11-08 submit error UTF-8 validation
 - PR #8 previous head `1f60c35119abebe246ea4213f8ac3d26a953feb4` passed native CI 42457645657. Commit `954a4f6a4e510e68e299b715b523965d520dc95d` validates raw UTF-8 in structured error JSON strings, rejecting invalid sequences, overlong encodings, encoded surrogates and codepoints above U+10FFFF. ASCII JSON escapes remain supported; this does not validate Unicode surrogate pairing in escaped sequences or every Stratum message.
 - Focused Linux container g++ C++20 decoder and session tests passed. New head CI pending. G0 independent full-digest parity not established. Next check CI then integrate shared request-ID management for subscribe/authorize/submit.
+
+## 2026-11-08 offline request controller
+- PR #8 head `954a4f6a4e510e68e299b715b523965d520dc95d` native CI 42461969505 passed. Commit `3c19769c56ecfc725daad86844973f712268cb2c` adds an offline controller that allocates unique increasing uint64 IDs across subscribe, authorize and submit, correlates pending replies and checks connection generation. The controller sends no network traffic; callers must use this controller consistently. There is no timeout/cancellation path yet.
+- Focused Linux container C++20 controller test passed; registered test in native CMake matrix, new CI pending. G0 independent 32-byte parity remains unverified. Next verify CI and add timeout/cancellation behavior before network transport.
