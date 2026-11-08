@@ -78,6 +78,11 @@ class OfflineStratumSession {
     if (inserted) last_submit_id_ = request_id;
     return inserted;
   }
+  // Cancellation means the outcome is unknown, not accepted or rejected.
+  bool cancel_submit(std::string_view request_id, std::uint64_t generation) {
+    if (!connected_ || generation != session_generation_) return false;
+    return pending_submits_.erase(std::string(request_id)) != 0;
+  }
   // The transport must tag replies with the generation of the connection
   // that received them; request IDs alone are not unique across reconnects.
   std::optional<SubmitOutcome> submit_reply(std::string_view line,

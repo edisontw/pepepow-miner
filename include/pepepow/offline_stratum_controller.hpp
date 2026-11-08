@@ -49,6 +49,14 @@ class OfflineStratumController {
     authorize_id_.reset();
     return true;
   }
+  // Caller may invoke this after a timeout or an explicit cancellation.
+  // Consumed IDs are never reused within this connection.
+  bool cancel_request(std::uint64_t id, std::uint64_t generation) {
+    if (!connected_ || generation != session_.session_generation()) return false;
+    if (subscribe_id_ && *subscribe_id_ == id) { subscribe_id_.reset(); return true; }
+    if (authorize_id_ && *authorize_id_ == id) { authorize_id_.reset(); return true; }
+    return session_.cancel_submit(std::to_string(id), generation);
+  }
   bool difficulty(std::string_view line) { return session_.difficulty(line); }
   bool notify(std::string_view line) { return session_.notify(line); }
   std::optional<std::uint64_t> begin_submit(const JobSnapshot& job) {
