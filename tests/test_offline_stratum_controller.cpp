@@ -67,16 +67,16 @@ int main() {
   CHECK(!wire.cancel_request(4, wg));
   // Fragmented transport data must not leak across connection generations.
   CHECK(wire.receive_bytes("partial", wg).lines.empty());
-  CHECK(wire.receive_bytes("ignored\\n", wg).lines.empty());
+  CHECK(wire.receive_bytes("ignored\n", wg).lines.empty());
   const auto new_generation = wire.session().session_generation();
-  CHECK(wire.receive_bytes("first\\nsecond", new_generation).lines ==
+  CHECK(wire.receive_bytes("first\nsecond", new_generation).lines ==
         std::vector<std::string>({"first"}));
-  CHECK(wire.receive_bytes(" line\\n", new_generation).lines ==
+  CHECK(wire.receive_bytes(" line\n", new_generation).lines ==
         std::vector<std::string>({"second line"}));
   wire.disconnected();
-  CHECK(wire.receive_bytes("ignored\\n", new_generation).lines.empty());
+  CHECK(wire.receive_bytes("ignored\n", new_generation).lines.empty());
   wire.connected();
-  CHECK(wire.receive_bytes("fresh\\n", wire.session().session_generation()).lines ==
+  CHECK(wire.receive_bytes("fresh\n", wire.session().session_generation()).lines ==
         std::vector<std::string>({"fresh"}));
   CHECK(wire.make_subscribe_request().has_value());
   return EXIT_SUCCESS;
