@@ -82,6 +82,13 @@ int main() {
     if (controller.receive_work_events(auth_reply, generation).authorized != 0) break;
     auto fresh = controller.make_subscribe_request();
     if (!fresh || fresh->find("\"id\":3") == std::string::npos) break;
+    // A stale generation must not read bytes belonging to the new session.
+    const std::string fresh_reply = R"({\"id\":3,\"result\":[[[\"mining.set_difficulty\",\"abc\"],[\"mining.notify\",\"abc\"]],\"0102abcd\",4],\"error\":null})" "\\n";
+    if (!send_all(peer, fresh_reply)) break;
+    if (pepepow::socket_io::receive_controller_line(client, controller, generation)) break;
+    const auto fresh_events = pepepow::socket_io::receive_controller_line(
+        client, controller, controller.session().session_generation());
+    if (!fresh_events || fresh_events->subscribed != 1) break;
     // A write to a locally shut-down socket must fail, not kill the process.
 #ifdef _WIN32
     if (shutdown(client, SD_SEND) != 0) break;
