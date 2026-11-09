@@ -1,49 +1,14 @@
 #include "pepepow/offline_stratum_controller.hpp"
+#include "pepepow/stratum_socket_io.hpp"
 #include <array>
 #include <cstdint>
 #include <string>
 #include <string_view>
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <winsock2.h>
-#include <ws2tcpip.h>
-using Socket = SOCKET;
-constexpr Socket invalid_socket = INVALID_SOCKET;
-static void close_socket(Socket s) { if (s != invalid_socket) closesocket(s); }
-#else
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <unistd.h>
-using Socket = int;
-constexpr Socket invalid_socket = -1;
-static void close_socket(Socket s) { if (s != invalid_socket) close(s); }
-#endif
-
-// TCP is a byte stream: a request can arrive in multiple recv() calls.
-static bool receive_exact(Socket socket, std::string_view expected) {
-  std::string received(expected.size(), '\0');
-  std::size_t offset = 0;
-  while (offset < received.size()) {
-    const int count = recv(socket, received.data() + offset,
-                           static_cast<int>(received.size() - offset), 0);
-    if (count <= 0) return false;
-    offset += static_cast<std::size_t>(count);
-  }
-  return received == expected;
-}
-
-// A TCP send may write fewer bytes than requested; never treat that as a complete request.
-static bool send_all(Socket socket, std::string_view bytes) {
-  std::size_t offset = 0;
-  while (offset < bytes.size()) {
-    const int count = send(socket, bytes.data() + offset,
-                           static_cast<int>(bytes.size() - offset), 0);
-    if (count <= 0) return false;
-    offset += static_cast<std::size_t>(count);
-  }
-  return true;
-}
+using pepepow::socket_io::Socket;
+using pepepow::socket_io::invalid_socket;
+using pepepow::socket_io::close_socket;
+using pepepow::socket_io::send_all;
+using pepepow::socket_io::receive_exact;
 
 // Loopback-only wire smoke test. No miner hashing or external pool connection.
 int main() {
@@ -73,15 +38,8 @@ int main() {
     if (connect(client, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) break;
     peer = accept(listener, nullptr, nullptr);
     if (peer == invalid_socket) break;
-#ifdef _WIN32
-    const DWORD timeout = 2000;
-    setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout));
-    setsockopt(peer, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout));
-#else
-    const timeval timeout{2, 0};
-    setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-    setsockopt(peer, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-#endif
+    if (!pepepow::socket_io::configure_timeouts(client) ||
+        !pepepow::socket_io::configure_timeouts(peer)) break;
     pepepow::OfflineStratumController controller;
     controller.connected();
     auto generation = controller.session().session_generation();
