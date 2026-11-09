@@ -297,6 +297,6 @@
 ## 2026-11-09 23:46+08 run update
 - Main rechecked at `3ab4e56b16140f61f30d1af7ddc324d84040067b` (unchanged). PR #8 prior head `1e9bc79678c8dcd197c656a9d3662c289bb1dd9b` had successful head-specific native CI #42639112691 (Ubuntu 22.04, Ubuntu 24.04, Windows Server 2022).
 - PR #8 branch `feature/offline-stratum-job-lifecycle-20261106` advanced through `2655709`, `923b910`, `91862af`. Added bounded loopback subscribe send wrapper with active-generation guard; failed socket send invalidates session/pending ID rather than retrying potentially partial JSONL. Added focused shutdown/reconnect ID regression in `tests/test_stratum_socket_loopback.cpp`.
-- New head `91862afaaa32a3ee3f82d77755da68c5d73218a2` head-specific workflow result not yet available. Local native compilation unavailable (GitHub DNS resolution failure). **PENDING**, not passed. No external pool connection or mining.
+- Final head `ec689848bd9cd4bca29f6c5edf147ea158c88e36` (additional `ec68984` test correction: failed send consumes ID 4, reconnect retry must use ID 5) head-specific workflow result not yet available. Local native compilation unavailable (GitHub DNS resolution failure). **PENDING**, not passed. No external pool connection or mining.
 - G0 **NOT PASSED**: no independent full 32-byte HooHash V110 parity, 10,000 independent cases or Windows 11 native evidence.
 - Next: inspect new PR #8 head CI and fix any focused test failure; then wire bounded authorize send with the same generation/failure discipline.
