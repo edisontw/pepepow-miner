@@ -41,4 +41,21 @@ inline bool send_controller_authorize(
   controller.disconnected();
   return false;
 }
+
+// Offline-only submit transport. The controller validates the active job,
+// authorization and encoded fields before reserving a request ID. A failed
+// write invalidates all pending IDs; never retry a partial JSONL frame.
+inline bool send_controller_submit(
+    Socket socket, OfflineStratumController& controller, std::uint64_t generation,
+    const JobSnapshot& job, std::string_view login,
+    std::string_view extranonce2, unsigned extranonce2_size,
+    std::string_view ntime, std::string_view nonce) {
+  if (generation != controller.session().session_generation()) return false;
+  auto request = controller.make_submit_request(
+      job, login, extranonce2, extranonce2_size, ntime, nonce);
+  if (!request) return false;
+  if (send_all(socket, *request)) return true;
+  controller.disconnected();
+  return false;
+}
 } // namespace pepepow::socket_io
