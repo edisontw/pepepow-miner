@@ -208,3 +208,10 @@
 - PR #8 updated `tools/offline_stratum_replay.cpp` and `tests/job_state/CMakeLists.txt`: added `--self-test-cancel` and focused CTest to check cancelled subscribe ID cannot be reused, stale reply cannot subscribe, subsequent ID succeeds, and old generation cancellation fails after reconnect. Commits `7072a707`, `29ddf8cb`, `3526f56c`. No local native compilation; new test pending CI verification. No socket or live pool traffic.
 - G0 **NOT PASSED**: independent full 32-byte V110 digest parity and 10,000 independent comparisons absent; Windows 11, GPU, live pool not tested.
 - Next: verify exact-head CI, fix failures from logs, then implement one bounded local loopback socket receive/send vertical slice with generation isolation.
+
+## 2026-11-09 08:47+08 run update
+- Rechecked main start/end `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #8 began `3526f56cc9e104cae50f8def691f0bd8d697c272` and ends `4396328feb5f644f5e1237c04d6e4d731abbe90d`; PR #2 before handoff update `12f53914d343cec273e6599fd2f01dfeac2e2aca`.
+- Previous PR #8 exact-head native workflow [42536939345](https://github.com/edisontw/pepepow-miner/actions/runs/42536939345) succeeded. New head-specific workflow not yet reported at time of check; do not infer pass. No local compilation performed.
+- PR #8 code change: `tools/offline_stratum_replay.cpp` now prevalidates login with existing strict encoder before emitting any subscribe request, preventing partial output on invalid credentials; `tests/job_state/CMakeLists.txt` adds focused empty-login rejection CTest. Commits `861f9310bafcf029bdcc7d1cbfb8e9e820a10597`, `4396328feb5f644f5e1237c04d6e4d731abbe90d`. Test awaits exact-head CI.
+- G0 **NOT PASSED**: independent full 32-byte HooHash V110 digest parity, 10,000 independent comparisons, Windows 11 native, GPU and pool evidence absent. No live submit.
+- Next: inspect exact-head CI and fix any failure; otherwise implement one bounded localhost-only socket loopback send/receive fixture with generation isolation.
