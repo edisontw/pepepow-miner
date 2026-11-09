@@ -25,7 +25,7 @@ inline std::optional<OfflineStratumController::WorkEvents> receive_controller_li
 // cannot safely be retried on the same connection.
 inline bool send_controller_subscribe(
     Socket socket, OfflineStratumController& controller, std::uint64_t generation) {
-  if (generation != controller.session().session_generation()) return false;
+  if (socket == invalid_socket || generation != controller.session().session_generation()) return false;
   auto request = controller.make_subscribe_request();
   if (!request) return false;
   if (send_all(socket, *request)) return true;
@@ -38,7 +38,7 @@ inline bool send_controller_subscribe(
 inline bool send_controller_authorize(
     Socket socket, OfflineStratumController& controller, std::uint64_t generation,
     std::string_view login, std::string_view password = "x") {
-  if (generation != controller.session().session_generation()) return false;
+  if (socket == invalid_socket || generation != controller.session().session_generation()) return false;
   auto request = controller.make_authorize_request(login, password);
   if (!request) return false;
   if (send_all(socket, *request)) return true;
@@ -54,7 +54,7 @@ inline bool send_controller_submit(
     const JobSnapshot& job, std::string_view login,
     std::string_view extranonce2, unsigned extranonce2_size,
     std::string_view ntime, std::string_view nonce) {
-  if (generation != controller.session().session_generation()) return false;
+  if (socket == invalid_socket || generation != controller.session().session_generation()) return false;
   auto request = controller.make_submit_request(
       job, login, extranonce2, extranonce2_size, ntime, nonce);
   if (!request) return false;
