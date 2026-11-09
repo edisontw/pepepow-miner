@@ -44,6 +44,9 @@ int main() {
     pepepow::OfflineStratumController controller;
     controller.connected();
     auto generation = controller.session().session_generation();
+    // Invalid handles must not reserve request IDs or retire a live generation.
+    if (pepepow::socket_io::send_controller_subscribe(invalid_socket, controller, generation)) break;
+    if (controller.session().session_generation() != generation) break;
     auto subscribe = controller.make_subscribe_request();
     if (!subscribe) break;
     if (!send_all(client, *subscribe)) break;
@@ -65,6 +68,9 @@ int main() {
             client, controller, generation, "bad\nlogin")) break;
     if (pepepow::socket_io::send_controller_authorize(
             client, controller, generation + 1, "WALLET.worker")) break;
+    if (pepepow::socket_io::send_controller_authorize(
+            invalid_socket, controller, generation, "WALLET.worker")) break;
+    if (controller.session().session_generation() != generation) break;
     if (!pepepow::socket_io::send_controller_authorize(
             client, controller, generation, "WALLET.worker")) break;
     const std::string expected_authorize =
@@ -96,6 +102,10 @@ int main() {
     if (pepepow::socket_io::send_controller_submit(
             client, controller, generation, *active,
             "WALLET.worker", "xx", 1, "67500000", "12345678")) break;
+    if (pepepow::socket_io::send_controller_submit(
+            invalid_socket, controller, generation, *active,
+            "WALLET.worker", "00", 1, "67500000", "12345678")) break;
+    if (controller.session().session_generation() != generation) break;
     if (!pepepow::socket_io::send_controller_submit(
             client, controller, generation, *active,
             "WALLET.worker", "00", 1, "67500000", "12345678")) break;
