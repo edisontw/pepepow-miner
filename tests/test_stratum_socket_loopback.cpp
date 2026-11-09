@@ -68,6 +68,15 @@ int main() {
     count = recv(client, buffer.data(), static_cast<int>(buffer.size()), 0);
     if (count <= 0 || controller.receive_work_events(
         std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation).authorized != 1) break;
+    // A single TCP write can contain multiple JSONL frames; neither may be lost.
+    const std::string lines = R"({"id":90,"result":true,"error":null})" "\n"
+                              R"({"id":91,"result":false,"error":null})" "\n";
+    if (!send_all(peer, lines)) break;
+    std::string line;
+    if (!pepepow::socket_io::receive_line(client, line) ||
+        line != R"({"id":90,"result":true,"error":null})" "\n") break;
+    if (!pepepow::socket_io::receive_line(client, line) ||
+        line != R"({"id":91,"result":false,"error":null})" "\n") break;
     controller.disconnected();
     controller.connected();
     if (controller.receive_work_events(auth_reply, generation).authorized != 0) break;
