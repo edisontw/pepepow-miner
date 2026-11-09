@@ -265,3 +265,11 @@
 - PR #8 now `5ebcaf3328f004f5cc9ff9768b1f14ca3ae738cb` (commits `d560294`, `5ebcaf3`): POSIX `send_all()` uses `MSG_NOSIGNAL` where available to prevent process termination on a broken socket; loopback test asserts a locally shutdown write fails without terminating. Windows keeps zero send flags. No live connection.
 - New head-specific CI and local focused compile/run are pending; do not claim the new change passed. G0 independent 32-byte V110 digest and >=10,000 independent parity remain NOT PASSED; Windows 11/GPU/pool untested.
 - Next: inspect CI for PR #8 head `5ebcaf3`, fix failures if any; then add bounded localhost-only transport read framing instead of further smoke-test duplication.
+
+## 2026-11-09 19:45+08 run update
+- Main at start/end: `3ab4e56b16140f61f30d1af7ddc324d84040067b`. PR #8 start `5ebcaf3328f004f5cc9ff9768b1f14ca3ae738cb`, end `374a0804d98249c1680b98881a84969873bcfa0b`; PR #2 before this handoff `9e1dfbaed622973dda2eddf82a64edf2eaad5966`.
+- Verified previous PR #8 exact-head workflow [42602948371](https://github.com/edisontw/pepepow-miner/actions/runs/42602948371) completed successfully. New head-specific workflow not yet reported.
+- PR #8 commits [acbedf1](https://github.com/edisontw/pepepow-miner/commit/acbedf1058a98aed3af922e1774025bf5d74690c) and [374a080](https://github.com/edisontw/pepepow-miner/commit/374a0804d98249c1680b98881a84969873bcfa0b): added `socket_io::receive_line` to consume one bounded JSONL frame without swallowing subsequent frames, clearing partial data on EOF/timeout/oversize; native localhost socket fixture sends two consecutive frames and asserts both remain readable. Paths: `include/pepepow/stratum_socket_io.hpp`, `tests/test_stratum_socket_loopback.cpp`.
+- Focused CTest `stratum_socket_loopback` is **PENDING** for new head. Local checkout/compile unavailable because github.com DNS resolution failed. Do not claim new native CI passed.
+- G0 **NOT PASSED**: independent full 32-byte digest and 10,000 genuinely independent parity cases missing; Windows 11 native/GPU/real pool untested. No live submit or mining.
+- Next: inspect exact-head CI for `374a080`, fix failures if any; otherwise add a bounded localhost-only request/reply transport using this line receiver and existing controller.
