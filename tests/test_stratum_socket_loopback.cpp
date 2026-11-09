@@ -33,6 +33,18 @@ static bool receive_exact(Socket socket, std::string_view expected) {
   return received == expected;
 }
 
+// A TCP send may write fewer bytes than requested; never treat that as a complete request.
+static bool send_all(Socket socket, std::string_view bytes) {
+  std::size_t offset = 0;
+  while (offset < bytes.size()) {
+    const int count = send(socket, bytes.data() + offset,
+                           static_cast<int>(bytes.size() - offset), 0);
+    if (count <= 0) return false;
+    offset += static_cast<std::size_t>(count);
+  }
+  return true;
+}
+
 // Loopback-only wire smoke test. No miner hashing or external pool connection.
 int main() {
 #ifdef _WIN32
@@ -75,30 +87,26 @@ int main() {
     auto generation = controller.session().session_generation();
     auto subscribe = controller.make_subscribe_request();
     if (!subscribe) break;
-    if (send(client, subscribe->data(), static_cast<int>(subscribe->size()), 0) !=
-        static_cast<int>(subscribe->size())) break;
+    if (!send_all(client, *subscribe)) break;
     std::array<char, 512> buffer{};
     if (!receive_exact(peer, *subscribe)) break;
     const std::string reply = R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n";
     // Fragment the server reply across two TCP writes.
     const auto midpoint = reply.size() / 2;
-    if (send(peer, reply.data(), static_cast<int>(midpoint), 0) != static_cast<int>(midpoint)) break;
+    if (!send_all(peer, std::string_view(reply).substr(0, midpoint))) break;
     int count = recv(client, buffer.data(), static_cast<int>(buffer.size()), 0);
     if (count <= 0 || controller.receive_work_events(
         std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation).subscribed != 0) break;
-    if (send(peer, reply.data() + midpoint, static_cast<int>(reply.size() - midpoint), 0) !=
-        static_cast<int>(reply.size() - midpoint)) break;
+    if (!send_all(peer, std::string_view(reply).substr(midpoint))) break;
     count = recv(client, buffer.data(), static_cast<int>(buffer.size()), 0);
     if (count <= 0 || controller.receive_work_events(
         std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation).subscribed != 1) break;
     auto authorize = controller.make_authorize_request("WALLET.worker");
     if (!authorize) break;
-    if (send(client, authorize->data(), static_cast<int>(authorize->size()), 0) !=
-        static_cast<int>(authorize->size())) break;
+    if (!send_all(client, *authorize)) break;
     if (!receive_exact(peer, *authorize)) break;
     const std::string auth_reply = R"({"id":2,"result":true,"error":null})" "\n";
-    if (send(peer, auth_reply.data(), static_cast<int>(auth_reply.size()), 0) !=
-        static_cast<int>(auth_reply.size())) break;
+    if (!send_all(peer, auth_reply)) break;
     count = recv(client, buffer.data(), static_cast<int>(buffer.size()), 0);
     if (count <= 0 || controller.receive_work_events(
         std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation).authorized != 1) break;
