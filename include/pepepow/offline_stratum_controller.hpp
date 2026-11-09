@@ -20,7 +20,6 @@ class OfflineStratumController {
     session_.connected();
     connected_ = true;
     subscribed_ = false;
-    next_ = 1;
     subscribe_id_.reset();
     authorize_id_.reset();
   }
