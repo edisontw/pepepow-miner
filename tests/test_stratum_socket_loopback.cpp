@@ -96,6 +96,17 @@ int main() {
     if (shutdown(client, SHUT_WR) != 0) break;
 #endif
     if (send_all(client, "must-fail\\n")) break;
+    // A failed outbound request must invalidate the pending ID and generation.
+    controller.disconnected();
+    controller.connected();
+    const auto failed_generation = controller.session().session_generation();
+    if (pepepow::socket_io::send_controller_subscribe(
+            client, controller, failed_generation)) break;
+    if (controller.session().session_generation() == failed_generation) break;
+    if (controller.make_subscribe_request()) break;
+    controller.connected();
+    auto retry = controller.make_subscribe_request();
+    if (!retry || retry->find("\\\"id\\\":4") == std::string::npos) break;
     result = 0;
   } while (false);
   close_socket(peer);
