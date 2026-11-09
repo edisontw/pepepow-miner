@@ -246,3 +246,9 @@
 - PR #8 commit `3c6b06736f452be54e2311d2f2d641cdb43e6e61` changes only `tests/test_stratum_socket_loopback.cpp`: request receive now accumulates exact bytes, rather than incorrectly assuming a single TCP recv returns the entire subscribe/authorize request. Existing two-part reply and reconnect checks remain. This is test reliability, not a production transport.
 - New head-specific CI and local native compilation not yet verified at handoff. G0 **NOT PASSED**; independent 32-byte V110 parity and 10,000 independent cases absent; no Windows 11/GPU/real pool evidence.
 - Next: inspect CI for `3c6b067`; if green, advance from socket smoke fixture to a small bounded localhost-only transport abstraction, with timeout and reconnect isolation, not more duplicate transcript tests.
+
+## 2026-11-09 17:26+08 run update
+- Verified main start/end `3ab4e56b16140f61f30d1af7ddc324d84040067b`. PR #8 started `3c6b06736f452be54e2311d2f2d641cdb43e6e61`; corresponding Actions run 42582122785 completed successfully (this is the PRE-change head). PR #2 started `abb06cb4bbe6bbf5f43b349b0e419bc353781e61`.
+- PR #8 new commit `2d2c9b95ae34e75b5fd12ed27eb1dcb3a0e12c41` updates only `tests/test_stratum_socket_loopback.cpp`: a bounded TCP `send_all` loop now handles partial socket writes for subscribe, authorize and mock replies, rather than assuming one send writes the whole frame. Native CI for this new head is PENDING; local compilation was unavailable because github.com DNS lookup failed. Do not claim this change is tested yet.
+- G0 **NOT PASSED**: no independently sourced 80-byte -> complete 32-byte V110 digest parity, no 10,000 independent comparisons, no Windows 11 native/GPU/real-pool evidence. No mining or external submit performed.
+- Next one task: verify head-specific PR #8 native CI and fix failures; then move the tested bounded socket I/O into a reusable localhost-only transport primitive rather than adding more transcript fixtures.
