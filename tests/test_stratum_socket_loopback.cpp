@@ -1,0 +1,110 @@
+#include "pepepow/offline_stratum_controller.hpp"
+#include <array>
+#include <cstdint>
+#include <string>
+#include <string_view>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#include <ws2tcpip.h>
+using Socket = SOCKET;
+constexpr Socket invalid_socket = INVALID_SOCKET;
+static void close_socket(Socket s) { if (s != invalid_socket) closesocket(s); }
+#else
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <unistd.h>
+using Socket = int;
+constexpr Socket invalid_socket = -1;
+static void close_socket(Socket s) { if (s != invalid_socket) close(s); }
+#endif
+
+// Loopback-only wire smoke test. No miner hashing or external pool connection.
+int main() {
+#ifdef _WIN32
+  WSADATA data{};
+  if (WSAStartup(MAKEWORD(2, 2), &data) != 0) return 1;
+#endif
+  int result = 1;
+  Socket listener = invalid_socket, client = invalid_socket, peer = invalid_socket;
+  do {
+    listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listener == invalid_socket) break;
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    address.sin_port = 0; // OS-selected ephemeral port, never a public listener.
+    if (bind(listener, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0 ||
+        listen(listener, 1) != 0) break;
+#ifdef _WIN32
+    int address_size = sizeof(address);
+#else
+    socklen_t address_size = sizeof(address);
+#endif
+    if (getsockname(listener, reinterpret_cast<sockaddr*>(&address), &address_size) != 0) break;
+    client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (client == invalid_socket) break;
+    if (connect(client, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) break;
+    peer = accept(listener, nullptr, nullptr);
+    if (peer == invalid_socket) break;
+#ifdef _WIN32
+    const DWORD timeout = 2000;
+    setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout));
+    setsockopt(peer, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout));
+#else
+    const timeval timeout{2, 0};
+    setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(peer, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+#endif
+    pepepow::OfflineStratumController controller;
+    controller.connected();
+    auto generation = controller.session().session_generation();
+    auto subscribe = controller.make_subscribe_request();
+    if (!subscribe) break;
+    if (send(client, subscribe->data(), static_cast<int>(subscribe->size()), 0) !=
+        static_cast<int>(subscribe->size())) break;
+    std::array<char, 512> buffer{};
+    const int request_size = recv(peer, buffer.data(), static_cast<int>(buffer.size()), 0);
+    if (request_size != static_cast<int>(subscribe->size()) ||
+        std::string_view(buffer.data(), static_cast<std::size_t>(request_size)) != *subscribe) break;
+    const std::string reply = R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n";
+    // Fragment the server reply across two TCP writes.
+    const auto midpoint = reply.size() / 2;
+    if (send(peer, reply.data(), static_cast<int>(midpoint), 0) != static_cast<int>(midpoint)) break;
+    int count = recv(client, buffer.data(), static_cast<int>(buffer.size()), 0);
+    if (count <= 0 || controller.receive_work_events(
+        std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation).subscribed != 0) break;
+    if (send(peer, reply.data() + midpoint, static_cast<int>(reply.size() - midpoint), 0) !=
+        static_cast<int>(reply.size() - midpoint)) break;
+    count = recv(client, buffer.data(), static_cast<int>(buffer.size()), 0);
+    if (count <= 0 || controller.receive_work_events(
+        std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation).subscribed != 1) break;
+    auto authorize = controller.make_authorize_request("WALLET.worker");
+    if (!authorize) break;
+    if (send(client, authorize->data(), static_cast<int>(authorize->size()), 0) !=
+        static_cast<int>(authorize->size())) break;
+    count = recv(peer, buffer.data(), static_cast<int>(buffer.size()), 0);
+    if (count != static_cast<int>(authorize->size()) ||
+        std::string_view(buffer.data(), static_cast<std::size_t>(count)) != *authorize) break;
+    const std::string auth_reply = R"({"id":2,"result":true,"error":null})" "\n";
+    if (send(peer, auth_reply.data(), static_cast<int>(auth_reply.size()), 0) !=
+        static_cast<int>(auth_reply.size())) break;
+    count = recv(client, buffer.data(), static_cast<int>(buffer.size()), 0);
+    if (count <= 0 || controller.receive_work_events(
+        std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation).authorized != 1) break;
+    controller.disconnected();
+    controller.connected();
+    if (controller.receive_work_events(auth_reply, generation).authorized != 0) break;
+    auto fresh = controller.make_subscribe_request();
+    if (!fresh || fresh->find("\"id\":3") == std::string::npos) break;
+    result = 0;
+  } while (false);
+  close_socket(peer);
+  close_socket(client);
+  close_socket(listener);
+#ifdef _WIN32
+  WSACleanup();
+#endif
+  return result;
+}
