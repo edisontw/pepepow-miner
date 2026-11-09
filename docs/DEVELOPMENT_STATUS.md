@@ -280,3 +280,10 @@
 - PR #8 commits `fea919f1`, `e91f47b4`: added `include/pepepow/stratum_loopback_transport.hpp` bounded JSONL socket-to-controller adapter with stale-generation precheck, and routed the authorization loopback fixture through it. No external endpoints, mining, or pool submit. Focused native CTest is registered but new-head CI and local build remain pending.
 - G0 **NOT PASSED**: no independently established complete 32-byte digest parity or 10,000 independent headers; Windows 11 physical native and GPU/pool evidence absent.
 - Next one task: inspect new-head CI; if green, extend the adapter test to assert stale-generation calls do not consume pending bytes, and address any failures minimally.
+
+## 2026-11-09 21:54+08 run update
+- Main start/end `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #8 start `e91f47b4791c3da2a91eacbb97f871036d4396e4`, end `bff319b8bf834534f6526e140252a8aef88c8477`; PR #2 prior head `567e685c0550937ce3b560d50f6e8a95309fe3ad`.
+- Confirmed prior PR #8 exact-head native Actions [42620438568](https://github.com/edisontw/pepepow-miner/actions/runs/42620438568) completed successfully. New head has no reported workflow run at handoff; no local native compilation, so focused `stratum_socket_loopback` result is PENDING for new commit.
+- PR #8 [bff319b](https://github.com/edisontw/pepepow-miner/commit/bff319b8bf834534f6526e140252a8aef88c8477) modifies only `tests/test_stratum_socket_loopback.cpp`: queue a fresh subscribe response after reconnect, assert stale-generation adapter returns without consuming socket data, then assert current generation receives and processes that same reply. No external pool, hashing, or mining.
+- G0 **NOT PASSED**: independent full 32-byte V110 digest, 10,000 genuinely independent parity comparisons, and Windows 11 native evidence absent; GPU/pool untested.
+- Next one task: check new head-specific native CI and fix any loopback regression; if green, add bounded send/controller request integration to localhost-only transport.
