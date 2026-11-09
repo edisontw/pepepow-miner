@@ -69,6 +69,11 @@ int main(int argc, char** argv) {
   const bool malformed_test = std::string(argv[1]) == "--self-test-malformed";
   const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test || malformed_test;
   const std::string login = self_test ? "WALLET.worker" : argv[1];
+  // Reject invalid credentials before emitting any outbound subscribe frame.
+  if (!pepepow::encode_authorize_request(1, login)) {
+    std::cerr << "Invalid Stratum login\\n";
+    return 2;
+  }
   std::istringstream fixture(
       std::string(R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})") + "\n" +
       R"({"id":2,"result":true,"error":null})" "\n" +
