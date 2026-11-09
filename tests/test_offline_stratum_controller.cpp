@@ -35,11 +35,13 @@ int main() {
   CHECK(c.cancel_request(6, g));
   CHECK(!c.authorize_reply(R"({"id":6,"result":true,"error":null})", g));
   c.disconnected(); c.connected();
-  CHECK(!c.begin_authorize()); CHECK(c.begin_subscribe() == 1);
+  CHECK(!c.begin_authorize()); CHECK(c.begin_subscribe() == 7);
   CHECK(!c.subscribe_reply(sub, g));
-  CHECK(c.subscribe_reply(sub, c.session().session_generation()));
-  CHECK(c.begin_authorize() == 2);
-  CHECK(!c.cancel_request(2, g));
+  const std::string sub_reconnected = R"({"id":7,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})";
+  CHECK(!c.subscribe_reply(sub, c.session().session_generation()));
+  CHECK(c.subscribe_reply(sub_reconnected, c.session().session_generation()));
+  CHECK(c.begin_authorize() == 8);
+  CHECK(!c.cancel_request(8, g));
   // Atomic request encoding: invalid data must not reserve or consume IDs.
   pepepow::OfflineStratumController wire;
   wire.connected();
