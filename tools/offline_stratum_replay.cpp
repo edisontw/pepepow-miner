@@ -73,7 +73,8 @@ int main(int argc, char** argv) {
   if (std::string(argv[1]) == "--self-test-cancel") return cancellation_self_test();
   const bool truncated_test = std::string(argv[1]) == "--self-test-truncated";
   const bool malformed_test = std::string(argv[1]) == "--self-test-malformed";
-  const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test || malformed_test;
+  const bool unexpected_test = std::string(argv[1]) == "--self-test-unexpected";
+  const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test || malformed_test || unexpected_test;
   const std::string login = self_test ? "WALLET.worker" : argv[1];
   // Reject invalid credentials before emitting any outbound subscribe frame.
   if (!pepepow::encode_authorize_request(1, login)) {
@@ -93,6 +94,10 @@ int main(int argc, char** argv) {
   }
   if (malformed_test) {
     fixture.str(fixture.str() + std::string(65537, 'x') + "\n");
+    fixture.clear();
+  }
+  if (unexpected_test) {
+    fixture.str(fixture.str() + R"({"id":999,"result":true,"error":null})" "\n");
     fixture.clear();
   }
   std::istream& input = self_test ? static_cast<std::istream&>(fixture) : std::cin;
@@ -146,8 +151,9 @@ int main(int argc, char** argv) {
     std::cerr << "Transcript read failed\n";
     return 2;
   }
-  if (rejected != 0) {
-    std::cerr << "Transcript contains rejected Stratum frames: " << rejected << '\n';
+  if (rejected != 0 || ignored != 0) {
+    std::cerr << "Transcript contains rejected or unrecognized Stratum frames: "
+              << rejected << "/" << ignored << '\n';
     return 1;
   }
   const auto shares = controller.session().share_counters();
