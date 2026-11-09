@@ -150,6 +150,20 @@ int main() {
     controller.connected();
     auto retry = controller.make_subscribe_request();
     if (!retry || retry->find("\"id\":7") == std::string::npos) break;
+    // Oversized JSONL must fail closed and retire the pending subscribe ID.
+    const auto oversized_generation = controller.session().session_generation();
+    if (!send_all(peer, std::string(pepepow::socket_io::max_frame_bytes, 'x'))) break;
+    if (!send_all(peer, "\\n")) break;
+    if (pepepow::socket_io::receive_controller_line(client, controller, oversized_generation)) break;
+    if (controller.session().session_generation() == oversized_generation) break;
+    if (controller.make_authorize_request("WALLET.worker")) break;
+    // The oversized frame's trailing newline remains unread; drain it before
+    // testing peer EOF on the same socket.
+    std::string trailing;
+    if (!pepepow::socket_io::receive_line(client, trailing) || trailing != "\\n") break;
+    controller.connected();
+    auto after_oversized = controller.make_subscribe_request();
+    if (!after_oversized || after_oversized->find("\\\"id\\\":8") == std::string::npos) break;
     // Peer EOF must retire pending subscribe ID and invalidate this generation.
     const auto eof_generation = controller.session().session_generation();
     close_socket(peer);
