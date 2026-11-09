@@ -28,4 +28,17 @@ inline bool send_controller_subscribe(
   controller.disconnected();
   return false;
 }
+
+// Authorize is permitted only after the current session's subscribe reply.
+// Never retain a pending authorize ID after a partial/failed socket write.
+inline bool send_controller_authorize(
+    Socket socket, OfflineStratumController& controller, std::uint64_t generation,
+    std::string_view login, std::string_view password = "x") {
+  if (generation != controller.session().session_generation()) return false;
+  auto request = controller.make_authorize_request(login, password);
+  if (!request) return false;
+  if (send_all(socket, *request)) return true;
+  controller.disconnected();
+  return false;
+}
 } // namespace pepepow::socket_io
