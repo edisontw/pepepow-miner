@@ -83,7 +83,7 @@ int main() {
     auto fresh = controller.make_subscribe_request();
     if (!fresh || fresh->find("\"id\":3") == std::string::npos) break;
     // A stale generation must not read bytes belonging to the new session.
-    const std::string fresh_reply = R"({\"id\":3,\"result\":[[[\"mining.set_difficulty\",\"abc\"],[\"mining.notify\",\"abc\"]],\"0102abcd\",4],\"error\":null})" "\\n";
+    const std::string fresh_reply = R"({"id":3,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n";
     if (!send_all(peer, fresh_reply)) break;
     if (pepepow::socket_io::receive_controller_line(client, controller, generation)) break;
     const auto fresh_events = pepepow::socket_io::receive_controller_line(
