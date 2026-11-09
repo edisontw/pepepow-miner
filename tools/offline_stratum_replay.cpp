@@ -21,13 +21,13 @@ static int reconnect_self_test() {
       R"({"id":1,"result":true,"error":null})" "\n", old_generation);
   if (stale.subscribed || stale.authorized || stale.applied || stale.ignored) return 1;
   const auto fresh = controller.receive_work_events(
-      R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n",
+      R"({"id":2,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n",
       new_generation);
   if (fresh.subscribed != 1 || fresh.ignored || fresh.framing_rejected) return 1;
   // A stale fragment from the previous connection must not corrupt the new frame.
   if (!controller.make_authorize_request("WALLET.worker")) return 1;
   const auto auth = controller.receive_work_events(
-      R"({"id":2,"result":true,"error":null})" "\n", new_generation);
+      R"({"id":3,"result":true,"error":null})" "\n", new_generation);
   return auth.authorized == 1 && auth.ignored == 0 && auth.framing_rejected == 0 ? 0 : 1;
 }
 
