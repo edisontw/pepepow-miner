@@ -121,6 +121,13 @@ int main() {
     if (!fresh || fresh->find("\"id\":4") == std::string::npos) break;
     // A stale generation must not read bytes belonging to the new session.
     const std::string fresh_reply = R"({"id":4,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n";
+    // Malformed JSONL must not satisfy or consume the pending subscribe ID.
+    if (!send_all(peer, R"({\"id\":4,\"result\":)" "\n")) break;
+    const auto malformed_events = pepepow::socket_io::receive_controller_line(
+        client, controller, controller.session().session_generation());
+    if (!malformed_events || malformed_events->ignored != 1 ||
+        malformed_events->subscribed != 0) break;
+    if (controller.make_subscribe_request()) break; // ID 4 remains pending.
     if (!send_all(peer, fresh_reply)) break;
     if (pepepow::socket_io::receive_controller_line(client, controller, generation)) break;
     const auto fresh_events = pepepow::socket_io::receive_controller_line(
