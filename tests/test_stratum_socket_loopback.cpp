@@ -20,6 +20,19 @@ constexpr Socket invalid_socket = -1;
 static void close_socket(Socket s) { if (s != invalid_socket) close(s); }
 #endif
 
+// TCP is a byte stream: a request can arrive in multiple recv() calls.
+static bool receive_exact(Socket socket, std::string_view expected) {
+  std::string received(expected.size(), '\0');
+  std::size_t offset = 0;
+  while (offset < received.size()) {
+    const int count = recv(socket, received.data() + offset,
+                           static_cast<int>(received.size() - offset), 0);
+    if (count <= 0) return false;
+    offset += static_cast<std::size_t>(count);
+  }
+  return received == expected;
+}
+
 // Loopback-only wire smoke test. No miner hashing or external pool connection.
 int main() {
 #ifdef _WIN32
@@ -65,9 +78,7 @@ int main() {
     if (send(client, subscribe->data(), static_cast<int>(subscribe->size()), 0) !=
         static_cast<int>(subscribe->size())) break;
     std::array<char, 512> buffer{};
-    const int request_size = recv(peer, buffer.data(), static_cast<int>(buffer.size()), 0);
-    if (request_size != static_cast<int>(subscribe->size()) ||
-        std::string_view(buffer.data(), static_cast<std::size_t>(request_size)) != *subscribe) break;
+    if (!receive_exact(peer, *subscribe)) break;
     const std::string reply = R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n";
     // Fragment the server reply across two TCP writes.
     const auto midpoint = reply.size() / 2;
@@ -84,9 +95,7 @@ int main() {
     if (!authorize) break;
     if (send(client, authorize->data(), static_cast<int>(authorize->size()), 0) !=
         static_cast<int>(authorize->size())) break;
-    count = recv(peer, buffer.data(), static_cast<int>(buffer.size()), 0);
-    if (count != static_cast<int>(authorize->size()) ||
-        std::string_view(buffer.data(), static_cast<std::size_t>(count)) != *authorize) break;
+    if (!receive_exact(peer, *authorize)) break;
     const std::string auth_reply = R"({"id":2,"result":true,"error":null})" "\n";
     if (send(peer, auth_reply.data(), static_cast<int>(auth_reply.size()), 0) !=
         static_cast<int>(auth_reply.size())) break;
