@@ -56,6 +56,21 @@ inline bool send_all(Socket s, std::string_view bytes) {
   }
   return true;
 }
+// Read exactly one newline-terminated JSONL frame without consuming the next frame.
+// On timeout, EOF or oversized input, discard the partial frame.
+inline bool receive_line(Socket s, std::string& line) {
+  line.clear();
+  if (s == invalid_socket) return false;
+  char byte = 0;
+  while (line.size() < max_frame_bytes) {
+    const int n = recv(s, &byte, 1, 0);
+    if (n != 1) { line.clear(); return false; }
+    line.push_back(byte);
+    if (byte == '\n') return true;
+  }
+  line.clear();
+  return false;
+}
 inline bool receive_exact(Socket s, std::string_view expected) {
   if (s == invalid_socket || expected.empty() || expected.size() > max_frame_bytes) return false;
   std::string received(expected.size(), '\0');
