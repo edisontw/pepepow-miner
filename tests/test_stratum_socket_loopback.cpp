@@ -1,5 +1,6 @@
 #include "pepepow/offline_stratum_controller.hpp"
 #include "pepepow/stratum_socket_io.hpp"
+#include "pepepow/stratum_loopback_transport.hpp"
 #include <array>
 #include <cstdint>
 #include <string>
@@ -65,9 +66,8 @@ int main() {
     if (!receive_exact(peer, *authorize)) break;
     const std::string auth_reply = R"({"id":2,"result":true,"error":null})" "\n";
     if (!send_all(peer, auth_reply)) break;
-    count = recv(client, buffer.data(), static_cast<int>(buffer.size()), 0);
-    if (count <= 0 || controller.receive_work_events(
-        std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation).authorized != 1) break;
+    auto auth_events = pepepow::socket_io::receive_controller_line(client, controller, generation);
+    if (!auth_events || auth_events->authorized != 1) break;
     // A single TCP write can contain multiple JSONL frames; neither may be lost.
     const std::string lines = R"({"id":90,"result":true,"error":null})" "\n"
                               R"({"id":91,"result":false,"error":null})" "\n";
