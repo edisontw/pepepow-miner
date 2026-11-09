@@ -118,7 +118,7 @@ int main() {
     controller.connected();
     if (controller.receive_work_events(auth_reply, generation).authorized != 0) break;
     auto fresh = controller.make_subscribe_request();
-    if (!fresh || fresh->find("\"id\":3") == std::string::npos) break;
+    if (!fresh || fresh->find("\"id\":4") == std::string::npos) break;
     // A stale generation must not read bytes belonging to the new session.
     const std::string fresh_reply = R"({"id":4,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n";
     if (!send_all(peer, fresh_reply)) break;
@@ -149,7 +149,7 @@ int main() {
     if (controller.make_subscribe_request()) break;
     controller.connected();
     auto retry = controller.make_subscribe_request();
-    if (!retry || retry->find("\"id\":6") == std::string::npos) break;
+    if (!retry || retry->find("\"id\":7") == std::string::npos) break;
     result = 0;
   } while (false);
   close_socket(peer);
