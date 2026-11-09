@@ -106,7 +106,7 @@ int main() {
     if (controller.make_subscribe_request()) break;
     controller.connected();
     auto retry = controller.make_subscribe_request();
-    if (!retry || retry->find("\"id\":4") == std::string::npos) break;
+    if (!retry || retry->find("\"id\":5") == std::string::npos) break;
     result = 0;
   } while (false);
   close_socket(peer);
