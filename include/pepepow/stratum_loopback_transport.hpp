@@ -15,4 +15,17 @@ inline std::optional<OfflineStratumController::WorkEvents> receive_controller_li
   if (!receive_line(socket, line)) return std::nullopt;
   return controller.receive_work_events(line, generation);
 }
+
+// Send a controller-owned subscribe request only for the active generation.
+// Any socket write failure invalidates the session: a partial JSONL write
+// cannot safely be retried on the same connection.
+inline bool send_controller_subscribe(
+    Socket socket, OfflineStratumController& controller, std::uint64_t generation) {
+  if (generation != controller.session().session_generation()) return false;
+  auto request = controller.make_subscribe_request();
+  if (!request) return false;
+  if (send_all(socket, *request)) return true;
+  controller.disconnected();
+  return false;
+}
 } // namespace pepepow::socket_io
