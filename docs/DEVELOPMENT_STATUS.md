@@ -259,3 +259,9 @@
 - PR #8 commits [46467e4](https://github.com/edisontw/pepepow-miner/commit/46467e4c3c1c4f9089102b61f63aef06d80cdd20), [c85c821](https://github.com/edisontw/pepepow-miner/commit/c85c821723bfe55705d599c51249825c77b823ce), [950315c](https://github.com/edisontw/pepepow-miner/commit/950315c6d27c6bb0e4644531ddb30626b7f2e3d4): add reusable `include/pepepow/stratum_socket_io.hpp` with bounded 64-KiB cross-platform socket send/receive and configurable send/receive timeouts; use it in `tests/test_stratum_socket_loopback.cpp`. No external network or mining.
 - G0 **NOT PASSED**: independent full 32-byte V110 digest, >=10,000 independent parity cases and Windows 11 native evidence missing. No GPU or production pool test.
 - Next: inspect new PR #8 exact-head CI and fix native build/socket failures; then connect bounded I/O to minimal localhost-only transport.
+
+## 2026-11-09 18:45+08 run update
+- Main observed `3ab4e56b16140f61f30d1af7ddc324d84040067b` (unchanged); PR #8 started at `950315c6d27c6bb0e4644531ddb30626b7f2e3d4`; its head-specific native workflow 42596297347 completed successfully.
+- PR #8 now `5ebcaf3328f004f5cc9ff9768b1f14ca3ae738cb` (commits `d560294`, `5ebcaf3`): POSIX `send_all()` uses `MSG_NOSIGNAL` where available to prevent process termination on a broken socket; loopback test asserts a locally shutdown write fails without terminating. Windows keeps zero send flags. No live connection.
+- New head-specific CI and local focused compile/run are pending; do not claim the new change passed. G0 independent 32-byte V110 digest and >=10,000 independent parity remain NOT PASSED; Windows 11/GPU/pool untested.
+- Next: inspect CI for PR #8 head `5ebcaf3`, fix failures if any; then add bounded localhost-only transport read framing instead of further smoke-test duplication.
