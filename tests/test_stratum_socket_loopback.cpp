@@ -73,6 +73,13 @@ int main() {
     if (controller.receive_work_events(auth_reply, generation).authorized != 0) break;
     auto fresh = controller.make_subscribe_request();
     if (!fresh || fresh->find("\"id\":3") == std::string::npos) break;
+    // A write to a locally shut-down socket must fail, not kill the process.
+#ifdef _WIN32
+    if (shutdown(client, SD_SEND) != 0) break;
+#else
+    if (shutdown(client, SHUT_WR) != 0) break;
+#endif
+    if (send_all(client, "must-fail\\n")) break;
     result = 0;
   } while (false);
   close_socket(peer);
