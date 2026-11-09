@@ -23,6 +23,9 @@ else()
   target_compile_options(offline_stratum_replay PRIVATE -Wall -Wextra -Werror -pedantic)
 endif()
 add_test(NAME offline_replay_help COMMAND offline_stratum_replay --help)
+add_test(NAME offline_replay_health COMMAND offline_stratum_replay --health-json)
+set_tests_properties(offline_replay_health PROPERTIES
+  PASS_REGULAR_EXPRESSION "\\\"g0\\\":\\\"NOT PASSED\\\".*\\\"mining_ready\\\":false")
 add_test(NAME offline_replay_handshake COMMAND offline_stratum_replay --self-test)
 
 # An incomplete final JSONL frame must not be silently accepted.
