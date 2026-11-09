@@ -38,3 +38,7 @@ add_test(NAME offline_replay_reconnect COMMAND offline_stratum_replay --self-tes
 
 # Cancelled IDs cannot be reused, including across reconnects.
 add_test(NAME offline_replay_cancel COMMAND offline_stratum_replay --self-test-cancel)
+
+# Invalid credentials must fail before any Stratum request is emitted.
+add_test(NAME offline_replay_invalid_login COMMAND offline_stratum_replay "")
+set_tests_properties(offline_replay_invalid_login PROPERTIES WILL_FAIL TRUE)
