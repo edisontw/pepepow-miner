@@ -43,8 +43,14 @@ inline bool send_all(Socket s, std::string_view bytes) {
   if (s == invalid_socket || bytes.empty() || bytes.size() > max_frame_bytes) return false;
   std::size_t offset = 0;
   while (offset < bytes.size()) {
+    // A disconnected Linux peer must not terminate the miner with SIGPIPE.
+#ifdef MSG_NOSIGNAL
+    constexpr int send_flags = MSG_NOSIGNAL;
+#else
+    constexpr int send_flags = 0;
+#endif
     const int n = send(s, bytes.data() + offset,
-                       static_cast<int>(bytes.size() - offset), 0);
+                       static_cast<int>(bytes.size() - offset), send_flags);
     if (n <= 0) return false;
     offset += static_cast<std::size_t>(n);
   }
