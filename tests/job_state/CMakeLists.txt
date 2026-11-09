@@ -49,3 +49,16 @@ set_tests_properties(offline_replay_invalid_login PROPERTIES WILL_FAIL TRUE)
 # Unexpected replies must not be accepted merely because handshake succeeded.
 add_test(NAME offline_replay_unexpected COMMAND offline_stratum_replay --self-test-unexpected)
 set_tests_properties(offline_replay_unexpected PROPERTIES WILL_FAIL TRUE)
+
+# Native loopback socket smoke test: OS-assigned 127.0.0.1 port only.
+add_executable(test_stratum_socket_loopback ../test_stratum_socket_loopback.cpp)
+target_compile_features(test_stratum_socket_loopback PRIVATE cxx_std_20)
+target_include_directories(test_stratum_socket_loopback PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../include")
+if(MSVC)
+  target_compile_options(test_stratum_socket_loopback PRIVATE /W4 /WX)
+  target_link_libraries(test_stratum_socket_loopback PRIVATE ws2_32)
+else()
+  target_compile_options(test_stratum_socket_loopback PRIVATE -Wall -Wextra -Werror -pedantic)
+endif()
+add_test(NAME stratum_socket_loopback COMMAND test_stratum_socket_loopback)
+set_tests_properties(stratum_socket_loopback PROPERTIES TIMEOUT 10)
