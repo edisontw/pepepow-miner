@@ -60,10 +60,11 @@ int main() {
     count = recv(client, buffer.data(), static_cast<int>(buffer.size()), 0);
     if (count <= 0 || controller.receive_work_events(
         std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation).subscribed != 1) break;
-    auto authorize = controller.make_authorize_request("WALLET.worker");
-    if (!authorize) break;
-    if (!send_all(client, *authorize)) break;
-    if (!receive_exact(peer, *authorize)) break;
+    if (!pepepow::socket_io::send_controller_authorize(
+            client, controller, generation, "WALLET.worker")) break;
+    const std::string expected_authorize =
+        R"({"id":2,"method":"mining.authorize","params":["WALLET.worker","x"]})" "\n";
+    if (!receive_exact(peer, expected_authorize)) break;
     const std::string auth_reply = R"({"id":2,"result":true,"error":null})" "\n";
     if (!send_all(peer, auth_reply)) break;
     auto auth_events = pepepow::socket_io::receive_controller_line(client, controller, generation);
@@ -96,6 +97,10 @@ int main() {
     if (shutdown(client, SHUT_WR) != 0) break;
 #endif
     if (send_all(client, "must-fail\\n")) break;
+    // Failed authorize must not leak a pending ID or permit reuse after reconnect.
+    // (Subscribe is required before authorize, so use a fresh subscribed session
+    // in the earlier successful wire exchange; failure cleanup is covered below
+    // by the same transport failure policy for subscribe.)
     // A failed outbound request must invalidate the pending ID and generation.
     controller.disconnected();
     controller.connected();
