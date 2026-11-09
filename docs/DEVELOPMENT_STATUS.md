@@ -287,3 +287,9 @@
 - PR #8 [bff319b](https://github.com/edisontw/pepepow-miner/commit/bff319b8bf834534f6526e140252a8aef88c8477) modifies only `tests/test_stratum_socket_loopback.cpp`: queue a fresh subscribe response after reconnect, assert stale-generation adapter returns without consuming socket data, then assert current generation receives and processes that same reply. No external pool, hashing, or mining.
 - G0 **NOT PASSED**: independent full 32-byte V110 digest, 10,000 genuinely independent parity comparisons, and Windows 11 native evidence absent; GPU/pool untested.
 - Next one task: check new head-specific native CI and fix any loopback regression; if green, add bounded send/controller request integration to localhost-only transport.
+
+## 2026-11-09 22:52+08 run update
+- Rechecked main `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #8 began `bff319b8bf834534f6526e140252a8aef88c8477`; PR #2 pre-update `603718f20693b131f402690a40a562ba2c19fc3b`.
+- Head-specific PR #8 workflow 42629622870 **FAILED on Ubuntu 22.04/24.04 and Windows Server 2022 at CTest Run** (Build succeeded). Inspected the new reconnect fixture: `fresh_reply` incorrectly contained backslash-escaped quotes inside a raw string and a literal `\\n`, not JSON followed by LF. Replaced only that fixture with valid JSON plus actual newline; PR #8 commit `1e9bc79678c8dcd197c656a9d3662c289bb1dd9b`. This is a focused test repair; no consensus or live network change. New-head CI was not yet reported and local compile was not executed: **PENDING**, not passed.
+- G0 **NOT PASSED**: no independently sourced complete 32-byte V110 digest, 10,000 independent parity vectors or Windows 11 native proof. No GPU, mining, pool submit or release.
+- Next one task: check PR #8 commit `1e9bc79` head-specific CI, inspect logs if failing, then implement bounded localhost-only controller request send path rather than more isolated fixtures.
