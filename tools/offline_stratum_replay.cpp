@@ -57,6 +57,12 @@ static int cancellation_self_test() {
 }
 
 int main(int argc, char** argv) {
+  // Machine-readable readiness for launchers. Never report mining as ready
+  // while independent HooHash G0 parity and a live transport are absent.
+  if (argc == 2 && std::string(argv[1]) == "--health-json") {
+    std::cout << R"({"mode":"offline-replay","g0":"NOT PASSED","transport":"unavailable","mining_ready":false})" << '\n';
+    return 0;
+  }
   if (argc != 2 || std::string(argv[1]) == "--help") {
     std::cout << "Usage: offline_stratum_replay LOGIN < transcript.jsonl\n"
                  "Offline only: no socket, hashing or share submission.\n";
