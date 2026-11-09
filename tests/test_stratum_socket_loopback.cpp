@@ -150,6 +150,16 @@ int main() {
     controller.connected();
     auto retry = controller.make_subscribe_request();
     if (!retry || retry->find("\"id\":7") == std::string::npos) break;
+    // Peer EOF must retire pending subscribe ID and invalidate this generation.
+    const auto eof_generation = controller.session().session_generation();
+    close_socket(peer);
+    peer = invalid_socket;
+    if (pepepow::socket_io::receive_controller_line(client, controller, eof_generation)) break;
+    if (controller.session().session_generation() == eof_generation) break;
+    if (controller.make_authorize_request("WALLET.worker")) break;
+    controller.connected();
+    auto after_eof = controller.make_subscribe_request();
+    if (!after_eof || after_eof->find("\"id\":8") == std::string::npos) break;
     result = 0;
   } while (false);
   close_socket(peer);
