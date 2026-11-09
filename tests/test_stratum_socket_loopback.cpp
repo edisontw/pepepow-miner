@@ -74,6 +74,37 @@ int main() {
     if (!send_all(peer, auth_reply)) break;
     auto auth_events = pepepow::socket_io::receive_controller_line(client, controller, generation);
     if (!auth_events || auth_events->authorized != 1) break;
+    // Offline submit is permitted only for an authorized, current job.
+    const std::string difficulty =
+        R"({"id":null,"method":"mining.set_difficulty","params":[2]})" "\n";
+    const std::string notify =
+        std::string(R"({"id":null,"method":"mining.notify","params":["job1",")") +
+        std::string(64, 'a') +
+        R"(","","",[],"00004000","1d00ffff","67500000",true]})" "\n";
+    if (!send_all(peer, difficulty + notify)) break;
+    const auto work_events1 = pepepow::socket_io::receive_controller_line(
+        client, controller, generation);
+    const auto work_events2 = pepepow::socket_io::receive_controller_line(
+        client, controller, generation);
+    if (!work_events1 || !work_events2 ||
+        work_events1->applied != 1 || work_events2->applied != 1) break;
+    const auto active = controller.session().jobs().active();
+    if (!active) break;
+    if (pepepow::socket_io::send_controller_submit(
+            client, controller, generation + 1, *active,
+            "WALLET.worker", "00", 1, "67500000", "12345678")) break;
+    if (pepepow::socket_io::send_controller_submit(
+            client, controller, generation, *active,
+            "WALLET.worker", "xx", 1, "67500000", "12345678")) break;
+    if (!pepepow::socket_io::send_controller_submit(
+            client, controller, generation, *active,
+            "WALLET.worker", "00", 1, "67500000", "12345678")) break;
+    if (!receive_exact(peer,
+        R"({"id":3,"method":"mining.submit","params":["WALLET.worker","job1","00","67500000","12345678"]})" "\n")) break;
+    if (!send_all(peer, R"({"id":3,"result":true,"error":null})" "\n")) break;
+    const auto submit_events = pepepow::socket_io::receive_controller_line(
+        client, controller, generation);
+    if (!submit_events || submit_events->shares_accepted != 1) break;
     // A single TCP write can contain multiple JSONL frames; neither may be lost.
     const std::string lines = R"({"id":90,"result":true,"error":null})" "\n"
                               R"({"id":91,"result":false,"error":null})" "\n";
@@ -89,7 +120,7 @@ int main() {
     auto fresh = controller.make_subscribe_request();
     if (!fresh || fresh->find("\"id\":3") == std::string::npos) break;
     // A stale generation must not read bytes belonging to the new session.
-    const std::string fresh_reply = R"({"id":3,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n";
+    const std::string fresh_reply = R"({"id":4,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})" "\n";
     if (!send_all(peer, fresh_reply)) break;
     if (pepepow::socket_io::receive_controller_line(client, controller, generation)) break;
     const auto fresh_events = pepepow::socket_io::receive_controller_line(
