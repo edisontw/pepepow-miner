@@ -12,7 +12,11 @@ inline std::optional<OfflineStratumController::WorkEvents> receive_controller_li
     Socket socket, OfflineStratumController& controller, std::uint64_t generation) {
   if (generation != controller.session().session_generation()) return std::nullopt;
   std::string line;
-  if (!receive_line(socket, line)) return std::nullopt;
+  if (!receive_line(socket, line)) {
+    // A failed read leaves outstanding replies unknowable; retire this session.
+    controller.disconnected();
+    return std::nullopt;
+  }
   return controller.receive_work_events(line, generation);
 }
 
