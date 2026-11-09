@@ -273,3 +273,10 @@
 - Focused CTest `stratum_socket_loopback` is **PENDING** for new head. Local checkout/compile unavailable because github.com DNS resolution failed. Do not claim new native CI passed.
 - G0 **NOT PASSED**: independent full 32-byte digest and 10,000 genuinely independent parity cases missing; Windows 11 native/GPU/real pool untested. No live submit or mining.
 - Next: inspect exact-head CI for `374a080`, fix failures if any; otherwise add a bounded localhost-only request/reply transport using this line receiver and existing controller.
+
+## 2026-11-09 20:50+08 run update
+- Rechecked main `3ab4e56b16140f61f30d1af7ddc324d84040067b`, PR #2 before this status commit `d6bf14610495d747d112b0f254cbbb5dbffaea0c`, and PR #8 from `374a0804d98249c1680b98881a84969873bcfa0b` to `e91f47b4791c3da2a91eacbb97f871036d4396e4`.
+- Prior PR #8 head `374a080` had successful head-specific GitHub Actions run 42611220898. New head CI not yet reported as of this update; do not call the new change verified.
+- PR #8 commits `fea919f1`, `e91f47b4`: added `include/pepepow/stratum_loopback_transport.hpp` bounded JSONL socket-to-controller adapter with stale-generation precheck, and routed the authorization loopback fixture through it. No external endpoints, mining, or pool submit. Focused native CTest is registered but new-head CI and local build remain pending.
+- G0 **NOT PASSED**: no independently established complete 32-byte digest parity or 10,000 independent headers; Windows 11 physical native and GPU/pool evidence absent.
+- Next one task: inspect new-head CI; if green, extend the adapter test to assert stale-generation calls do not consume pending bytes, and address any failures minimally.
