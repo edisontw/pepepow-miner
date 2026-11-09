@@ -102,6 +102,12 @@ int main() {
     if (shutdown(client, SHUT_WR) != 0) break;
 #endif
     if (send_all(client, "must-fail\\n")) break;
+    // Failed authorize writes must discard their pending ID and generation.
+    const auto failed_auth_generation = controller.session().session_generation();
+    if (pepepow::socket_io::send_controller_authorize(
+            client, controller, failed_auth_generation, "WALLET.worker")) break;
+    if (controller.session().session_generation() == failed_auth_generation) break;
+    if (controller.make_authorize_request("WALLET.worker")) break;
     // A failed outbound request must invalidate the pending ID and generation.
     controller.disconnected();
     controller.connected();
@@ -112,7 +118,7 @@ int main() {
     if (controller.make_subscribe_request()) break;
     controller.connected();
     auto retry = controller.make_subscribe_request();
-    if (!retry || retry->find("\"id\":5") == std::string::npos) break;
+    if (!retry || retry->find("\"id\":6") == std::string::npos) break;
     result = 0;
   } while (false);
   close_socket(peer);
