@@ -44,6 +44,11 @@ int main() {
     pepepow::OfflineStratumController controller;
     controller.connected();
     auto generation = controller.session().session_generation();
+    // Invalid receive handles must not retire a healthy session or consume IDs.
+    if (pepepow::socket_io::receive_controller_line(invalid_socket, controller, generation)) break;
+    if (controller.session().session_generation() != generation) break;
+    if (pepepow::socket_io::receive_controller_line(client, controller, generation + 1)) break;
+    if (controller.session().session_generation() != generation) break;
     // Invalid handles must not reserve request IDs or retire a live generation.
     if (pepepow::socket_io::send_controller_subscribe(invalid_socket, controller, generation)) break;
     if (controller.session().session_generation() != generation) break;
