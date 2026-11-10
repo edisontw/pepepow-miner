@@ -133,6 +133,16 @@ class OfflineStratumController {
     if (authorize_id_ && *authorize_id_ == id) { authorize_id_.reset(); return true; }
     return session_.cancel_submit(std::to_string(id), generation);
   }
+  // Caller supplies monotonic milliseconds captured when the request was sent.
+  // A zero timeout is invalid; subtraction avoids overflow at the clock limit.
+  // Only an outstanding ID in the current generation may expire.
+  bool expire_request(std::uint64_t id, std::uint64_t generation,
+                      std::uint64_t sent_ms, std::uint64_t now_ms,
+                      std::uint64_t timeout_ms) {
+    if (timeout_ms == 0 || now_ms < sent_ms ||
+        now_ms - sent_ms < timeout_ms) return false;
+    return cancel_request(id, generation);
+  }
   bool difficulty(std::string_view line) { return session_.difficulty(line); }
   bool notify(std::string_view line) { return session_.notify(line); }
   std::optional<std::uint64_t> begin_submit(const JobSnapshot& job) {
