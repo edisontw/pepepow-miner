@@ -77,6 +77,11 @@ int main(int argc, char** argv) {
   const bool missing_subscribe_test = std::string(argv[1]) == "--self-test-missing-subscribe";
   const bool unexpected_test = std::string(argv[1]) == "--self-test-unexpected";
   const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test || malformed_test || unexpected_test || missing_authorize_test || missing_subscribe_test;
+  // Unknown flags are not pool logins; fail before emitting a request frame.
+  if (!self_test && argv[1][0] == '-') {
+    std::cerr << "Unknown option: " << argv[1] << '\n';
+    return 2;
+  }
   const std::string login = self_test ? "WALLET.worker" : argv[1];
   // Reject invalid credentials before emitting any outbound subscribe frame.
   if (!pepepow::encode_authorize_request(1, login)) {
