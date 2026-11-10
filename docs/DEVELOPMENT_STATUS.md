@@ -378,3 +378,9 @@
 - Previous PR #8 head `c3e7b13`: head-specific native workflow run 42751213376 SUCCESS. New head `c750ed4`: no workflow run returned at check time; new focused CTest **NOT YET VERIFIED**, no local build executed. Windows 11/GPU/live pool untested.
 - G0 **NOT PASSED**: no independently established full 32-byte golden digest or 10,000 independent parity cases; no Windows 11 native acceptance.
 - Next: verify `c750ed4` cross-platform CTest workflow; if failed fix smallest defect, otherwise add bounded offline CLI input handling for an actual pending-request timeout/error path.
+
+## 2026-11-10 13:45+08 run update
+- Main start/end `3ab4e56b16140f61f30d1af7ddc324d84040067b` (latest main commit search unchanged). PR #8 start `c750ed4bc7dcb4b085b6e7698f1985da9c9e8e23`, end `330f87be4c934a4b9438d614dce947e2cd384055`; PR #2 handoff branch updated here. PR #8 branch `feature/offline-stratum-job-lifecycle-20261106` checked directly; PR #2 branch `g0/source-audit-and-candidate-vector` checked directly.
+- PR #8 exact prior head `c750ed4` native CI run 42758011994 completed SUCCESS. Added `--self-test-missing-subscribe` EOF fixture in `tools/offline_stratum_replay.cpp` and `offline_replay_missing_subscribe` negative CTest in `tests/job_state/CMakeLists.txt`; commits `c746784a72d72fd0e15d2acde242b1fdc28688a1`, `330f87be4c934a4b9438d614dce947e2cd384055`. No live network, hashing or share submit.
+- New head-specific workflow not yet observed; no local compile/CTest because GitHub DNS unavailable in container. The new negative test is PENDING verification. This is an EOF lifecycle regression, not a real wall-clock timeout implementation. No independent G0 parity; **G0 NOT PASSED**. Windows 11/GPU/pool untested.
+- Next one task: inspect `330f87b` native CI, fix failures if any, then implement bounded pending-request timeout at the offline transport/controller boundary (with deterministic clock injection), not a CLI fake timeout.
