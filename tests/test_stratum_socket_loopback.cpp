@@ -212,6 +212,25 @@ int main() {
     controller.connected();
     auto after_eof = controller.make_subscribe_request();
     if (!after_eof || after_eof->find("\"id\":9") == std::string::npos) break;
+    // Deadline boundary must preserve the pending request until expiry.
+    const auto timeout_generation = controller.session().session_generation();
+    if (pepepow::socket_io::expire_controller_transport_request(
+            client, controller, timeout_generation, 9, 100, 109, 10)) break;
+    if (!controller.pending_status().subscribe_pending) break;
+    if (pepepow::socket_io::expire_controller_transport_request(
+            invalid_socket, controller, timeout_generation, 9, 100, 110, 10)) break;
+    if (!pepepow::socket_io::expire_controller_transport_request(
+            client, controller, timeout_generation, 9, 100, 110, 10)) break;
+    if (controller.pending_status().connected ||
+        controller.pending_status().subscribe_pending ||
+        controller.session().session_generation() == timeout_generation) break;
+    if (controller.receive_work_events(reply, timeout_generation).subscribed != 0) break;
+    controller.connected();
+    auto after_timeout = controller.make_subscribe_request();
+    if (!after_timeout || after_timeout->find("\\"id\\":10") == std::string::npos) break;
+    if (pepepow::socket_io::expire_controller_transport_request(
+            client, controller, timeout_generation, 10, 20, 1)) break;
+    if (!controller.pending_status().subscribe_pending) break;
     result = 0;
   } while (false);
   close_socket(peer);
