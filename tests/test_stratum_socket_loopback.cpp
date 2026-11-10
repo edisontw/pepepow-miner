@@ -227,7 +227,7 @@ int main() {
     if (controller.receive_work_events(reply, timeout_generation).subscribed != 0) break;
     controller.connected();
     auto after_timeout = controller.make_subscribe_request();
-    if (!after_timeout || after_timeout->find("\\"id\\":10") == std::string::npos) break;
+    if (!after_timeout || after_timeout->find("\"id\":10") == std::string::npos) break;
     if (pepepow::socket_io::expire_controller_transport_request(
             client, controller, timeout_generation, 10, 20, 1)) break;
     if (!controller.pending_status().subscribe_pending) break;
