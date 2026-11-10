@@ -46,6 +46,10 @@ add_test(NAME offline_replay_cancel COMMAND offline_stratum_replay --self-test-c
 add_test(NAME offline_replay_invalid_login COMMAND offline_stratum_replay "")
 set_tests_properties(offline_replay_invalid_login PROPERTIES WILL_FAIL TRUE)
 
+# Mistyped CLI flags must not be interpreted as mining logins.
+add_test(NAME offline_replay_unknown_option COMMAND offline_stratum_replay --unknown-option)
+set_tests_properties(offline_replay_unknown_option PROPERTIES WILL_FAIL TRUE)
+
 # Unexpected replies must not be accepted merely because handshake succeeded.
 add_test(NAME offline_replay_unexpected COMMAND offline_stratum_replay --self-test-unexpected)
 set_tests_properties(offline_replay_unexpected PROPERTIES WILL_FAIL TRUE)
