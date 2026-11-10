@@ -73,8 +73,9 @@ int main(int argc, char** argv) {
   if (std::string(argv[1]) == "--self-test-cancel") return cancellation_self_test();
   const bool truncated_test = std::string(argv[1]) == "--self-test-truncated";
   const bool malformed_test = std::string(argv[1]) == "--self-test-malformed";
+  const bool missing_authorize_test = std::string(argv[1]) == "--self-test-missing-authorize";
   const bool unexpected_test = std::string(argv[1]) == "--self-test-unexpected";
-  const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test || malformed_test || unexpected_test;
+  const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test || malformed_test || unexpected_test || missing_authorize_test;
   const std::string login = self_test ? "WALLET.worker" : argv[1];
   // Reject invalid credentials before emitting any outbound subscribe frame.
   if (!pepepow::encode_authorize_request(1, login)) {
@@ -85,6 +86,11 @@ int main(int argc, char** argv) {
       std::string(R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})") + "\n" +
       R"({"id":2,"result":true,"error":null})" "\n" +
       R"({"id":null,"method":"mining.set_difficulty","params":[2]})" "\n");
+  if (missing_authorize_test) {
+    // A valid subscribe without an authorize reply must fail readiness.
+    fixture.str(std::string(R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})") + "\n");
+    fixture.clear();
+  }
   if (truncated_test) {
     fixture.str(std::string(R"({"id":1,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})") + "\n" +
                 R"({"id":2,"result":true,"error":null})" "\n" +
