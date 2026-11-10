@@ -156,5 +156,30 @@ int main() {
   CHECK(!bounded.begin_submit(*bw));
   CHECK(bounded.cancel_request(3, bg));
   CHECK(bounded.begin_submit(*bw) == 4099);
+  // Deterministic monotonic timeout: no sleep or wall clock required.
+  pepepow::OfflineStratumController timed;
+  timed.connected();
+  const auto tg = timed.session().session_generation();
+  CHECK(timed.make_subscribe_request().has_value());
+  CHECK(!timed.expire_request(1, tg, 100, 109, 10));
+  CHECK(!timed.expire_request(1, tg, 100, 99, 10));
+  CHECK(!timed.expire_request(1, tg, 100, 110, 0));
+  CHECK(!timed.expire_request(1, tg + 1, 100, 110, 10));
+  CHECK(timed.pending_status().subscribe_pending);
+  CHECK(timed.expire_request(1, tg, 100, 110, 10));
+  CHECK(!timed.pending_status().subscribe_pending);
+  CHECK(!timed.expire_request(1, tg, 100, 200, 10));
+  CHECK(!timed.subscribe_reply(sub, tg));
+  CHECK(timed.make_subscribe_request().has_value()); // ID 2, never reused
+  timed.disconnected(); timed.connected();
+  CHECK(!timed.expire_request(2, tg, 100, 200, 10));
+  CHECK(timed.make_subscribe_request().has_value()); // ID 3
+  const auto tg2 = timed.session().session_generation();
+  CHECK(timed.subscribe_reply(R"({"id":3,"result":[[["mining.set_difficulty","abc"],["mining.notify","abc"]],"0102abcd",4],"error":null})", tg2));
+  CHECK(timed.make_authorize_request("WALLET.worker").has_value()); // ID 4
+  CHECK(!timed.expire_request(4, tg2, 500, 509, 10));
+  CHECK(timed.expire_request(4, tg2, 500, 510, 10));
+  CHECK(!timed.authorize_reply(R"({"id":4,"result":true,"error":null})", tg2));
+  CHECK(timed.make_authorize_request("WALLET.worker").has_value()); // ID 5
   return EXIT_SUCCESS;
 }
