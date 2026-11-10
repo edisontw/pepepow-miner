@@ -50,6 +50,10 @@ set_tests_properties(offline_replay_invalid_login PROPERTIES WILL_FAIL TRUE)
 add_test(NAME offline_replay_unexpected COMMAND offline_stratum_replay --self-test-unexpected)
 set_tests_properties(offline_replay_unexpected PROPERTIES WILL_FAIL TRUE)
 
+# EOF before subscribe reply must not report a healthy handshake.
+add_test(NAME offline_replay_missing_subscribe COMMAND offline_stratum_replay --self-test-missing-subscribe)
+set_tests_properties(offline_replay_missing_subscribe PROPERTIES WILL_FAIL TRUE)
+
 # A subscribe reply without authorize reply leaves an outstanding request.
 add_test(NAME offline_replay_missing_authorize COMMAND offline_stratum_replay --self-test-missing-authorize)
 set_tests_properties(offline_replay_missing_authorize PROPERTIES WILL_FAIL TRUE)
