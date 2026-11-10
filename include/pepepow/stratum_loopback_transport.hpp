@@ -20,6 +20,21 @@ inline std::optional<OfflineStratumController::WorkEvents> receive_controller_li
   return controller.receive_work_events(line, generation);
 }
 
+// Retire the entire transport generation after a request deadline. A late
+// reply cannot be attributed to a new connection even if its ID is valid.
+inline bool expire_controller_transport_request(
+    Socket socket, OfflineStratumController& controller,
+    std::uint64_t generation, std::uint64_t id,
+    std::uint64_t sent_ms, std::uint64_t now_ms,
+    std::uint64_t timeout_ms) {
+  if (socket == invalid_socket ||
+      generation != controller.session().session_generation()) return false;
+  if (!controller.expire_request(id, generation, sent_ms, now_ms, timeout_ms))
+    return false;
+  controller.disconnected();
+  return true;
+}
+
 // Send a controller-owned subscribe request only for the active generation.
 // Any socket write failure invalidates the session: a partial JSONL write
 // cannot safely be retried on the same connection.
