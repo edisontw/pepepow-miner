@@ -156,6 +156,13 @@ int main(int argc, char** argv) {
               << rejected << "/" << ignored << '\n';
     return 1;
   }
+  const auto pending = controller.pending_status();
+  std::cerr << "offline_pending: generation=" << pending.generation
+            << " connected=" << pending.connected
+            << " subscribed=" << pending.subscribed
+            << " subscribe=" << pending.subscribe_pending
+            << " authorize=" << pending.authorize_pending
+            << " submit=" << pending.submit_pending << '\n';
   const auto shares = controller.session().share_counters();
   std::cerr << "offline: subscribed=" << subscribed
             << " authorized=" << authorized
