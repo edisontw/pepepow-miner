@@ -54,6 +54,11 @@ int main() {
     if (controller.session().session_generation() != generation) break;
     auto subscribe = controller.make_subscribe_request();
     if (!subscribe) break;
+    // Invalid and stale receive attempts must preserve an outstanding request.
+    if (pepepow::socket_io::receive_controller_line(invalid_socket, controller, generation)) break;
+    if (pepepow::socket_io::receive_controller_line(client, controller, generation + 1)) break;
+    if (controller.session().session_generation() != generation) break;
+    if (controller.make_subscribe_request()) break; // Existing ID 1 is still pending.
     if (!send_all(client, *subscribe)) break;
     std::array<char, 512> buffer{};
     if (!receive_exact(peer, *subscribe)) break;
