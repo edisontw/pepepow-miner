@@ -436,3 +436,10 @@
 - Reproduced PR #9 current C++20 endpoint parser, CLI and CMake/CTest fixture in an isolated Linux container: compile PASS; focused CTest **14/14 PASS**. This is a reconstruction from fetched file content, not a repository checkout or Windows native test. PR #8 exact-head Actions 42785561153 previously SUCCESS; no new PR #8 run.
 - G0 **NOT PASSED**: independent complete 32-byte digest, 10,000 independent parity including chain headers, Windows 11 hardware evidence absent. No real pool, live submit, keys or mining.
 - Next single task: recheck PR #9 exact-head CI/job availability; once GitHub Actions recovers, obtain a real cross-platform pass or actionable failing logs before any CLI integration. Keep PR #9 unchanged until proven defect.
+
+## 2026-11-10 21:45+08 run update
+- Fresh main HEAD `3ab4e56b16140f61f30d1af7ddc324d84040067b`; PR #8 `5124bb4e66e56bd85d12818232a16049e92040ea`; PR #9 `063d84eac51c6bc7134c970567bda75171a1f526`; PR #2 pre-handoff `b25e608d641b971cd2339462456a2c1505b0dec8`. No source change this run.
+- PR #9 exact-head native CI run https://github.com/edisontw/pepepow-miner/actions/runs/42810398536 failed on all three runners without job steps; GitHub job-steps API returned empty lists. Similar step-less failures affected PR #2 workflows (e.g. 42818147910). This is consistent with infrastructure/setup failure but remains unproven; no code failure inferred.
+- Requested failed-jobs rerun of PR #9 run 42810398536; GitHub accepted attempt #3, initially QUEUED. Its outcome is pending. Previous head `403cea92` native run 42801570230 passed, but does not validate current head. Do not add features while exact-head CI is red/pending.
+- G0 **NOT PASSED**: independent full 32-byte digest, >=10,000 truly independent parity including chain headers, and Windows 11 native evidence remain absent. No pool, mining, submit, release or main merge.
+- Next one task: inspect attempt #3 for PR #9 run 42810398536; if it produces real failure logs, make only the smallest evidenced fix; if green, start a narrowly scoped localhost handshake integration using existing PR #8 controller/socket components without duplicating parser code.
