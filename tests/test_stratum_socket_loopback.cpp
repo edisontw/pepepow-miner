@@ -229,7 +229,7 @@ int main() {
     auto after_timeout = controller.make_subscribe_request();
     if (!after_timeout || after_timeout->find("\"id\":10") == std::string::npos) break;
     if (pepepow::socket_io::expire_controller_transport_request(
-            client, controller, timeout_generation, 10, 20, 1)) break;
+            client, controller, timeout_generation, 10, 20, 21, 1)) break;
     if (!controller.pending_status().subscribe_pending) break;
     result = 0;
   } while (false);
