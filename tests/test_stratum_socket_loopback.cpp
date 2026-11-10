@@ -54,6 +54,10 @@ int main() {
     if (controller.session().session_generation() != generation) break;
     auto subscribe = controller.make_subscribe_request();
     if (!subscribe) break;
+    auto pending = controller.pending_status();
+    if (!pending.connected || !pending.subscribe_pending || pending.subscribed ||
+        pending.authorize_pending || pending.submit_pending != 0 ||
+        pending.generation != generation) break;
     // Invalid and stale receive attempts must preserve an outstanding request.
     if (pepepow::socket_io::receive_controller_line(invalid_socket, controller, generation)) break;
     if (pepepow::socket_io::receive_controller_line(client, controller, generation + 1)) break;
@@ -73,6 +77,8 @@ int main() {
     count = recv(client, buffer.data(), static_cast<int>(buffer.size()), 0);
     if (count <= 0 || controller.receive_work_events(
         std::string_view(buffer.data(), static_cast<std::size_t>(count)), generation).subscribed != 1) break;
+    pending = controller.pending_status();
+    if (pending.subscribe_pending || !pending.subscribed) break;
     // Invalid credentials and stale generation must not allocate an ID.
     if (pepepow::socket_io::send_controller_authorize(
             client, controller, generation, "bad\nlogin")) break;
@@ -86,10 +92,12 @@ int main() {
     const std::string expected_authorize =
         R"({"id":2,"method":"mining.authorize","params":["WALLET.worker","x"]})" "\n";
     if (!receive_exact(peer, expected_authorize)) break;
+    if (!controller.pending_status().authorize_pending) break;
     const std::string auth_reply = R"({"id":2,"result":true,"error":null})" "\n";
     if (!send_all(peer, auth_reply)) break;
     auto auth_events = pepepow::socket_io::receive_controller_line(client, controller, generation);
-    if (!auth_events || auth_events->authorized != 1) break;
+    if (!auth_events || auth_events->authorized != 1 ||
+        controller.pending_status().authorize_pending) break;
     // Offline submit is permitted only for an authorized, current job.
     const std::string difficulty =
         R"({"id":null,"method":"mining.set_difficulty","params":[2]})" "\n";
@@ -124,7 +132,8 @@ int main() {
     if (!send_all(peer, R"({"id":3,"result":true,"error":null})" "\n")) break;
     const auto submit_events = pepepow::socket_io::receive_controller_line(
         client, controller, generation);
-    if (!submit_events || submit_events->shares_accepted != 1) break;
+    if (!submit_events || submit_events->shares_accepted != 1 ||
+        controller.pending_status().submit_pending != 0) break;
     // A single TCP write can contain multiple JSONL frames; neither may be lost.
     const std::string lines = R"({"id":90,"result":true,"error":null})" "\n"
                               R"({"id":91,"result":false,"error":null})" "\n";
@@ -165,7 +174,9 @@ int main() {
     if (pepepow::socket_io::send_controller_authorize(
             client, controller, failed_auth_generation, "WALLET.worker")) break;
     if (controller.session().session_generation() == failed_auth_generation) break;
-    if (controller.make_authorize_request("WALLET.worker")) break;
+    if (controller.make_authorize_request("WALLET.worker") ||
+        controller.pending_status().authorize_pending ||
+        controller.pending_status().connected) break;
     // A failed outbound request must invalidate the pending ID and generation.
     controller.disconnected();
     controller.connected();
