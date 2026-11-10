@@ -172,6 +172,10 @@ int main(int argc, char** argv) {
             << " shares_accepted=" << shares.accepted
             << " shares_rejected=" << shares.rejected
             << " shares_pool_errors=" << shares.pool_errors << '\n';
-  return (subscribed == 1 && authorized == 1 &&
+  // A transcript is not healthy if request replies never cleared their IDs.
+  // This also makes --self-test check the CLI pending-status lifecycle.
+  const bool no_pending = !pending.subscribe_pending &&
+                          !pending.authorize_pending && !pending.submit_pending;
+  return (subscribed == 1 && authorized == 1 && no_pending &&
           (!self_test || (applied == 1 && ignored == 0 && rejected == 0))) ? 0 : 1;
 }
