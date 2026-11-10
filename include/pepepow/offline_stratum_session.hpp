@@ -19,6 +19,7 @@ class OfflineStratumSession {
     std::uint64_t pool_errors = 0;
   };
   ShareCounters share_counters() const { return counters_; }
+  std::size_t pending_submit_count() const { return pending_submits_.size(); }
   void connected() {
     ++session_generation_;
     subscription_.reset();
