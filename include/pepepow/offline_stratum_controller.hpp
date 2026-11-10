@@ -146,6 +146,19 @@ class OfflineStratumController {
                                            std::uint64_t generation) {
     return session_.submit_reply(line, std::to_string(id), generation);
   }
+  struct PendingStatus {
+    std::uint64_t generation;
+    bool connected;
+    bool subscribed;
+    bool subscribe_pending;
+    bool authorize_pending;
+    std::size_t submit_pending;
+  };
+  PendingStatus pending_status() const {
+    return {session_.session_generation(), connected_, subscribed_,
+            subscribe_id_.has_value(), authorize_id_.has_value(),
+            session_.pending_submit_count()};
+  }
   const OfflineStratumSession& session() const { return session_; }
  private:
   // Extract only a canonical decimal ID from the fixed-dialect prefix.
