@@ -50,6 +50,10 @@ set_tests_properties(offline_replay_invalid_login PROPERTIES WILL_FAIL TRUE)
 add_test(NAME offline_replay_unexpected COMMAND offline_stratum_replay --self-test-unexpected)
 set_tests_properties(offline_replay_unexpected PROPERTIES WILL_FAIL TRUE)
 
+# A subscribe reply without authorize reply leaves an outstanding request.
+add_test(NAME offline_replay_missing_authorize COMMAND offline_stratum_replay --self-test-missing-authorize)
+set_tests_properties(offline_replay_missing_authorize PROPERTIES WILL_FAIL TRUE)
+
 # Native loopback socket smoke test: OS-assigned 127.0.0.1 port only.
 add_executable(test_stratum_socket_loopback ../test_stratum_socket_loopback.cpp)
 target_compile_features(test_stratum_socket_loopback PRIVATE cxx_std_20)
