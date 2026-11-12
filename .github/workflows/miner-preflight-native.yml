@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'tools/miner_preflight.cpp'
+      - 'include/pepepow/local_endpoint.hpp'
       - 'tests/preflight/CMakeLists.txt'
       - '.github/workflows/miner-preflight-native.yml'
   workflow_dispatch:
