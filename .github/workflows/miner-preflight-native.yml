@@ -4,6 +4,8 @@ on:
     paths:
       - 'tools/miner_preflight.cpp'
       - 'include/pepepow/local_endpoint.hpp'
+      - 'include/pepepow/local_handshake.hpp'
+      - 'tests/preflight/test_local_handshake.cpp'
       - 'tests/preflight/CMakeLists.txt'
       - '.github/workflows/miner-preflight-native.yml'
   workflow_dispatch:
