@@ -1,0 +1,90 @@
+#pragma once
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <utility>
+
+namespace pepepow {
+// Offline Stratum work lifecycle only. No networking, hashing or submitting.
+struct JobSnapshot {
+  std::string id;
+  std::uint64_t generation;
+  double difficulty;
+};
+
+class JobState {
+ public:
+  void connected() { reset_session(); connected_ = true; }
+  void disconnected() { reset_session(); }
+  void authorized(bool ok) {
+    authorized_ = connected_ && ok;
+    if (!authorized_) { ++generation_; active_.reset(); }
+  }
+  bool set_difficulty(double value) {
+    if (!(value > 0.0) || !finite(value)) return false;
+    difficulty_ = value;
+    return true;
+  }
+  bool notify(std::string id, bool clean_jobs) {
+    if (!connected_ || !authorized_ || id.empty()) return false;
+    // Latest-job-only: every notification replaces the active snapshot, even
+    // with a repeated ID and clean_jobs=false. Never revive superseded work.
+    (void)clean_jobs;
+    ++generation_;
+    active_ = JobSnapshot{std::move(id), generation_, difficulty_};
+    return true;
+  }
+  // Call on an in-session work invalidation (e.g. extranonce update).
+  // Do not allow a previously queued share to survive a template reset.
+  void invalidate_work() { ++generation_; active_.reset(); }
+  // Typed events are the boundary between a future strict Stratum JSON parser
+  // and the offline job lifecycle. No wire data or networking is handled here.
+  enum class EventKind { Connected, Disconnected, Authorized, Difficulty, Notify, ExtranonceChanged };
+  struct Event {
+    EventKind kind;
+    bool authorized = false;
+    double difficulty = 0.0;
+    std::string job_id;
+    bool clean_jobs = false;
+    Event(EventKind kind_value, bool authorized_value = false,
+          double difficulty_value = 0.0, std::string job_id_value = {},
+          bool clean_jobs_value = false)
+        : kind(kind_value), authorized(authorized_value),
+          difficulty(difficulty_value), job_id(std::move(job_id_value)),
+          clean_jobs(clean_jobs_value) {}
+  };
+  bool apply(const Event& event) {
+    switch (event.kind) {
+      case EventKind::Connected: connected(); return true;
+      case EventKind::Disconnected: disconnected(); return true;
+      case EventKind::Authorized: authorized(event.authorized); return true;
+      case EventKind::Difficulty: return connected_ && set_difficulty(event.difficulty);
+      case EventKind::Notify: return notify(event.job_id, event.clean_jobs);
+      case EventKind::ExtranonceChanged:
+        if (!authorized_) return false;
+        invalidate_work(); return true;
+    }
+    return false;
+  }
+  std::optional<JobSnapshot> active() const { return active_; }
+  bool can_submit(const JobSnapshot& job) const {
+    return authorized_ && active_ && job.generation == generation_ &&
+           job.generation == active_->generation && job.id == active_->id &&
+           job.difficulty == active_->difficulty;
+  }
+ private:
+  void reset_session() {
+    ++generation_;
+    authorized_ = false;
+    connected_ = false;
+    active_.reset();
+    difficulty_ = 1.0;  // Do not reuse the previous pool session's target.
+  }
+  static bool finite(double value) { return value <= 1.7976931348623157e308; }
+  std::uint64_t generation_ = 0;
+  double difficulty_ = 1.0;
+  bool authorized_ = false;
+  bool connected_ = false;
+  std::optional<JobSnapshot> active_;
+};
+}  // namespace pepepow
