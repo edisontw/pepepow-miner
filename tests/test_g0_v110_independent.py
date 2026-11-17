@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import tempfile
 from pathlib import Path
 import sys
 import unittest
@@ -50,6 +52,24 @@ class IndependentV110Test(unittest.TestCase):
                 wrong[-1] ^= 1
                 self.assertNotEqual(got, bytes(wrong))
                 self.assertEqual(got[::-1].hex(), r['display_hash'])
+
+    def test_cli_exit_status_valid_and_poisoned_final_byte(self):
+        script = REPO / 'tools/g0_v110_independent.py'
+        success = subprocess.run([sys.executable, str(script), str(VECTORS)],
+                                 capture_output=True, text=True, check=False)
+        self.assertEqual(success.returncode, 0, success.stdout + success.stderr)
+        self.assertIn('matched: 10 mismatched: 0', success.stdout)
+        first = json.loads(VECTORS.read_text(encoding='utf-8').splitlines()[0])
+        wrong = bytearray.fromhex(first['expected_core_function_output_hex'])
+        wrong[-1] ^= 1
+        first['expected_core_function_output_hex'] = wrong.hex()
+        with tempfile.TemporaryDirectory() as td:
+            poisoned = Path(td) / 'poison.jsonl'
+            poisoned.write_text(json.dumps(first) + '\n', encoding='utf-8')
+            failure = subprocess.run([sys.executable, str(script), str(poisoned)],
+                                     capture_output=True, text=True, check=False)
+        self.assertEqual(failure.returncode, 1, failure.stdout + failure.stderr)
+        self.assertIn('MISMATCH', failure.stdout)
 
 if __name__ == '__main__':
     unittest.main()
