@@ -1,0 +1,126 @@
+name: G0 Ubuntu native digest parity
+
+on:
+  push:
+    branches: [g0/ubuntu-native-parity-20261118]
+    paths: [.github/workflows/g0-ubuntu-native-parity.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: g0-ubuntu-native-parity
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    name: Native parity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    defaults:
+      run:
+        shell: bash
+    env:
+      MINER_SHA: 10274f3b9d2ddeaf8f83f07ba4c7dd90f2819f5b
+      CORE_SHA: bc08108ceccd957c79040dc7fedc1d56d8d47f97
+      OPENLIBM_SHA: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+      HEADER_SHA: b30e49b34172012dfe2c8c2721d83009e2a48c7d5ac1202c6ac03451f6eb7cb3
+      GOLDEN_TSV_SHA: 73007ec4247215653c54a665dfa8c96f98a08d18593bf36e2d81bfc895c58afb
+    steps:
+      - name: Record native environment
+        env:
+          EXPECTED_OS: ${{ matrix.os }}
+        run: |
+          cat /etc/os-release
+          source /etc/os-release
+          test "$ID-$VERSION_ID" = "$EXPECTED_OS"
+          test "$(uname -m)" = x86_64
+          uname -a
+          lscpu | sed -n '/Model name:/p'
+          gcc --version | sed -n '1p'
+          cmake --version | sed -n '1p'
+          python3 -VV
+          ldd --version | sed -n '1p'
+          python3 -c 'import ctypes; mode = ctypes.CDLL(None).fegetround(); print(f"fegetround={mode}"); assert mode == 0'
+      - name: Fetch reviewed source commits
+        run: |
+          checkout() {
+            local url=$1 dir=$2 sha=$3
+            git init -q "$dir"
+            git -C "$dir" fetch --no-tags --depth 1 "$url" "$sha"
+            git -C "$dir" checkout --detach FETCH_HEAD
+            test "$(git -C "$dir" rev-parse HEAD)" = "$sha"
+            test -z "$(git -C "$dir" status --porcelain)"
+          }
+          checkout https://github.com/edisontw/pepepow-miner.git miner "$MINER_SHA"
+          checkout https://github.com/MattF42/PePe-core.git core "$CORE_SHA"
+          checkout https://github.com/JuliaMath/openlibm.git openlibm "$OPENLIBM_SHA"
+      - name: Build openlibm and verify the input corpus
+        run: |
+          cmake -S openlibm -B openlibm-build -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/openlibm"
+          cmake --build openlibm-build --parallel 2
+          sha256sum openlibm-build/libopenlibm.a
+          mkdir -p g0-out
+          python3 miner/tests/generate_g0_headers.py --count 10000 > g0-out/headers.tsv
+          printf '%s  %s\n' "$HEADER_SHA" g0-out/headers.tsv | sha256sum -c -
+          vectors=miner/tests/vectors/candidates/explorer-chain-4371217-4371226.jsonl
+          python3 miner/tools/g0_v110_independent.py "$vectors"
+          python3 - "$vectors" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+          rows = [json.loads(line) for line in Path(sys.argv[1]).read_text().splitlines()]
+          assert len(rows) == 10
+          assert all(bytes.fromhex(r['display_hash'])[::-1].hex() ==
+                     r['expected_core_function_output_hex'] for r in rows)
+          last = rows[-1]
+          digest = bytearray.fromhex(last['expected_core_function_output_hex'])
+          digest[-1] ^= 1
+          last['expected_core_function_output_hex'] = digest.hex()
+          Path('g0-out/chain-poison.jsonl').write_text(''.join(json.dumps(r) + '\n' for r in rows))
+          PY
+          code=0
+          python3 miner/tools/g0_v110_independent.py g0-out/chain-poison.jsonl || code=$?
+          test "$code" -eq 1
+      - name: Compare Release and Debug on 10000 inputs
+        run: |
+          vectors=miner/tests/vectors/candidates/explorer-chain-4371217-4371226.jsonl
+          python3 miner/tests/export_independent_v110_digests.py \
+            g0-out/headers.tsv g0-out/python.tsv --count 10000
+          for mode in Release Debug; do
+            build="build-$mode"
+            kat="$build/pepepow-kat"
+            cmake -S miner -B "$build" -DCMAKE_BUILD_TYPE="$mode" \
+              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_C_COMPILER=gcc \
+              -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
+              -DOPENLIBM_INCLUDE_DIR="$PWD/openlibm/include" \
+              -DOPENLIBM_LIBRARY="$PWD/openlibm-build/libopenlibm.a" \
+              -DPEPEPOW_CORE_SOURCE_DIR="$PWD/core" \
+              -DPEPEPOW_CORE_EXPECTED_SHA="$CORE_SHA"
+            cmake --build "$build" --parallel 2
+            grep -F 'HAVE_OPENLIBM=1' "$build/compile_commands.json"
+            grep -F -- '-fno-fast-math -ffp-contract=off' "$build/compile_commands.json"
+            ldd "$kat" > "g0-out/ldd-$mode.txt"
+            cat "g0-out/ldd-$mode.txt"
+            if grep -q 'libm[.]so' "g0-out/ldd-$mode.txt"; then
+              printf '%s\n' "Unexpected system libm linkage in $mode" >&2
+              exit 1
+            fi
+            python3 miner/tools/run_kat_corpus.py "$kat" "$vectors"
+            code=0
+            python3 miner/tools/run_kat_corpus.py "$kat" g0-out/chain-poison.jsonl || code=$?
+            test "$code" -eq 1
+            python3 miner/tests/export_core_reference_digests.py --kat "$kat" \
+              --corpus g0-out/headers.tsv --output "g0-out/core-$mode.tsv" --limit 10000
+            python3 miner/tests/compare_digest_parity.py \
+              "g0-out/core-$mode.tsv" g0-out/python.tsv --count 10000
+            printf '%s  %s\n' "$GOLDEN_TSV_SHA" "g0-out/core-$mode.tsv" | sha256sum -c -
+            printf '%s %s: 10000 full digests match the independent Python implementation and recorded baseline\n' \
+              "$RUNNER_OS" "$mode" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+          printf '%s  %s\n' "$GOLDEN_TSV_SHA" g0-out/python.tsv | sha256sum -c -
