@@ -653,3 +653,32 @@ done
 ```
 
 **G0 remains open.** The native final-digest matrix and Linux intermediate/thread checks are complete for the tested corpora. The trace harness currently requires Linux and a GNU-compatible linker. Windows native intermediate/thread evidence, remaining exceptional-path coverage, and the source/notices disposition are pending. The next unique validation task is to reproduce the intermediate and worker harness with native Windows 11 x64.
+
+## 2026-11-18 — Native Windows trace harness and hosted validation
+
+Draft PR #11 `b2a1af1fb475e3c5002b02bf92bb15de9afcd5fc` extends `tests/check_g0_v110_trace.py` to Windows x64 with MSYS2 UCRT64. Windows uses explicit DLL exports and releases the loaded handles before temporary-file cleanup. Both platforms verify round-to-nearest in x87 and MXCSR for the main thread and each worker. This change is confined to the validation harness.
+
+- [Windows x64 CI run 44340795071](https://github.com/edisontw/pepepow-miner/actions/runs/44340795071/job/134929883227) succeeded on Windows Server 2025 build 26100, MSYS2 UCRT64 GCC 16.2.0 and CPython 3.14.10. The workflow commit was `8651fa5183d8f394be913f07e45e2c5899e3b934`, and the checked-out harness was pinned to the PR #11 revision above.
+- In each of Release and Debug on that host, all 541 traces matched through the first pass, seed, matrix, mixed bytes and final digest. Platform math yielded 508/34,624 differing FP64 row accumulators; the pinned OpenLibm diagnostic yielded 0/34,624. The entire frozen digest TSV matched SHA256 `73007ec4247215653c54a665dfa8c96f98a08d18593bf36e2d81bfc895c58afb`, and 10,512/10,512 concurrent full-digest comparisons passed with eight workers in each mode.
+- Local Debian 13.6 x64 Release and Debug reproduced the existing Linux result with the revised harness, 541 traces and 10,512 worker digest checks per mode. Existing Python tests passed 41/41.
+- **G0 remains open.** The hosted run establishes Windows Server/UCRT64 behavior. The Windows 11 workstation still needs the intermediate/thread run. The earlier Windows 11 final-digest run is valid and can supply its existing independent TSV to the updated harness. The singularity guard, NaN/Inf recovery loop, and source/notices disposition remain pending.
+
+Run on the existing Windows 11 workstation in the MSYS2 UCRT64 shell from the original test. These commands reuse the checked-out Core, the existing OpenLibm archive, and the previously verified independent Python TSV:
+
+```bash
+(
+  set -euo pipefail
+  cd /c/g0-win
+  revision=b2a1af1fb475e3c5002b02bf92bb15de9afcd5fc
+  git -C miner-g0 fetch origin "$revision"
+  git -C miner-g0 switch --detach "$revision"
+  {
+    python -c 'import platform; print(platform.platform(), platform.machine())'
+    for mode in Release Debug; do
+      python -u miner-g0/tests/check_g0_v110_trace.py --mode "$mode" --workers 8 \
+        --core core --openlibm openlibm --archive openlibm/libopenlibm.a \
+        --python-digests g0-out/python.tsv || exit $?
+    done
+  } 2>&1 | tee g0-out/trace-win11.log
+)
+```
