@@ -1,0 +1,78 @@
+name: G0 Ubuntu intermediate and worker parity
+
+on:
+  push:
+    branches: [g0/ubuntu-native-parity-20261118]
+    paths: [.github/workflows/g0-ubuntu-native-trace.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: g0-ubuntu-native-trace
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    name: Intermediate and worker parity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    defaults:
+      run:
+        shell: bash
+    env:
+      MINER_SHA: 7404f67351ceae9782ebe90b0dbe01ee8a141992
+      CORE_SHA: bc08108ceccd957c79040dc7fedc1d56d8d47f97
+      OPENLIBM_SHA: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+      HEADER_SHA: b30e49b34172012dfe2c8c2721d83009e2a48c7d5ac1202c6ac03451f6eb7cb3
+
+    steps:
+      - name: Record native environment
+        env:
+          EXPECTED_OS: ${{ matrix.os }}
+        run: |
+          cat /etc/os-release
+          source /etc/os-release
+          test "$ID-$VERSION_ID" = "$EXPECTED_OS"
+          test "$(uname -m)" = x86_64
+          uname -a
+          lscpu | sed -n '/Model name:/p'
+          gcc --version | sed -n '1p'
+          cmake --version | sed -n '1p'
+          python3 -VV
+          ldd --version | sed -n '1p'
+          python3 -c 'import ctypes; mode = ctypes.CDLL(None).fegetround(); print(f"fegetround={mode}"); assert mode == 0'
+      - name: Fetch reviewed source commits
+        run: |
+          checkout() {
+            local url=$1 dir=$2 sha=$3
+            git init -q "$dir"
+            git -C "$dir" fetch --no-tags --depth 1 "$url" "$sha"
+            git -C "$dir" checkout --detach FETCH_HEAD
+            test "$(git -C "$dir" rev-parse HEAD)" = "$sha"
+            test -z "$(git -C "$dir" status --porcelain)"
+          }
+          checkout https://github.com/edisontw/pepepow-miner.git miner "$MINER_SHA"
+          checkout https://github.com/MattF42/PePe-core.git core "$CORE_SHA"
+          checkout https://github.com/JuliaMath/openlibm.git openlibm "$OPENLIBM_SHA"
+      - name: Build openlibm and prepare independent reference digests
+        run: |
+          cmake -S openlibm -B openlibm-build -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/openlibm"
+          cmake --build openlibm-build --parallel 2
+          mkdir -p g0-out
+          python3 miner/tests/generate_g0_headers.py --count 10000 > g0-out/headers.tsv
+          printf '%s  %s\n' "$HEADER_SHA" g0-out/headers.tsv | sha256sum -c -
+          python3 miner/tests/export_independent_v110_digests.py \
+            g0-out/headers.tsv g0-out/python.tsv --count 10000
+      - name: Compare intermediate states and concurrent calls in Release and Debug
+        run: |
+          for mode in Release Debug; do
+            python3 -u miner/tests/check_g0_v110_trace.py --mode "$mode" --workers 8 \
+              --core core --openlibm openlibm --archive openlibm-build/libopenlibm.a \
+              --python-digests g0-out/python.tsv
+          done
