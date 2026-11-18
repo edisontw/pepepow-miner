@@ -626,3 +626,30 @@ The native OS digest results below supersede earlier platform-pending notes. The
 - Both Ubuntu runners used CMake 3.31.6 and recorded `FE_TONEAREST`. The Core compilation used `HAVE_OPENLIBM=1`, `-fno-fast-math` and `-ffp-contract=off` in both modes, with `-O3 -DNDEBUG` in Release and `-g` in Debug. The workflow verified the absence of a system libm dynamic dependency. On each Ubuntu runner both builds and independent Python passed the ten frozen chain vectors and rejected deliberate last-byte corruption with exit 1.
 - [Actions run 44329051886](https://github.com/edisontw/pepepow-miner/actions/runs/44329051886) completed successfully on the [validation-only workflow commit](https://github.com/edisontw/pepepow-miner/blob/82f03e42abfd67ba363f457f5c4329f5a98b0efb/.github/workflows/g0-ubuntu-native-parity.yml), `82f03e42abfd67ba363f457f5c4329f5a98b0efb`. It used two standard runners on a dedicated push-filtered branch. Main stayed at `8c762af16901fc7c826cc400e3098cbc4e4530ca`. No PR was merged and no live pool was used.
 - **G0 remains open.** The native final-digest matrix is complete for this pinned corpus and the three requested OSes. Earlier libm intermediate differences remain a coverage concern for inputs outside this corpus; worker consistency, intermediate-state and nonlinear-branch coverage, and source/notices sign-off remain open. Next unique task: build a bounded intermediate-state and concurrent-worker comparison against the same pinned Core, retaining exact inputs and first differences.
+
+## 2026-11-18 — Linux intermediate-state and native-thread parity
+
+Added [the trace and worker harness](https://github.com/edisontw/pepepow-miner/blob/7404f67351ceae9782ebe90b0dbe01ee8a141992/tests/check_g0_v110_trace.py) to Draft PR #11 at `7404f67351ceae9782ebe90b0dbe01ee8a141992`. It builds an original shared Core reference and a temporary instrumented copy from the clean pinned PePe-core checkout `bc08108ceccd957c79040dc7fedc1d56d8d47f97`. The instrumented copy captures state at existing operations and must match the original Core digest. Both copies use the pinned OpenLibm v0.8.7 static archive and strict compiler FP flags. The native threaded run calls the original reference, with independent expected outputs fixed by the previously verified 10,000-row TSV SHA256. No consensus implementation was changed.
+
+| Environment | Intermediate trace, Release and Debug (per mode) | Concurrent original Core (per mode) |
+| --- | --- | --- |
+| Debian 13.6 x86_64, GCC 14.2.0, Python 3.12.14 | 541/541 trace cases; 0 differing digest bytes | 10,512/10,512 digests across 8 native threads |
+| Ubuntu 22.04.5 x86_64, GCC 11.4.0 | 541/541 trace cases; 0 differing digest bytes | 10,512/10,512 digests across 8 native threads |
+| Ubuntu 24.04.5 x86_64, GCC 13.3.0 | 541/541 trace cases; 0 differing digest bytes | 10,512/10,512 digests across 8 native threads |
+
+- Each bounded trace pass covered 541 cases (540 distinct headers), including 10 frozen chain vectors, fixed-prefix nonce variations, and independent header field changes. First-pass BLAKE3, matrix seed, all 4,096 matrix cells per case, the mixed 32 bytes before the final BLAKE3, and the final 32-byte digest matched bit for bit in all six environment/mode combinations. The thread check shards the entire corpus and gives each worker the same 64 additional inputs. Each worker checks the rounding mode and uses an independent output buffer.
+- The independent Python algorithm with platform math had 732/34,624 differing FP64 accumulated row products in each mode, while the mixed bytes and final digests remained equal. The first witness was `g0-synthetic-00000`, nonce `2147483648`, `product[9]`: Python/glibc `0x1.b221bce896ff6p+15`, Core/OpenLibm `0x1.b221bce896ff7p+15`. The exact header is logged. In a separate diagnostic pass, selecting the same pinned OpenLibm functions from Python produced 0/34,624 product differences in every mode. This second pass shares math primitives by design and leaves the Python hash algorithm independent.
+- The Core probe saw 10 of 12 nonlinear family/quadrant combinations, with counters `[13416, 8494, 5519, 0, 8595, 2330, 3106, 8371, 0, 6099, 8656, 8747]`. The singularity guard and NaN/Inf recovery loop were not exercised. Local negative checks verified ambiguous instrumentation-anchor rejection and full-digest last-byte mismatch reporting. Existing Python tests remained 41/41 green.
+- The [two-job native Ubuntu run](https://github.com/edisontw/pepepow-miner/actions/runs/44334370698) succeeded on the validation-only workflow commit `bbe134bf6e8c81775439e286cb5dbcb1d646c6d9`. The workflow checks out the tested PR #11 commit exactly. Main remained `8c762af16901fc7c826cc400e3098cbc4e4530ca`. No PR merge, live pool, or release was performed.
+
+Reproduce with the same pinned checkouts and static PIC archive used in the earlier native digest run:
+
+```sh
+for mode in Release Debug; do
+  python3 miner/tests/check_g0_v110_trace.py --mode "$mode" --workers 8 \
+    --core core --openlibm openlibm --archive openlibm-build/libopenlibm.a \
+    --python-digests g0-out/python.tsv
+done
+```
+
+**G0 remains open.** The native final-digest matrix and Linux intermediate/thread checks are complete for the tested corpora. The trace harness currently requires Linux and a GNU-compatible linker. Windows native intermediate/thread evidence, remaining exceptional-path coverage, and the source/notices disposition are pending. The next unique validation task is to reproduce the intermediate and worker harness with native Windows 11 x64.
