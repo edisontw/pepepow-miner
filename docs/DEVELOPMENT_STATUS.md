@@ -604,3 +604,10 @@ sha256sum g0-out/{headers,core,python}.tsv
 ```
 
 **G0 NOT PASSED.** The Debian digest gate passed. Remaining acceptance includes native Windows 11 x64 and Ubuntu 22.04/24.04 x64 Debug/Release evidence, cross-platform FP64 and intermediate/worker coverage, and closure of source/notice evidence. Next unique task: reproduce the same pinned 10,000-vector corpus on native Windows 11 x64, comparing the recorded digest SHA256 and preserving the first full mismatch if one occurs.
+
+
+## 2026-11-18 22:23 Asia/Taipei — Core TSV atomic publication (focused local regression)
+- Rechecked main at run start: `8c762af16901fc7c826cc400e3098cbc4e4530ca`; PR #2 before change `30dbcc31ff7b03996b8946a251109d1a9c632aee`, PR #11 Draft `10274f3b9d2ddeaf8f83f07ba4c7dd90f2819f5b`. Do not mistake these for future HEADs.
+- Patched existing `tests/export_core_reference_digests.py` on PR #2: write Core reference digest TSV to a temporary file in the output directory; validate every requested row, reject excess rows, then atomically replace output with `os.replace`. A failed Core subprocess, malformed row, short or extra corpus leaves prior output untouched. No consensus algorithm changes. Commit `db8588dda27110d629fdfa96788f7ec41bef67b9`.
+- Local Linux x86_64 Python focused regression using isolated executable fake KAT: 6/6 PASS (success, short corpus, extra corpus, malformed second row, bad KAT, same input/output path). This is exporter I/O behavior only; fake KAT does NOT validate HooHash, Windows or Ubuntu. Test harness was executed locally and was not committed. Existing prior Debian 10,000/10,000 Core-vs-Python parity evidence is historical, not rerun in this run.
+- G0 NOT PASSED. Windows 11 and Ubuntu 22.04/24.04 native parity remain unverified; next unique task is Windows 11 native Core/OpenLibm versus independent Python 10,000 full-digest parity with exact pinned inputs. No PR merge, no live pool.
