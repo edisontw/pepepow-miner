@@ -705,3 +705,64 @@ The owner provided complete UCRT64 Release and Debug terminal output for harness
 - MSYS2 UCRT64 GCC 16.2.0; OpenLibm archive SHA256 `3414fb0255e45edbd82b3a5d78fb16afed4919b5a7b8a5b3b8ee92ce8cb4d7e8` in both modes.
 - Release and Debug each passed 541 full traces and 10,512/10,512 concurrent full-digest checks with eight native workers. Each mode reported 508/34,624 platform-math product differences with identical mixed bytes and final digests, and 0/34,624 product differences in the pinned OpenLibm pass.
 - Direct exceptional-input probes were added after this workstation revision and were verified separately on Debian and Windows Server 2025. The Windows 11 build identity and workstation trace/worker evidence remain pending, as does the source/notices disposition. Use the preceding workstation command with `revision=1f9f8133fab15356f2fb4698b08718136f84d590` on a confirmed Windows 11 installation to cover both the trace and the supplemental probes.
+
+## 2026-11-19 — Reference notices, native rerun, and Windows 11 deferral
+
+The owner approved deferring the Windows 11 workstation run so offline development can proceed. Its native evidence remains **pending (owner-approved deferral)**. The Windows 10 22H2 workstation, Windows Server 2025 x64 hosted runner, and earlier Windows x64 digest run with an unrecorded OS build retain the labels documented above. Ubuntu 22.04 and 24.04 native evidence is in [the digest matrix](https://github.com/edisontw/pepepow-miner/actions/runs/44329051886) and [the intermediate/worker matrix](https://github.com/edisontw/pepepow-miner/actions/runs/44334370698).
+
+### External reference source and notice inventory
+
+| Component | Audited inputs and notice source |
+| --- | --- |
+| PePe-core HooHash | Clean `MattF42/PePe-core@bc08108ceccd957c79040dc7fedc1d56d8d47f97`. The external build uses `src/crypto/hoohash/hoohash.c` and `hoohash.h` with the original Hoosat Oy and PePe-core notices and [Core COPYING](https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/COPYING). Core points to [Hoosat 9634f114](https://github.com/HoosatNetwork/hoohash/commit/9634f11410a2d71be21086e813263fa007fb6810), the explicit GPLv3-to-MIT license commit. The upstream `.c` and `.h` still carry GPL headers at that revision. Preserve the lineage and original notices. |
+| Core BLAKE3 | Compared the five C sources/headers bytewise against [upstream 1.5.1 at 54930c95](https://github.com/BLAKE3-team/BLAKE3/tree/54930c95227daaac4dcf1eb3028e2f4e0768d139). `blake3.h` and `blake3_portable.c` match. Core removes unused buffer-update assignments and fixes a comment in `blake3.c`, uses portable-only dispatch in `blake3_dispatch.c`, and adjusts ARM64EC platform detection in `blake3_impl.h`. Retain [the pinned upstream LICENSE](https://github.com/BLAKE3-team/BLAKE3/blob/54930c95227daaac4dcf1eb3028e2f4e0768d139/LICENSE) (CC0-1.0 or Apache-2.0) and the Core patch provenance. |
+| OpenLibm | Clean `JuliaMath/openlibm@9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d` (v0.8.7). The source archive SHA256 is `e328a1d59b94748b111e022bca6a9d2fc0481fb57d23c87d90f394b559d4f062`, matching [the Core recipe](https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/depends/packages/openlibm.mk). Retain [OpenLibm LICENSE.md](https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/LICENSE.md) and applicable file/header notices, including the Sun fdlibm, Elliot Saba, David Schultz, and BSD assembly-header notices. |
+| Linux toolchain | Both inspected KAT executables included GCC's static `libgcc.a(_popcountsi2.o)` and depended dynamically on `libc.so.6`. Keep the GCC Runtime Library Exception and target runtime packaging in the eventual release inventory. |
+
+GNU linker maps for the Debian x86_64 KAT show these static OpenLibm compilation inputs:
+
+- Both modes: `src/e_exp.c`, `src/e_rem_pio2.c`, `src/k_cos.c`, `src/k_rem_pio2.c`, `src/k_sin.c`, `src/s_floor.c`, `src/s_sin.c`, `amd64/s_scalbn.S`.
+- Release additionally links `src/s_sincos.c` (9 objects total). Debug additionally links `src/s_cos.c` and `amd64/e_sqrt.S` (10 objects total). The LGPL test sources listed in OpenLibm's license are absent from both maps.
+- The archive SHA256 is `c81c4594e53d459d516c81a8820dcb8307a61353c7459f822c42ed82dba6c5f3`. KAT executable SHA256: Release `ad45211cbfbbb42b54fe09b56a4d57830decf126c3c68d28c173bcc00ff836e6`, Debug `9b85404ef347d741da709179caa1f98a9b285ed80f839b850070374187eccc4e`.
+
+The validation build uses external checkouts. This inventory covers its source provenance and notice inputs. Binary distribution still requires reviewing the actual Windows and Linux packages, retaining their platform-specific runtime and dependency notices, and ensuring the owner has approved the release.
+
+### Reproduced native results on Draft PR #11
+
+The clean Miner checkout was `1f9f8133fab15356f2fb4698b08718136f84d590`. Native Debian 13 x86_64 ran on an Intel Xeon Platinum 8573C with GCC 14.2.0, binutils 2.44, glibc 2.41, CMake 3.31.6, and Python 3.12.14. Core was built with `HAVE_OPENLIBM=1 -fno-fast-math -ffp-contract=off`; Release used `-O3 -DNDEBUG` and Debug `-g`. Neither KAT executable had a dynamic system libm dependency.
+
+- A fresh independent Python export matched fresh Core exports for all **10,000 complete 32-byte digests, zero mismatches per mode**. Input SHA256 `b30e49b34172012dfe2c8c2721d83009e2a48c7d5ac1202c6ac03451f6eb7cb3`. All three digest TSVs shared SHA256 `73007ec4247215653c54a665dfa8c96f98a08d18593bf36e2d81bfc895c58afb`. The corpus had 10,000 unique 80-byte headers and 10,000 unique little-endian nonces with all 256 low bytes and the five required nonce boundaries.
+- Independent Python and both native builds each passed the ten chain KATs and exited 1 after the final byte of block 4371226's expected digest was flipped. Python regression tests passed 41/41.
+- Each mode passed 541 traces, 10,512 full-digest comparisons across eight native workers, and 14 direct exception probes. Platform math differed in 732/34,624 accumulators without altering mixed bytes or full digests. With the pinned OpenLibm diagnostic the count was 0/34,624.
+- A single-process baseline over the same 10,000 loaded headers timed hashing plus full digest checks with a monotonic clock. Across three runs, Release took 0.489–0.511 seconds and Debug 1.358–1.402 seconds. The subprocess-based TSV exporters took 15.6 s and 18.4 s, respectively, and the independent Python export took 56.5 s. These measurements describe the validation paths on this host.
+
+From the pinned Miner checkout, after building OpenLibm with the preceding instructions, use absolute paths for `CORE`, `OPENLIBM`, and `ARCHIVE`:
+
+```bash
+set -euo pipefail
+mkdir -p g0-out
+python3 tests/generate_g0_headers.py --count 10000 > g0-out/headers.tsv
+python3 tests/export_independent_v110_digests.py g0-out/headers.tsv g0-out/python.tsv --count 10000
+for mode in Release Debug; do
+  build="$PWD/g0-out/build-$mode"
+  cmake -S . -B "$build" -DCMAKE_BUILD_TYPE="$mode" \
+    -DPEPEPOW_CORE_SOURCE_DIR="$CORE" \
+    -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
+    -DOPENLIBM_INCLUDE_DIR="$OPENLIBM/include" -DOPENLIBM_LIBRARY="$ARCHIVE" \
+    -DCMAKE_EXE_LINKER_FLAGS="-Wl,-Map,$build/pepepow-kat.map"
+  cmake --build "$build" --parallel 4
+  python3 tools/run_kat_corpus.py "$build/pepepow-kat" tests/vectors/candidates/explorer-chain-4371217-4371226.jsonl
+  python3 tests/export_core_reference_digests.py --kat "$build/pepepow-kat" \
+    --corpus g0-out/headers.tsv --output "g0-out/core-$mode.tsv" --limit 10000
+  python3 tests/compare_digest_parity.py "g0-out/core-$mode.tsv" g0-out/python.tsv --count 10000
+  readelf -d "$build/pepepow-kat"
+  python3 tests/check_g0_v110_trace.py --mode "$mode" --workers 8 \
+    --core "$CORE" --openlibm "$OPENLIBM" --archive "$ARCHIVE" --python-digests g0-out/python.tsv
+done
+sha256sum g0-out/{headers,python,core-Release,core-Debug}.tsv
+python3 -m unittest discover -s tests -p 'test_*.py'
+```
+
+PR #11 is stacked on PR #2. The current base contains the atomic Core exporter fix `db8588d`; the branches share `1fe203a`, which already includes the unique-nonce generator correction. Preserve both when integrating. The latest commits have document/test skip markers; the [reported hosted exception run](https://github.com/edisontw/pepepow-miner/actions/runs/44349989084) belongs to `abe232647e2a29d873233757441713216ae44b04`.
+
+**Gate disposition:** The tested reference/differential work supports starting bounded offline CPU CLI development under the owner-approved Windows 11 deferral. The original G0 workstation acceptance remains open. Next development item: run a bounded nonce search on a fixture job, use the existing Stratum job/target path and the validated reference, and verify the candidate and stale-job behavior with a loopback or offline fixture.
