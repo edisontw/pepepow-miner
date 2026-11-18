@@ -20,7 +20,7 @@ jobs:
       run:
         shell: msys2 {0}
     env:
-      MINER_SHA: b2a1af1fb475e3c5002b02bf92bb15de9afcd5fc
+      MINER_SHA: 1f9f8133fab15356f2fb4698b08718136f84d590
       CORE_SHA: bc08108ceccd957c79040dc7fedc1d56d8d47f97
       OPENLIBM_SHA: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
       HEADER_SHA: b30e49b34172012dfe2c8c2721d83009e2a48c7d5ac1202c6ac03451f6eb7cb3
