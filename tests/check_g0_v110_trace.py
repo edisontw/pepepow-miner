@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""Compare pinned Core and independent V110 state and stress the original Core on Linux."""
+"""Compare pinned Core and independent V110 state and stress the original Core on x64."""
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 import ctypes
 import hashlib
 from itertools import chain
 import json
 import math
 from pathlib import Path
+import platform
 import struct
 import subprocess
 import sys
@@ -46,6 +48,17 @@ typedef struct {
     uint32_t branches[12], singularity, nonfinite;
 } g0_trace_result;
 static _Thread_local g0_trace_result *g0_trace;
+"""
+
+ROUNDING_PROBE = """
+#include <stdint.h>
+#include <xmmintrin.h>
+
+int g0_round_to_nearest(void) {
+    uint16_t x87_control;
+    __asm__ volatile("fnstcw %0" : "=m" (x87_control));
+    return (x87_control & 0x0c00) == 0 && (_mm_getcsr() & 0x6000) == 0;
+}
 """
 
 
@@ -110,21 +123,49 @@ def build_libraries(args, work):
     original_source = crypto / 'hoohash/hoohash.c'
     instrumented = work / 'trace.c'
     instrumented.write_text(instrument(original_source.read_text(encoding='utf-8')), encoding='utf-8')
+    rounding_probe = work / 'rounding.c'
+    rounding_probe.write_text(ROUNDING_PROBE, encoding='utf-8')
     flags = ['-O3', '-DNDEBUG'] if args.mode == 'Release' else ['-O0', '-g']
+    windows = sys.platform == 'win32'
+    linker_flags = [] if windows else ['-fPIC', '-Wl,-Bsymbolic']
     command = [
-        args.cc, '-std=gnu11', '-fPIC', '-shared', '-Wl,-Bsymbolic', *flags,
+        args.cc, '-std=gnu11', '-shared', *linker_flags, *flags,
         '-DHAVE_OPENLIBM=1', '-fno-fast-math', '-ffp-contract=off',
         f'-I{crypto / "hoohash"}', f'-I{args.openlibm / "include"}',
     ]
     blake3 = [crypto / name for name in ('blake3.c', 'blake3_dispatch.c', 'blake3_portable.c')]
-    native = work / 'core.so'
-    traced = work / 'core-trace.so'
-    subprocess.run([*command, original_source, *blake3, args.archive, '-o', native], check=True)
+    suffix = '.dll' if windows else '.so'
+    native = work / f'core{suffix}'
+    traced = work / f'core-trace{suffix}'
+    native_exports = []
+    trace_exports = []
+    if windows:
+        for path, symbols, exports in (
+            (work / 'core.def', ('hoohashv110', 'g0_round_to_nearest'), native_exports),
+            (work / 'core-trace.def', ('g0_trace_v110', 'sin', 'cos', 'exp', 'sqrt'), trace_exports),
+        ):
+            path.write_text('EXPORTS\n' + '\n'.join(symbols) + '\n', encoding='ascii')
+            exports.append(path)
     subprocess.run([
-        *command, instrumented, *blake3,
+        *command, original_source, rounding_probe, *blake3, *native_exports, args.archive, '-o', native,
+    ], check=True)
+    subprocess.run([
+        *command, instrumented, *blake3, *trace_exports,
         '-Wl,--whole-archive', args.archive, '-Wl,--no-whole-archive', '-o', traced,
     ], check=True)
-    return ctypes.CDLL(str(native)), ctypes.CDLL(str(traced))
+    return native, traced
+
+
+@contextmanager
+def load_library(path):
+    library = ctypes.CDLL(str(path))
+    try:
+        yield library
+    finally:
+        if sys.platform == 'win32':
+            # Windows keeps a loaded DLL locked until its last handle is released.
+            from _ctypes import FreeLibrary
+            FreeLibrary(library._handle)
 
 
 def python_trace(header):
@@ -238,7 +279,7 @@ def verify_threads(original_hash, cases, workers, rounding_mode):
     shared = range(64)
 
     def exercise(worker):
-        if rounding_mode() != 0:
+        if not rounding_mode():
             barrier.abort()
             raise ValueError(f'Worker {worker} must run with FE_TONEAREST')
         barrier.wait(timeout=15)
@@ -259,20 +300,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--core', type=Path, required=True)
     parser.add_argument('--openlibm', type=Path, required=True)
-    parser.add_argument('--archive', type=Path, required=True, help='Static PIC archive from pinned openlibm')
+    parser.add_argument('--archive', type=Path, required=True,
+                        help='Static archive from pinned openlibm (PIC on Linux)')
     parser.add_argument('--python-digests', type=Path, required=True, help='Frozen independent G0 TSV')
     parser.add_argument('--cc', default='gcc')
     parser.add_argument('--mode', choices=('Release', 'Debug'), default='Release')
     parser.add_argument('--workers', type=int, choices=range(2, 17), default=8)
     args = parser.parse_args()
     try:
-        if sys.platform != 'linux':
-            raise ValueError('This trace harness requires Linux and a GNU-compatible linker')
-        rounding_mode = ctypes.CDLL(None).fegetround
-        rounding_mode.argtypes = []
-        rounding_mode.restype = ctypes.c_int
-        if rounding_mode() != 0:
-            raise ValueError('The trace harness requires FE_TONEAREST')
+        if (sys.platform not in ('linux', 'win32') or struct.calcsize('P') != 8
+                or platform.machine().lower() not in ('x86_64', 'amd64')):
+            raise ValueError('This trace harness requires x64 Linux or native x64 Windows with GNU tools')
         verify_checkout(args.core, CORE_SHA)
         verify_checkout(args.openlibm, OPENLIBM_SHA)
         if hashlib.sha256(args.python_digests.read_bytes()).hexdigest() != DIGEST_TSV_SHA:
@@ -284,23 +322,33 @@ def main():
               f'{subprocess.check_output([args.cc, "--version"], text=True).splitlines()[0]}')
         print(f'OpenLibm archive SHA256: {hashlib.sha256(args.archive.read_bytes()).hexdigest()}')
         with TemporaryDirectory(prefix='g0-trace-') as tmp:
-            native, traced = build_libraries(args, Path(tmp))
-            native.hoohashv110.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_uint8)]
-            native.hoohashv110.restype = None
-
-            def original_hash(header):
-                # CDLL releases the GIL for the native call. Each invocation owns its output.
-                output = BYTE32()
-                native.hoohashv110(header, len(header), output)
-                return bytes(output)
-
-            for backend in ('system', 'openlibm'):
-                verify_trace(original_hash, traced, sample, backend)
-            verify_threads(original_hash, cases, args.workers, rounding_mode)
+            native_path, trace_path = build_libraries(args, Path(tmp))
+            with load_library(native_path) as native, load_library(trace_path) as traced:
+                verify_libraries(native, traced, sample, cases, args.workers)
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:
         print(f'FAIL: {exc}', file=sys.stderr)
         return 1
     return 0
+
+
+def verify_libraries(native, traced, sample, cases, workers):
+    rounding_mode = native.g0_round_to_nearest
+    rounding_mode.argtypes = []
+    rounding_mode.restype = ctypes.c_int
+    if not rounding_mode():
+        raise ValueError('The trace harness requires FE_TONEAREST in x87 and MXCSR')
+    native.hoohashv110.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.POINTER(ctypes.c_uint8)]
+    native.hoohashv110.restype = None
+
+    def original_hash(header):
+        # CDLL releases the GIL for the native call. Each invocation owns its output.
+        output = BYTE32()
+        native.hoohashv110(header, len(header), output)
+        return bytes(output)
+
+    for backend in ('system', 'openlibm'):
+        verify_trace(original_hash, traced, sample, backend)
+    verify_threads(original_hash, cases, workers, rounding_mode)
 
 
 if __name__ == '__main__':
