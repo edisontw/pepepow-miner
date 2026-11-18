@@ -1,0 +1,68 @@
+name: G0 Windows native intermediate and worker parity
+
+on:
+  push:
+    branches: [g0/ubuntu-native-parity-20261118]
+    paths: [.github/workflows/g0-windows-native-trace.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: g0-windows-native-trace
+  cancel-in-progress: true
+
+jobs:
+  trace:
+    runs-on: windows-2025
+    timeout-minutes: 16
+    defaults:
+      run:
+        shell: msys2 {0}
+    env:
+      MINER_SHA: b2a1af1fb475e3c5002b02bf92bb15de9afcd5fc
+      CORE_SHA: bc08108ceccd957c79040dc7fedc1d56d8d47f97
+      OPENLIBM_SHA: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+      HEADER_SHA: b30e49b34172012dfe2c8c2721d83009e2a48c7d5ac1202c6ac03451f6eb7cb3
+    steps:
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: git make mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-python
+      - name: Record Windows environment and fetch pinned sources
+        run: |
+          set -euo pipefail
+          test "$MSYSTEM" = UCRT64
+          gcc -dumpmachine
+          gcc --version
+          python -c 'import platform,sys; print(platform.platform()); print(platform.machine()); print(sys.version); assert sys.platform == "win32"'
+          checkout() {
+            local url=$1 dir=$2 sha=$3
+            git init -q "$dir"
+            git -C "$dir" fetch --no-tags --depth 1 "$url" "$sha"
+            git -C "$dir" checkout --detach FETCH_HEAD
+            test "$(git -C "$dir" rev-parse HEAD)" = "$sha"
+          }
+          checkout https://github.com/edisontw/pepepow-miner.git miner "$MINER_SHA"
+          checkout https://github.com/MattF42/PePe-core.git core "$CORE_SHA"
+          checkout https://github.com/JuliaMath/openlibm.git openlibm "$OPENLIBM_SHA"
+      - name: Build OpenLibm and generate the independent digest TSV
+        run: |
+          set -euo pipefail
+          make -C openlibm -j 4 OS=WINNT USEGCC=1 USECLANG=0 CC=gcc AR=ar \
+            CFLAGS="-O3 -fno-fast-math -ffp-contract=off -msse2 -mfpmath=sse" \
+            libopenlibm.a
+          mkdir -p g0-out
+          python -c 'import runpy,sys; sys.stdout.reconfigure(newline="\n"); sys.argv=["miner/tests/generate_g0_headers.py","--count","10000"]; runpy.run_path(sys.argv[0],run_name="__main__")' > g0-out/headers.tsv
+          printf '%s  %s\n' "$HEADER_SHA" g0-out/headers.tsv | sha256sum -c -
+          python miner/tests/export_independent_v110_digests.py \
+            g0-out/headers.tsv g0-out/python.tsv --count 10000
+      - name: Compare native intermediate results and workers in both modes
+        run: |
+          set -euo pipefail
+          for mode in Release Debug; do
+            python -u miner/tests/check_g0_v110_trace.py --mode "$mode" --workers 8 \
+              --core core --openlibm openlibm --archive openlibm/libopenlibm.a \
+              --python-digests g0-out/python.tsv
+          done
