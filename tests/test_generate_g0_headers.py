@@ -10,6 +10,8 @@ class SyntheticHeadersTest(unittest.TestCase):
         self.assertEqual({h[76] for h in headers[:256]}, set(range(256)))
         self.assertEqual([int.from_bytes(h[76:80], "little") for h in headers[256:261]], [0, 1, 255, 256, 0xffffffff])
         self.assertEqual(len(set(headers)), len(headers))
+        # Header uniqueness alone misses nonce collisions when other fields differ.
+        self.assertEqual(len({h[76:80] for h in headers}), len(headers))
 
     def test_reproducibility_and_bounds(self):
         self.assertEqual(make_header(0), make_header(0))
