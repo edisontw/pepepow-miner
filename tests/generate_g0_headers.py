@@ -15,8 +15,9 @@ def make_header(index: int) -> bytes:
     merkle = hashlib.sha256(b"merkle" + seed).digest()
     timestamp = ((1700000000 + index) & 0xffffffff).to_bytes(4, "little")
     bits = bytes.fromhex("ffff001d")
-    # Cover all 256 low-byte nonce values, then explicit boundary cases.
-    nonce = (index if index < 256 else (0, 1, 255, 256, 0xffffffff)[index - 256]
+    # Cover all 256 low-byte values without repeating explicit boundary nonces.
+    # High-bit prefix keeps these cases distinct for --count up to 100000.
+    nonce = ((0x80000000 + index) if index < 256 else (0, 1, 255, 256, 0xffffffff)[index - 256]
              if index < 261 else index).to_bytes(4, "little")
     header = version + prevhash + merkle + timestamp + bits + nonce
     assert len(header) == 80
