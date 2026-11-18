@@ -38,6 +38,7 @@ class Trace(ctypes.Structure):
         ('matrix', ctypes.c_double * 4096), ('products', ctypes.c_double * 64),
         ('branches', ctypes.c_uint32 * 12),
         ('singularity', ctypes.c_uint32), ('nonfinite', ctypes.c_uint32),
+        ('probe_limit', ctypes.c_uint32), ('probe_stopped', ctypes.c_uint32),
     ]
 
 
@@ -45,7 +46,7 @@ TRACE_DECLARATIONS = """
 typedef struct {
     uint8_t first[32], seed[32], mixed[32], digest[32];
     double matrix[4096], products[64];
-    uint32_t branches[12], singularity, nonfinite;
+    uint32_t branches[12], singularity, nonfinite, probe_limit, probe_stopped;
 } g0_trace_result;
 static _Thread_local g0_trace_result *g0_trace;
 """
@@ -79,7 +80,13 @@ def instrument(source):
             '    if (transformFactorOne < 0.33) {',
         '    while (isnan(transformedValue) || isinf(transformedValue)) {':
             '    while (isnan(transformedValue) || isinf(transformedValue)) {\n'
-            '        if (g0_trace) ++g0_trace->nonfinite;',
+            '        if (g0_trace) {\n'
+            '            if (g0_trace->probe_limit && g0_trace->nonfinite == g0_trace->probe_limit) {\n'
+            '                g0_trace->probe_stopped = 1;\n'
+            '                return NAN;\n'
+            '            }\n'
+            '            ++g0_trace->nonfinite;\n'
+            '        }',
         '    blake3_hasher_update(&hasher, result, HOOHASH_HASH_SIZE);':
             '    if (g0_trace) {\n'
             '        memcpy(g0_trace->products, product, sizeof product);\n'
@@ -106,6 +113,16 @@ void g0_trace_v110(const uint8_t header[80], g0_trace_result *trace) {
     g0_trace = trace;
     g0_traced_hoohashv110(header, 80, trace->digest);
     g0_trace = NULL;
+}
+
+double g0_probe_exception(double input, int recovery, g0_trace_result *trace) {
+    memset(trace, 0, sizeof *trace);
+    // Only injected probes are bounded. Header traces execute the original loop.
+    trace->probe_limit = 4;
+    g0_trace = trace;
+    double result = recovery ? SafeComplexTransform(input) : IntermediateComplexNonLinear(input);
+    g0_trace = NULL;
+    return result;
 }
 """
 
@@ -142,7 +159,8 @@ def build_libraries(args, work):
     if windows:
         for path, symbols, exports in (
             (work / 'core.def', ('hoohashv110', 'g0_round_to_nearest'), native_exports),
-            (work / 'core-trace.def', ('g0_trace_v110', 'sin', 'cos', 'exp', 'sqrt'), trace_exports),
+            (work / 'core-trace.def',
+             ('g0_trace_v110', 'g0_probe_exception', 'sin', 'cos', 'exp', 'sqrt'), trace_exports),
         ):
             path.write_text('EXPORTS\n' + '\n'.join(symbols) + '\n', encoding='ascii')
             exports.append(path)
@@ -226,6 +244,39 @@ def pinned_math(library):
     return SimpleNamespace(floor=math.floor, pi=math.pi, **funcs)
 
 
+def verify_exception_probes(library):
+    probe = library.g0_probe_exception
+    probe.argtypes = [ctypes.c_double, ctypes.c_int, ctypes.POINTER(Trace)]
+    probe.restype = ctypes.c_double
+    for center in (math.pi / 2, 3 * math.pi / 2):
+        for delta in (-2e-9, -0.5e-9, 0, 0.5e-9, 2e-9):
+            trace = Trace()
+            input_value = center + delta
+            got = probe(input_value, 0, ctypes.byref(trace))
+            guard = int(abs(delta) < 1e-9)
+            correct_value = FP64.pack(got) == FP64.pack(0.0) if guard else 0.99 < got <= 1.0
+            if trace.singularity != guard or trace.nonfinite or trace.probe_stopped or not correct_value:
+                raise ValueError(f'Singularity probe {input_value.hex()}: guard={trace.singularity}, '
+                                 f'expected guard={guard}, result={got.hex()}')
+    for value, iterations, stopped in (
+        (0.0, 0, False), (-math.inf, 1, False), (math.inf, 4, True), (math.nan, 4, True),
+    ):
+        trace = Trace()
+        got = probe(value, 1, ctypes.byref(trace))
+        if stopped:
+            correct_value = math.isnan(got)  # Sentinel from the diagnostic safety bound.
+        elif value == -math.inf:
+            correct_value = FP64.pack(got) == FP64.pack(0.0)
+        else:
+            correct_value = math.isfinite(got) and got > 0
+        if (trace.nonfinite != iterations or trace.probe_stopped != stopped
+                or trace.singularity or not correct_value):
+            raise ValueError(f'Nonfinite probe {value.hex()}: iterations={trace.nonfinite}, '
+                             f'stopped={trace.probe_stopped}, result={got.hex()}')
+    print('PASS: 14 direct exception probes (10 singularity boundaries, finite control, '
+          'negative Inf returns +0 after one iteration, positive Inf and NaN reach the four-iteration probe bound)')
+
+
 def verify_trace(original_hash, library, sample, math_backend):
     trace_hash = library.g0_trace_v110
     trace_hash.argtypes = [ctypes.c_char_p, ctypes.POINTER(Trace)]
@@ -261,6 +312,8 @@ def verify_trace(original_hash, library, sample, math_backend):
                 branches[i] += count
             singularity += c_trace.singularity
             nonfinite += c_trace.nonfinite
+            if c_trace.probe_stopped:
+                raise ValueError(witness(case, 'header unexpectedly hit diagnostic bound', 0, 1))
     finally:
         independent.math = previous
     if math_backend == 'openlibm' and first_difference is not None:
@@ -349,6 +402,7 @@ def verify_libraries(native, traced, sample, cases, workers):
     for backend in ('system', 'openlibm'):
         verify_trace(original_hash, traced, sample, backend)
     verify_threads(original_hash, cases, workers, rounding_mode)
+    verify_exception_probes(traced)
 
 
 if __name__ == '__main__':
