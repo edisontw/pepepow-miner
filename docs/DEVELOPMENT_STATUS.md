@@ -537,3 +537,70 @@
 - Changed first 256 nonces to `0x80000000 + index`, preserving all 256 low-byte patterns and explicit boundary values 0/1/255/256/0xffffffff in cases 256–260; avoids collision for all supported `--count <= 100000`. Generator commit `9540b56b227a152791b58129de63184a6a79323e`; regression test asserts distinct 80-byte headers AND distinct nonce bytes: commit `6f8d61b8ffbcf463907809698e1ef82b670093d5`. Native local Debian x86_64/Python 3.13.5 focused `python -m unittest -q test_generate_g0_headers`: 2/2 PASS; generated 100,000 nonce values with 100,000 unique. This test was run against a locally reconstructed matching implementation; GitHub new blobs should be checked before G0 claims.
 - This is a **synthetic test-corpus correction**, not a HooHash algorithm change. Old candidate corpus TSV SHA256 values from previous runs are not comparable to regenerated inputs; do not mix old and new 1,000/10,000-case outputs. No 10,000 Core-vs-independent 32-byte parity, no Windows 11/Ubuntu 22.04/24.04 native evidence. **G0 NOT PASSED**.
 - Next one task: rebuild both candidate and pinned Core reference digests from this corrected exact same 10,000-header corpus and run `compare_digest_parity.py --count 10000`, reporting first divergence or full match. Do not connect live pools.
+
+## 2026-11-18 20:00 Asia/Taipei — Work native G0 differential result
+
+- Main start/end `b23fdefeb15bdfc0013d8c013253fcc22bd7cf17`. Issue #1 remains open. Draft PR #11 [head `10274f3b9d2ddeaf8f83f07ba4c7dd90f2819f5b`](https://github.com/edisontw/pepepow-miner/commit/10274f3b9d2ddeaf8f83f07ba4c7dd90f2819f5b) includes its previous head `5c172a330efc89655bffb5fbabaebda1f1b10e43` and PR #2 base `1fe203a6d0d4675518384dbeef85462951c66b5f` as parents. The corrected generator/test blobs match PR #2. The sole new behavioral change aligns `.github/workflows/g0-core-reference-build.yml` with the tested Core SHA and Core's required openlibm v0.8.7; the old library pin `5fe399749f9276eaa0b8403e507470da05cbbb3f` did not resolve to that tag. The independent Python algorithm is unchanged. GitHub returned the exact tested tree `38188522db19a0fe3ca5b5e1cebd75c5b1fb6cb8`. No PR was merged into its target branch.
+- Work native Debian 13.6 x86_64 (Linux 6.18.57, Intel Xeon Platinum 8573C), GCC 14.2.0, CMake 3.31.6, CPython 3.12.14 and glibc 2.41; rounding FE_TONEAREST (0). Full clean Core checkout `MattF42/PePe-core@bc08108ceccd957c79040dc7fedc1d56d8d47f97`; the edisontw fork HEAD matched. Pool and Hoosat HEADs were `f5d2ce7c18c17c239351ff7a506d380e4dc8708c` and `9634f11410a2d71be21086e813263fa007fb6810`. Miner Git transport required authentication in this workspace; complete clean exact Git worktrees for main/#2/#11 were reconstructed from connector Git objects with verification of 73 unique blob hashes, trees and commits. History is shallow. The first parity run used verified original file blobs; the second used the full tested PR #11 tree with the new pins and PR #2 generator.
+- OpenLibm `v0.8.7` resolves to `9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`. Tag archive SHA256 matched Core depends `e328a1d59b94748b111e022bca6a9d2fc0481fb57d23c87d90f394b559d4f062`. CMake Release Core build used `-O3 -DNDEBUG -std=gnu11 -DHAVE_OPENLIBM=1 -fno-fast-math -ffp-contract=off`; the OpenLibm build used `-O3 -ffp-contract=off -fno-fast-math -fno-rounding-math -fno-math-errno -fno-builtin -m64 -msse2 -mfpmath=sse`. Static library SHA256 `c81c4594e53d459d516c81a8820dcb8307a61353c7459f822c42ed82dba6c5f3`; KAT binary SHA256 `ad45211cbfbbb42b54fe09b56a4d57830decf126c3c68d28c173bcc00ff836e6`. Linking resolved nonlinear math to the static library (including GCC's emitted `sincos` call); `ldd` showed no system libm.
+- **10,000/10,000 synthetic headers matched all 32 bytes, 0 mismatches, comparator exit 0**, on two runs. Corpus SHA256 `b30e49b34172012dfe2c8c2721d83009e2a48c7d5ac1202c6ac03451f6eb7cb3`; both digest TSVs byte-identical and SHA256 `73007ec4247215653c54a665dfa8c96f98a08d18593bf36e2d81bfc895c58afb`. Latest Core exporter 17.014 s and independent Python exporter 60.881 s, each completed every row in one run. Exactly 10,000 unique 80-byte headers and uint32 LE nonces, with boundary 0/1/255/256/UINT32_MAX and all 256 low-byte values. An additional 270/270 independent comparisons covered fixed-prefix nonce changes, high nonce bytes, and individual version/prevhash/merkle/time/bits changes. Boundary digest TSV SHA256 `1cd9b0a808b901e1ae78bd3f38e877f37b98300116ab70d3d01fcda0d85f7aa5`. On the frozen Explorer corpus, Core and Python each matched 10/10 known 32-byte digests; poisoning the final expected byte on block 4371226 made both exit 1. Passing display-order digests directly to Core CLI was rejected in 10/10 cases, with the actual bytes equal to reversed display order. The Explorer's upstream implementation remains unaudited.
+- FP64 diagnostic used the same static openlibm archive in a locally linked diagnostic DSO while keeping the independent Python algorithm unchanged. Replacing only its math calls with that DSO also produced 10,000/10,000 exact Core matches. On identical arguments drawn from this diagnostic path, glibc and openlibm differed at 42,211/1,322,465 `sin`, 15,408/496,083 `cos`, and 40,659/496,083 `exp` calls, and at 0/424,786 `sqrt` calls. First witness `g0-synthetic-00000` `sin(0x1.63070b2ccd86bp+49)` returned glibc `0x1.f424ac7f0a8b4p-1`, openlibm `0x1.f424ac7f0a8b3p-1`. The unmodified Python implementation uses glibc math and was compared separately. No tolerance was used; no final digest mismatch was observed. The single-host result does not resolve cross-platform FP64 behavior.
+- 41/41 existing Python unittest methods passed and all 15 shell steps of the patched workflow passed locally. Exact PR #11 HEAD Actions [Core](https://github.com/edisontw/pepepow-miner/actions/runs/44299686354), [corpus](https://github.com/edisontw/pepepow-miner/actions/runs/44299686433) and [frontend](https://github.com/edisontw/pepepow-miner/actions/runs/44299686536) failed before any job steps. Prior failures had a verified billing/spending-limit annotation; the latest annotation text was unavailable. No live pool, shares, release or main update.
+
+### Reproduce the Release differential run
+
+Run in Bash after checking out the specified miner commit and Core. Paths below assume sibling checkout/build directories.
+
+```sh
+git clone https://github.com/edisontw/pepepow-miner.git miner
+git -C miner fetch origin refs/pull/11/head
+git -C miner checkout --detach 10274f3b9d2ddeaf8f83f07ba4c7dd90f2819f5b
+git clone https://github.com/MattF42/PePe-core.git core
+git -C core checkout --detach bc08108ceccd957c79040dc7fedc1d56d8d47f97
+test -z "$(git -C core status --porcelain=v1)"
+git clone --depth 1 --branch v0.8.7 https://github.com/JuliaMath/openlibm.git openlibm
+test "$(git -C openlibm rev-parse HEAD)" = 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+cmake -S openlibm -B openlibm-build -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="$PWD/openlibm-install"
+cmake --build openlibm-build --parallel 2
+cmake -S miner -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  -DHARNESS_CONTRACT_TESTS_ONLY=OFF -DOPENLIBM_INCLUDE_DIR="$PWD/openlibm/include" \
+  -DOPENLIBM_LIBRARY="$PWD/openlibm-build/libopenlibm.a" \
+  -DPEPEPOW_CORE_SOURCE_DIR="$PWD/core" \
+  -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97
+cmake --build build --config Release --parallel 2
+ldd build/pepepow-kat
+mkdir -p g0-out
+vectors=miner/tests/vectors/candidates/explorer-chain-4371217-4371226.jsonl
+python3 -m unittest discover -s miner/tests -v
+python3 miner/tools/run_kat_corpus.py build/pepepow-kat "$vectors"
+python3 miner/tools/g0_v110_independent.py "$vectors"
+python3 - "$vectors" <<'PY'
+import json
+from pathlib import Path
+import sys
+rows = [json.loads(line) for line in Path(sys.argv[1]).read_text().splitlines()]
+assert all(bytes.fromhex(row['display_hash'])[::-1].hex() ==
+           row['expected_core_function_output_hex'] for row in rows)
+row = rows[-1]
+key = 'expected_core_function_output_hex'
+old = row[key]
+row[key] = old[:-2] + f'{int(old[-2:], 16) ^ 1:02x}'
+Path('g0-out/chain-poison.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in rows))
+PY
+core_rc=0
+python3 miner/tools/run_kat_corpus.py build/pepepow-kat g0-out/chain-poison.jsonl || core_rc=$?
+test "$core_rc" -eq 1 || exit 1
+python_rc=0
+python3 miner/tools/g0_v110_independent.py g0-out/chain-poison.jsonl || python_rc=$?
+test "$python_rc" -eq 1 || exit 1
+python3 miner/tests/generate_g0_headers.py --count 10000 > g0-out/headers.tsv
+python3 miner/tests/export_core_reference_digests.py --kat build/pepepow-kat \
+  --corpus g0-out/headers.tsv --output g0-out/core.tsv --limit 10000
+python3 miner/tests/export_independent_v110_digests.py g0-out/headers.tsv g0-out/python.tsv --count 10000
+python3 miner/tests/compare_digest_parity.py g0-out/core.tsv g0-out/python.tsv --count 10000
+cmp g0-out/core.tsv g0-out/python.tsv
+sha256sum g0-out/{headers,core,python}.tsv
+```
+
+**G0 NOT PASSED.** The Debian digest gate passed. Remaining acceptance includes native Windows 11 x64 and Ubuntu 22.04/24.04 x64 Debug/Release evidence, cross-platform FP64 and intermediate/worker coverage, and closure of source/notice evidence. Next unique task: reproduce the same pinned 10,000-vector corpus on native Windows 11 x64, comparing the recorded digest SHA256 and preserving the first full mismatch if one occurs.
