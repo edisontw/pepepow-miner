@@ -682,3 +682,18 @@ Run on the existing Windows 11 workstation in the MSYS2 UCRT64 shell from the or
   } 2>&1 | tee g0-out/trace-win11.log
 )
 ```
+
+## 2026-11-19 — Bounded exceptional-path probes
+
+Draft PR #11 `1f9f8133fab15356f2fb4698b08718136f84d590` adds 14 direct probes to the instrumented Core copy only. In each of Release and Debug, Debian x64 and [Windows Server 2025 x64 CI](https://github.com/edisontw/pepepow-miner/actions/runs/44349989084/job/134962666863) passed all probes, the existing 541 trace cases, and all 10,512 full-digest checks across eight native workers. The 41 local Python tests also passed. The Windows workflow commit was `abe232647e2a29d873233757441713216ae44b04`.
+
+| Direct diagnostic input | Observed pinned Core behavior |
+| --- | --- |
+| Ten points at and around pi/2 and 3pi/2 | Six within the guard threshold return +0.0; four beyond it follow the sine-squared calculation. |
+| Finite control | Finite positive result, with no recovery-loop entry. |
+| Negative infinity | Enters recovery once and returns +0.0 through the threshold exit. |
+| Positive infinity and NaN | Each completes four recovery iterations and enters the loop a fifth time; the diagnostic alone stops there. The Core predicate tests the original nonfinite result without recomputing it, and neither input makes the exit condition true. |
+
+These are injected helper inputs. For valid headers, the transform input is nonnegative and bounded before rounding by `1,000,000 * (2^32 - 1) * 15 + 255` (less than `6.443e16` with rounding margin). The multiplication, shifts by bounded fractions, and division by a denominator of at least 1 stay finite. The intermediate sine-squared branch requires an input of approximately 2.64 million or greater, so its adjusted argument cannot approach either singularity-guard center. The unchanged header corpus hit neither exceptional path. Its 10 observed nonlinear family/quadrant combinations cover the combinations allowed by `factorTwo = frac(2 * factorOne)` under the tested x64 arithmetic; the lowest family cannot reach the highest quarter and the highest family cannot reach the lowest quarter.
+
+No consensus behavior was changed. G0 remains open for Windows 11 workstation trace/worker evidence and the source/notices disposition. To include these probes on the workstation, repeat the preceding command with `revision=1f9f8133fab15356f2fb4698b08718136f84d590`.
