@@ -5,13 +5,19 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <chrono>
 #include <cstdio>
+#include <cstdint>
 #include <limits>
 #include <string_view>
 
 extern "C" void hoohashv110(const void* data, std::size_t len, std::uint8_t output[32]);
 
 namespace {
+constexpr std::uint32_t kMaxNonceCount = 10000;
+constexpr std::uint32_t kDefaultTimeoutMs = 30000;
+constexpr std::uint32_t kMaxTimeoutMs = 60000;
+
 template <std::size_t Size>
 bool parse_hex(std::string_view text, std::array<std::uint8_t, Size>& bytes) {
   if (text.size() != Size * 2) return false;
@@ -30,8 +36,12 @@ bool parse_decimal(std::string_view text, std::uint32_t& value) {
 }
 
 void usage() {
-  std::puts("Usage: pepepow-offline-search HEADER_HEX TARGET_BE_HEX START COUNT [--replace-job]");
-  std::puts("Offline fixture only. COUNT is 1..10000. --replace-job simulates stale work.");
+  std::puts("Usage: pepepow-offline-search HEADER_HEX TARGET_BE_HEX START COUNT [--replace-job] [--max-ms N]");
+  std::puts("Offline only. COUNT=1..10000; --max-ms=1..60000 (default 30000); exit 4=timeout.");
+}
+
+void print_hex(const std::uint8_t* data, std::size_t size) {
+  for (std::size_t i = 0; i < size; ++i) std::printf("%02x", static_cast<unsigned>(data[i]));
 }
 }  // namespace
 
@@ -43,13 +53,29 @@ int main(int argc, char** argv) {
   std::array<std::uint8_t, PEPEPOW_HEADER_SIZE> header{};
   std::array<std::uint8_t, 32> target{};
   std::uint32_t start = 0, count = 0;
-  const bool replace_job = argc == 6 && std::string_view(argv[5]) == "--replace-job";
-  if ((argc != 5 && !replace_job) || !parse_hex(argv[1], header) ||
-      !parse_hex(argv[2], target) || !parse_decimal(argv[3], start) ||
-      !parse_decimal(argv[4], count) || count == 0 || count > 10000 ||
+  if (argc < 5 || !parse_hex(argv[1], header) || !parse_hex(argv[2], target) ||
+      !parse_decimal(argv[3], start) || !parse_decimal(argv[4], count) ||
+      count == 0 || count > kMaxNonceCount ||
       count - 1 > std::numeric_limits<std::uint32_t>::max() - start) {
     usage();
     return 2;
+  }
+
+  bool replace_job = false, timeout_given = false;
+  std::uint32_t timeout_ms = kDefaultTimeoutMs;
+  for (int i = 5; i < argc; ++i) {
+    const auto option = std::string_view(argv[i]);
+    if (option == "--replace-job" && !replace_job) {
+      replace_job = true;
+    } else if (option == "--max-ms" && !timeout_given && i + 1 < argc &&
+               parse_decimal(argv[i + 1], timeout_ms) &&
+               timeout_ms > 0 && timeout_ms <= kMaxTimeoutMs) {
+      timeout_given = true;
+      ++i;
+    } else {
+      usage();
+      return 2;
+    }
   }
 
   std::reverse(target.begin(), target.end());
@@ -58,22 +84,34 @@ int main(int argc, char** argv) {
   jobs.authorized(true);
   jobs.notify("fixture", true);
   const auto job = jobs.active().value();
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
   for (std::uint32_t offset = 0; offset < count; ++offset) {
+    // A monotonic deadline is checked on both sides of each Core hash call.
+    // The Core call itself is synchronous; use an external watchdog for a hard kill.
+    if (std::chrono::steady_clock::now() >= deadline) {
+      std::puts("status=timeout");
+      return 4;
+    }
     const auto nonce = start + offset;
     pepepow_header_set_nonce(header.data(), header.size(), nonce);
     std::array<std::uint8_t, 32> digest{};
     hoohashv110(header.data(), header.size(), digest.data());
+    if (std::chrono::steady_clock::now() >= deadline) {
+      std::puts("status=timeout");
+      return 4;
+    }
     if (!pepepow_uint256_meets_target_le(digest.data(), target.data())) {
       continue;
     }
-    // Replace the job after finding a valid candidate to exercise the acceptance gate.
     if (replace_job) jobs.notify(job.id, false);
     if (!jobs.can_submit(job)) {
       std::puts("status=stale");
       return 3;
     }
     std::printf("status=found nonce=%llu digest_raw=", static_cast<unsigned long long>(nonce));
-    for (const auto byte : digest) std::printf("%02x", static_cast<unsigned>(byte));
+    print_hex(digest.data(), digest.size());
+    std::printf("\nheader_hex=");
+    print_hex(header.data(), header.size());
     std::putchar('\n');
     return 0;
   }
