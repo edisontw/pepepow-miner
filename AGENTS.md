@@ -1,6 +1,6 @@
 # AI Coding Agent Instructions — PEPEPOW Miner
 
-These instructions apply to the entire repository. Base every change on the current `main` branch, reproducible tests, and explicit owner authorization. Do not present planned features as implemented features.
+These instructions apply to the entire repository. Recheck the current `main` and the exact head/base of every relevant PR, then work on the appropriate unmerged dependency branch with reproducible tests and explicit owner authorization. Never silently modify `main`. Do not present offline prototypes as supported mining software.
 
 ## Documentation language
 
@@ -9,11 +9,12 @@ These instructions apply to the entire repository. Base every change on the curr
 ## Required reading at the start of each work session
 
 1. `README.md` — product scope and safety principles.
-2. `docs/README.md` — documentation index and existing or unconfirmed research files.
-3. `docs/ROADMAP.md` — canonical source of milestone status.
-4. `docs/G0_TECHNICAL_VALIDATION.md` — acceptance criteria for the current first gate.
-5. `docs/research/03_PRODUCT_DEVELOPMENT_PLAN.md` — product and engineering plan.
-6. `docs/research/01_CORE_TECHNICAL_RESEARCH.md` and `docs/research/02_ARCHITECTURE_PERFORMANCE.md` — both research documents are already on `main`; read them and independently check their sources before beginning relevant work.
+2. `docs/DEVELOPMENT_STATUS.md` — concise, current G0/G1 handoff. Its archived chronological predecessor is historical evidence, **not** an instruction to repeat old work.
+3. `docs/README.md` — documentation index and preserved historical sources.
+4. `docs/ROADMAP.md` — gate criteria and status snapshot.
+5. `docs/G0_TECHNICAL_VALIDATION.md` — acceptance criteria for the current first gate.
+6. `docs/research/03_PRODUCT_DEVELOPMENT_PLAN.md` — product and engineering plan.
+7. `docs/research/01_CORE_TECHNICAL_RESEARCH.md` and `docs/research/02_ARCHITECTURE_PERFORMANCE.md` — both research documents are already on `main`; read them and independently check their sources before beginning relevant work.
 
 If research claims conflict, record the source text, source reference, commit, verification approach, and unresolved questions first. Never change the consensus algorithm directly based on research assertions. Research documents are not protocol authorities; use traceable Core/pool sources and reproducible tests.
 
@@ -21,14 +22,11 @@ For the architecture resulting from the research review, see [docs/ARCHITECTURE.
 
 ## Current development gate
 
-**G0 comes first. Do not claim the miner is usable until G0 has passed acceptance.** The next minimum verifiable deliverables are:
+**G0 formal acceptance remains OPEN; no production miner may be claimed.** Significant prior evidence already includes native Linux Release/Debug independent 10,000-header full 32-byte parity, real chain KATs, worker/intermediate traces, and distinct Windows 10 and Windows Server results. Windows 11 is owner-approved deferred and **not** considered tested. Preserve exact source revisions, OpenLibm 0.8.7, intermediate data and mismatch reproducers. Do not repeat previously completed verification without identifying a regression or a missing acceptance requirement.
 
-- Verify the current Core/pool source SHAs, implementation paths, licenses, and redistribution requirements.
-- Obtain an independent expected digest and establish the first known-answer test (KAT) for an 80-byte header → full 32-byte digest.
-- Build a native CPU harness that exits nonzero on mismatches and invalid input; deliberately altering the final digest byte must cause failure.
-- Expand incrementally to at least 10,000 parity cases and native evidence on Windows 11 x64 and Ubuntu 22.04/24.04 x64.
+**G1 offline CPU search is a tested prototype, not a completed G1 gate.** The unmerged `g1-offline-cpu-search` branch at `5de6d64` contains a bounded 1–10,000 nonce search driven by an explicit offline header and target. Owner-reported native Linux checks passed eight search cases, 41 Python regressions, 22 Stratum tests and 10 chain KATs; this is not an exact-head CI result, Windows native validation or live pool evidence. The next focused deliverables are a minimal reviewable Draft PR, frozen independent expected-value fixture, wall-clock timeout, and eventual offline Stratum job-to-header/target integration. Do not duplicate the already merged PR #8 Stratum lifecycle, the PR #6 target comparator, or PR #2/#11 reference/nonce/atomic TSV work.
 
-One KAT, a scaffold, or a green CI result without real platform tests cannot mark G0 as passed. G1 Stratum/accepted shares, G2 GUI, and G4/G5 GPU support must not be claimed until their respective gates are satisfied.
+Never present Linux-only offline evidence as a working, released, or Windows-validated miner. Do not close G0/G1, enable live mining, connect to production pools, submit shares, or merge outstanding PRs without explicit additional authority.
 
 ## Non-negotiable boundaries
 
