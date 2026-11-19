@@ -1,3 +1,25 @@
+# Local tools, IDE state, and build products
 .tools/
 build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+
+# Generated local G0/G1 evidence workspaces (not committed source fixtures)
+/g0-out/
+/g1-out/
+/tmp/
+/temp/
+
+# Python interpreter/test caches and local environments
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+
+# OS-local artifacts
+.DS_Store
+Thumbs.db
