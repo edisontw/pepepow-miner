@@ -38,6 +38,15 @@ def main():
     check(*run(count, transcript, "1"), 1, [])
     unscaled = transcript.replace(b"[98.304]", b"[0.0015]")
     check(*run(count, unscaled, "1"), 0, [mock_submit])
+    # Invalid scales must fail before any mock submit can be emitted.
+    # In particular, NaN/Infinity must not leak into target conversion.
+    for invalid_scale in ("0", "-1", "0.5", "nan", "inf", "-inf", "1junk"):
+        result, submits = run(count, transcript, invalid_scale)
+        assert result.returncode == 2, (invalid_scale, result)
+        assert submits == [], (invalid_scale, submits)
+        assert b"Invalid wire difficulty scale" in result.stderr, (
+            invalid_scale, result.stderr
+        )
     result = subprocess.run(
         [kat, expected["header_hex"], expected["digest_raw_hex"]],
         capture_output=True, text=True, timeout=5,
