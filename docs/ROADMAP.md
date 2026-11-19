@@ -13,7 +13,7 @@
 
 ## G0: evidence must stay separated by platform
 
-The pinned Core is `bc08108ceccd957c79040dc7fedc1d56d8d47f97` and OpenLibm 0.8.7 is `9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`. Native Linux Release/Debug tests reported 10,000 complete independent digests with zero mismatches, with intermediate/worker probes. Evidence also exists for Windows 10 22H2 and Windows Server 2025; neither substitutes for native Windows 11 workstation validation. Windows 11 testing is owner-approved **deferred** so offline work may continue. For original runs, hashes and limitations, see [historical log](archive/DEVELOPMENT_STATUS_LOG_THROUGH_20261119.md). Formal G0 sign-off remains OPEN.
+The pinned Core is `bc08108ceccd957c79040dc7fedc1d56d8d47f97` and OpenLibm 0.8.7 is `9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`. Native Linux Release/Debug tests reported 10,000 complete independent digests with zero mismatches, with intermediate/worker probes. Evidence also exists for Windows 10 22H2 and Windows Server 2025; neither substitutes for native Windows 11 workstation validation. Windows 11 testing is owner-approved **deferred** so offline work may continue. For original runs, hashes and limitations, see [the retired historical log in Git history](https://github.com/edisontw/pepepow-miner/blob/5de6d64aab6696918ab37bbdfd5d5164e33fc041/docs/DEVELOPMENT_STATUS.md). Formal G0 sign-off remains OPEN.
 
 Do not mistake fixture self-consistency or only the first digest bytes for independent consensus proof. Record full header, target, all 32 digest bytes, upstream revision, compiler/FP options, exact command and mismatch reproducer.
 
