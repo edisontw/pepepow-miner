@@ -36,6 +36,8 @@ def main():
     check(*run(count - 1), 1, [])
     check(*run(count), 0, [mock_submit])
     check(*run(count, transcript, "1"), 1, [])
+    # Explicit default wire scale must match the implicit default.
+    check(*run(count, transcript, str(expected["wire_scale"])), 0, [mock_submit])
     unscaled = transcript.replace(b"[98.304]", b"[0.0015]")
     check(*run(count, unscaled, "1"), 0, [mock_submit])
     # Invalid scales must fail before any mock submit can be emitted.
