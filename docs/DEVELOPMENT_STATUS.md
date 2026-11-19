@@ -1,6 +1,6 @@
 # PEPEPOW Miner — Current development status
 
-**Snapshot: 2026-11-19 (Asia/Taipei).** This is the concise active handoff. The original chronological G0/G1 run log is preserved without edits in [the historical archive](archive/DEVELOPMENT_STATUS_LOG_THROUGH_20261119.md). Re-query GitHub HEAD, PRs, and exact-head checks before making changes.
+**Snapshot: 2026-11-19 (Asia/Taipei).** This is the concise active handoff. The retired chronological G0/G1 run log was removed from the active tree after retaining its original contents in [Git history](https://github.com/edisontw/pepepow-miner/blob/5de6d64aab6696918ab37bbdfd5d5164e33fc041/docs/DEVELOPMENT_STATUS.md). It is historical evidence, not a current status record. Re-query GitHub HEAD, PRs, and exact-head checks before making changes.
 
 ## Current authority and branches
 
@@ -34,4 +34,4 @@ The current test derives the expected nonce/digest from the independent Python i
 
 ## Documentation rules
 
-Keep active handoffs short and dated. Preserve historic validation evidence in the archive rather than rewriting it as current truth. Update [the documentation index](README.md), [roadmap](ROADMAP.md), and [offline CLI instructions](../tools/README.md) when capability changes. All new repository prose and commit messages are in English.
+Keep active handoffs short and dated. Preserve reproducibility-critical evidence and use Git history for retired hourly status logs rather than rewriting historical claims as current truth. Update [the documentation index](README.md), [roadmap](ROADMAP.md), and [offline CLI instructions](../tools/README.md) when capability changes. All new repository prose and commit messages are in English.
