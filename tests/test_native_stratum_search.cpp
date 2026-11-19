@@ -9,7 +9,7 @@ constexpr std::string_view extranonce2 = "12345678";
 constexpr std::string_view notify =
     R"({"id":null,"method":"mining.notify","params":["mock-job","000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f","0102","0304",["202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"],"20004000","1d02e371","7169e10b",false]})" "\n";
 constexpr std::string_view difficulty =
-    R"({"id":null,"method":"mining.set_difficulty","params":[0.00005]})" "\n";
+    R"({"id":null,"method":"mining.set_difficulty","params":[3.2768]})" "\n";
 
 bool prepare(pepepow::OfflineStratumController& controller, unsigned first_id) {
   controller.connected();
@@ -74,7 +74,7 @@ bool run() {
   if (!current || current->search(0, 7) != SearchStatus::Found) return failure();
   // A difficulty update applies to the next notify, preserving captured work.
   constexpr std::string_view new_difficulty =
-      R"({"id":null,"method":"mining.set_difficulty","params":[1]})" "\n";
+      R"({"id":null,"method":"mining.set_difficulty","params":[65536]})" "\n";
   if (controller.receive_work_events(new_difficulty, generation).applied != 1) return failure();
   const auto request = current->make_mock_submit(controller, login);
   if (request != R"({"id":3,"method":"mining.submit","params":["mock.worker","mock-job","12345678","7169e10b","00000006"]})" "\n" ||

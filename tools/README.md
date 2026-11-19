@@ -57,12 +57,15 @@ The bounded nonce search uses the same Core HooHash V110 code as
 cmake --build build/reference --parallel 4
 ctest --test-dir build/reference --output-on-failure
 timeout 45s build/reference/offline_stratum_replay mock.worker \
-  --search 0 7 12345678 < transcript.jsonl
+  --search 0 3 00000001 < tests/vectors/stratum/pool-loopback.jsonl
 ```
 
 The JSONL transcript supplies correlated subscribe and authorize replies,
 difficulty, and notify. After EOF the replay searches the latest authorized
-job with the supplied extranonce2. Search accepts 1–10,000 nonces within
+job with the supplied extranonce2. The optional final argument overrides the
+wire difficulty scale. It defaults to 65536 for the pinned PEPEPOW pool.
+Use the scale configured by the source pool when replaying another transcript.
+Search accepts 1–10,000 nonces within
 uint32 and has a 30-second cooperative deadline. Exit 1 indicates transcript
 failure or exhausted search. Exit 2 indicates invalid input or unavailable
 work. Exit 3 indicates a candidate could not be registered. Exit 4 indicates
@@ -73,3 +76,19 @@ The integration fixture checks the full header and digest, mock response
 correlation, difficulty applying on the next notify, and candidate rejection
 after same-ID replacement or reconnect. This exercises the fixed-order pool
 dialect with local fixture data.
+
+The committed [loopback transcript](../tests/vectors/stratum/pool-loopback.jsonl)
+contains the four server frames captured on an OS-assigned 127.0.0.1 port from
+`edisontw/pool-pepepow@c1298d7b40e5e9fd39f76af179c6e10a1c313147`.
+The service used the test RPC template from `tests/test_stratum_ingress.py`
+with the nonuniform prevhash from its notify-capture test, fixed test session
+and extranonce values, and effective difficulty 0.0015. The wire difficulty
+was 98.304. The pool's submit-side coinbase-dialect and header helpers produced
+the expected header, and the independent Python V110 implementation computed
+the expected digest. The fixture covers the pinned pool's actual wire serializer
+with test data and contains no production traffic.
+
+```sh
+timeout 30s python3 tests/check_pool_loopback_replay.py \
+  build/reference/offline_stratum_replay build/reference/pepepow-kat
+```

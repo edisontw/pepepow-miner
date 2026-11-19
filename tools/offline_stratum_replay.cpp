@@ -62,15 +62,20 @@ static int cancellation_self_test() {
 int main(int argc, char** argv) {
 #ifdef PEPEPOW_NATIVE_STRATUM_SEARCH
   std::uint32_t start = 0, count = 0;
-  const bool search = argc == 6 && std::string_view(argv[2]) == "--search";
+  double scale = pepepow::OfflineStratumSearch::default_wire_difficulty_scale;
+  const bool search = (argc == 6 || argc == 7) && std::string_view(argv[2]) == "--search";
   if (search) {
-    const auto parse = [](std::string_view text, std::uint32_t& number) {
+    const auto parse = [](std::string_view text, auto& number) {
       const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), number);
       return error == std::errc{} && end == text.data() + text.size();
     };
     if (!parse(argv[3], start) || !parse(argv[4], count) ||
         !pepepow::valid_search_range(start, count)) {
       std::cerr << "Invalid nonce range\n";
+      return 2;
+    }
+    if (argc == 7 && (!parse(argv[6], scale) || !std::isfinite(scale) || scale < 1.0)) {
+      std::cerr << "Invalid wire difficulty scale\n";
       return 2;
     }
   }
@@ -86,7 +91,7 @@ int main(int argc, char** argv) {
   if ((!search && argc != 2) || std::string(argv[1]) == "--help") {
     std::cout << "Usage: offline_stratum_replay LOGIN < transcript.jsonl\n"
 #ifdef PEPEPOW_NATIVE_STRATUM_SEARCH
-                 "       offline_stratum_replay LOGIN --search START COUNT EXTRANONCE2_HEX < transcript.jsonl\n"
+                 "       offline_stratum_replay LOGIN --search START COUNT EXTRANONCE2_HEX [WIRE_DIFFICULTY_SCALE] < transcript.jsonl\n"
                  "Offline only: search emits a mock request to stdout. No sockets.\n";
 #else
                  "Offline only: no socket, hashing or share submission.\n";
@@ -222,7 +227,7 @@ int main(int argc, char** argv) {
       (self_test && applied != 1)) return 1;
 #ifdef PEPEPOW_NATIVE_STRATUM_SEARCH
   if (search) {
-    auto work = pepepow::OfflineStratumSearch::capture(controller, argv[5]);
+    auto work = pepepow::OfflineStratumSearch::capture(controller, argv[5], scale);
     if (!work) {
       std::cerr << "No valid work for the supplied extranonce2\n";
       return 2;

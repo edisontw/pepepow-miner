@@ -16,8 +16,12 @@ class OfflineStratumSearch {
   OfflineStratumSearch(const OfflineStratumSearch&) = delete;
   OfflineStratumSearch(OfflineStratumSearch&&) = default;
 
-  static std::optional<OfflineStratumSearch> capture(const OfflineStratumController& controller,
-                                                     std::string_view extranonce2) {
+  // The pinned pool config defaults to a 2^16 multiplier on advertised difficulty.
+  static constexpr double default_wire_difficulty_scale = 65536.0;
+
+  static std::optional<OfflineStratumSearch> capture(
+      const OfflineStratumController& controller, std::string_view extranonce2,
+      double wire_difficulty_scale = default_wire_difficulty_scale) {
     const auto& session = controller.session();
     const auto job = session.jobs().active();
     const auto* notify = session.active_notify();
@@ -25,7 +29,9 @@ class OfflineStratumSearch {
     if (!job || !notify || !subscription ||
         !stratum_hex(extranonce2, subscription->extranonce2_size)) return std::nullopt;
 
-    const auto target = share_target(job->difficulty);
+    if (!std::isfinite(wire_difficulty_scale) || wire_difficulty_scale < 1.0)
+      return std::nullopt;
+    const auto target = share_target(job->difficulty / wire_difficulty_scale);
     if (!target) return std::nullopt;
     const auto coinbase = decode_hex(notify->coinb1 + subscription->extranonce1 +
                                      std::string(extranonce2) + notify->coinb2);
