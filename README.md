@@ -8,7 +8,7 @@
 
 A PEPEPOW-specific native miner for Windows and Linux, designed to be friendly to everyday computers and to explain mining performance clearly.
 
-**Current status: planning and technical validation. No usable miner or downloadable release is available.**
+**Current status: offline technical prototype.** A bounded Linux-tested CPU nonce-search CLI exists on the unmerged `g1-offline-cpu-search` branch; it accepts manually supplied offline inputs and is **not** a live miner. There is no supported binary release.
 
 ## Product direction
 
@@ -23,10 +23,12 @@ These features are not claimed to be individually novel. The intended differenti
 
 ## Documentation
 
-- [Documentation index and next steps](docs/README.md): research document locations, the G0 validation entry point, and current documentation status.
+- [Documentation index and evidence boundaries](docs/README.md): current handoff, preserved research, historical evidence and offline tools.
 - [Architecture decisions](docs/ARCHITECTURE.md): core, GUI, GPU, and job-lifecycle choices.
 - [Research verification ledger](docs/RESEARCH_LEDGER.md): pinned source SHAs, confirmed differences, and outstanding questions.
 - [Product development plan (03)](docs/research/03_PRODUCT_DEVELOPMENT_PLAN.md): differentiation, technical assessment, milestones, and acceptance criteria.
+- [Current G0/G1 handoff](docs/DEVELOPMENT_STATUS.md): concise status and remaining acceptance work.
+- [Offline CPU CLI instructions](tools/README.md): pinned reference build, explicit fixture inputs and safety limits.
 - [AI coding agent instructions](AGENTS.md): required reading, G0 priorities, and evidence standards.
 
 ## First milestone
@@ -39,8 +41,8 @@ Passing G0 requires full 32-byte digest comparisons, at least 10,000 header/nonc
 
 | Layer | Decision | Status |
 | --- | --- | --- |
-| G0 hash harness | C reference adapter + CMake | Planned approach adopted; licensing and parity still need verification |
-| G1 host / Stratum / scheduling | C++20; immutable job snapshots | Planned approach adopted; not yet accepted as a complete implementation |
+| G0 hash harness | C reference adapter + CMake | Implemented on unmerged G0 branch; extensive independent parity evidence, formal acceptance still open |
+| G1 host / Stratum / scheduling | C++20; immutable job snapshots | Offline Stratum lifecycle on main; bounded CPU nonce search prototype on unmerged G1 branch; no live pool acceptance |
 | G2 desktop UI | Qt 6 + C++, sharing a controller; headless core independent of Qt | Conditional first choice; packaging and licensing spike pending |
 | Configuration and events | Versioned JSON / JSONL | Planned approach adopted; schema pending G1 |
 | NVIDIA / AMD | CUDA first; choose HIP or OpenCL for AMD based on actual hardware | Separate G4/G5 gates; not validated |
