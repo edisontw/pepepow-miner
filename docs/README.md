@@ -27,9 +27,9 @@
 
 The three original research reports are historical source material, **not acceptance evidence**. Some imported citation tokens are not GitHub-resolvable; verify material claims against pinned upstream sources. Do not rewrite the original reports just to change their language.
 
-## Archive and cleanup policy
+## Historical status and cleanup policy
 
-The former ~149 KB chronological `DEVELOPMENT_STATUS.md` was moved verbatim into [archive/DEVELOPMENT_STATUS_LOG_THROUGH_20261119.md](archive/DEVELOPMENT_STATUS_LOG_THROUGH_20261119.md). It contains dated historical heads, CI runs, failures, fixes, and native test claims; use it for provenance, **not** as the latest status. New work should update the concise active handoff rather than append hourly duplicate logs.
+The former ~149 KB chronological `DEVELOPMENT_STATUS.md` was retired from the active tree. Its complete original content remains available in [the previous Git revision](https://github.com/edisontw/pepepow-miner/blob/5de6d64aab6696918ab37bbdfd5d5164e33fc041/docs/DEVELOPMENT_STATUS.md), which records historical heads, CI runs, failures, fixes and test claims. Do not mistake these historical entries for current HEAD evidence. Use this concise handoff for new work instead of reinstating hourly logs.
 
 No reproducibility-critical code, KAT fixture, source manifest, or validation evidence should be deleted as "temporary" without proving that it has been superseded and is not referenced by a test or open PR. Local build outputs, generated TSVs, caches, and logs belong outside version control (see `.gitignore`).
 
