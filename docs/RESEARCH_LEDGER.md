@@ -1,6 +1,6 @@
 # 研究查核與待驗證事項
 
-查核日期：2026-11-04（台灣）。本次只讀取原始碼／文件，**未建置、執行 hash、連池或測量效能**。
+查核日期：2026-11-04（台灣）。本表記錄研究整合時的靜態查核；後續來源更正及 synthetic C 前端的原生建置／測試見 [G0 實作紀錄](G0_IMPLEMENTATION_NOTES.md)。尚未執行真正 HooHash、連池或測量效能。
 VERIFIED-SOURCE 只代表靜態來源確認；PROVISIONAL 需測試；BLOCKED 表示該事項不得據此進入 production。沒有 runtime-passed 項目。
 
 ## 固定查核快照
@@ -38,7 +38,7 @@ Core/pool SHA 與原規劃歷史值相同，本次已重新讀取分支 head；�
 | R06 VERIFIED-SOURCE | [stratum_protocol.py](https://github.com/edisontw/pool-pepepow/blob/c1298d7b40e5e9fd39f76af179c6e10a1c313147/apps/pool-core/stratum_protocol.py)：format_prevhash_for_stratum 每 4-byte word reverse；notify/subscribe 結構；error 可 object 或 submit array | G1 固定完整 notify → header80 fixtures；測試兩類 error shape，不只 happy path |
 | R07 VERIFIED-SOURCE / boundary pending | [stratum_ingress.py](https://github.com/edisontw/pool-pepepow/blob/c1298d7b40e5e9fd39f76af179c6e10a1c313147/apps/pool-core/stratum_ingress.py)：STRATUM_DIFF1_TARGET_PEPEPOW_POOL = 0000ffff…；_share_target_from_difficulty 用 int(D1 / difficulty) 後 clamp 至 [1, 2^256−1]，輸入為 float | 01 的 floor 公式是數學摘要，不足以定義浮點邊界。G1 比較精確整數／有理數 target 與 pool rounding，測試 target−1/target/target+1、極小／非有限 difficulty，未解差異阻擋互通驗收 |
 | R08 VERIFIED-SOURCE | 同上 _manual_share_difficulty_from_password 的 sd= 路徑除以 65536；與 miner-facing target baseline 是不同層 | 不把 65536 再套到所有 set_difficulty；以設定→wire→target fixtures 核對 |
-| R09 BLOCKED provenance | Core hoohash.c MIT 檔頭並註明 Hoosat commit 9634f11410a2d71be21086e813263fa007fb6810；01／02 對 upstream repo/file license 的敘述不同 | 尚未完成 lineage、BLAKE3/openlibm、第三方逐檔審查。G0-01 記錄 checksum、license、notice、patch 與相容性；不可由單一 LICENSE 或「重寫」推定可散布 |
+| R09 改授權證據已確認／散布審查 pending | Core hoohash.c MIT 檔頭並註明 Hoosat commit 9634f11410a2d71be21086e813263fa007fb6810；01／02 對 upstream repo/file license 的敘述不同 | 後續確認 9634f114 本身為原作者明確從 GPLv3 改為 MIT 的提交，並完成 BLAKE3 差異分類；見 G0 實作紀錄。保留舊檔頭差異與 notices；openlibm 逐檔／最終散布審查仍 pending |
 | R10 PROVISIONAL | 02 的 FP64、GPU throughput、AMD Windows 能力與競品效能；03 的 GUI/telemetry 可行性 | 本 repo 無 hardware/build 證據。各 OS/device/driver 逐項驗證，不把研究數字當 benchmark |
 | R11 PROVISIONAL | 01／02 的 SafeComplexTransform、常數、NaN/Inf、浮點順序等細節 | G0 逐 symbol 與 fixed Core 比對，中間值診斷；本次未完成全演算法 audit，禁止自行修正共識語義 |
 
