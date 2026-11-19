@@ -1,23 +1,14 @@
-#include "pepepow/header_nonce.h"
+#include "pepepow/bounded_cpu_search.hpp"
 #include "pepepow/job_state.hpp"
-#include "pepepow/uint256_target.h"
 
 #include <algorithm>
 #include <array>
 #include <charconv>
-#include <chrono>
 #include <cstdio>
 #include <cstdint>
-#include <limits>
 #include <string_view>
 
-extern "C" void hoohashv110(const void* data, std::size_t len, std::uint8_t output[32]);
-
 namespace {
-constexpr std::uint32_t kMaxNonceCount = 10000;
-constexpr std::uint32_t kDefaultTimeoutMs = 30000;
-constexpr std::uint32_t kMaxTimeoutMs = 60000;
-
 template <std::size_t Size>
 bool parse_hex(std::string_view text, std::array<std::uint8_t, Size>& bytes) {
   if (text.size() != Size * 2) return false;
@@ -55,21 +46,20 @@ int main(int argc, char** argv) {
   std::uint32_t start = 0, count = 0;
   if (argc < 5 || !parse_hex(argv[1], header) || !parse_hex(argv[2], target) ||
       !parse_decimal(argv[3], start) || !parse_decimal(argv[4], count) ||
-      count == 0 || count > kMaxNonceCount ||
-      count - 1 > std::numeric_limits<std::uint32_t>::max() - start) {
+      !pepepow::valid_search_range(start, count)) {
     usage();
     return 2;
   }
 
   bool replace_job = false, timeout_given = false;
-  std::uint32_t timeout_ms = kDefaultTimeoutMs;
+  std::uint32_t timeout_ms = pepepow::default_search_timeout_ms;
   for (int i = 5; i < argc; ++i) {
     const auto option = std::string_view(argv[i]);
     if (option == "--replace-job" && !replace_job) {
       replace_job = true;
     } else if (option == "--max-ms" && !timeout_given && i + 1 < argc &&
                parse_decimal(argv[i + 1], timeout_ms) &&
-               timeout_ms > 0 && timeout_ms <= kMaxTimeoutMs) {
+               timeout_ms > 0 && timeout_ms <= pepepow::max_search_timeout_ms) {
       timeout_given = true;
       ++i;
     } else {
@@ -84,37 +74,25 @@ int main(int argc, char** argv) {
   jobs.authorized(true);
   jobs.notify("fixture", true);
   const auto job = jobs.active().value();
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-  for (std::uint32_t offset = 0; offset < count; ++offset) {
-    // A monotonic deadline is checked on both sides of each Core hash call.
-    // The Core call itself is synchronous; use an external watchdog for a hard kill.
-    if (std::chrono::steady_clock::now() >= deadline) {
-      std::puts("status=timeout");
-      return 4;
-    }
-    const auto nonce = start + offset;
-    pepepow_header_set_nonce(header.data(), header.size(), nonce);
-    std::array<std::uint8_t, 32> digest{};
-    hoohashv110(header.data(), header.size(), digest.data());
-    if (std::chrono::steady_clock::now() >= deadline) {
-      std::puts("status=timeout");
-      return 4;
-    }
-    if (!pepepow_uint256_meets_target_le(digest.data(), target.data())) {
-      continue;
-    }
-    if (replace_job) jobs.notify(job.id, false);
-    if (!jobs.can_submit(job)) {
-      std::puts("status=stale");
-      return 3;
-    }
-    std::printf("status=found nonce=%llu digest_raw=", static_cast<unsigned long long>(nonce));
-    print_hex(digest.data(), digest.size());
-    std::printf("\nheader_hex=");
-    print_hex(header.data(), header.size());
-    std::putchar('\n');
-    return 0;
+  const auto result = pepepow::search_cpu(header, target, start, count, timeout_ms);
+  if (result.status == pepepow::SearchStatus::Timeout) {
+    std::puts("status=timeout");
+    return 4;
   }
-  std::puts("status=exhausted");
-  return 1;
+  if (!result.candidate) {
+    std::puts("status=exhausted");
+    return 1;
+  }
+  if (replace_job) jobs.notify(job.id, false);
+  if (!jobs.can_submit(job)) {
+    std::puts("status=stale");
+    return 3;
+  }
+  const auto& candidate = *result.candidate;
+  std::printf("status=found nonce=%llu digest_raw=", static_cast<unsigned long long>(candidate.nonce));
+  print_hex(candidate.digest.data(), candidate.digest.size());
+  std::printf("\nheader_hex=");
+  print_hex(candidate.header.data(), candidate.header.size());
+  std::putchar('\n');
+  return 0;
 }

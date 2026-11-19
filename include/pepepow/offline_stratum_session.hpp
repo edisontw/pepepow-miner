@@ -23,6 +23,7 @@ class OfflineStratumSession {
   void connected() {
     ++session_generation_;
     subscription_.reset();
+    work_.reset();
     pending_submits_.clear();
     last_submit_id_.clear();
     counters_ = {};
@@ -34,6 +35,7 @@ class OfflineStratumSession {
     ++session_generation_;
     jobs_.apply({JobState::EventKind::Disconnected});
     subscription_.reset();
+    work_.reset();
     pending_submits_.clear();
     subscribed_ = false;
     connected_ = false;
@@ -57,8 +59,10 @@ class OfflineStratumSession {
   }
   bool notify(std::string_view line) {
     if (!subscribed_) return false;
-    auto event = decode_notify(line);
+    NotifyWork work;
+    auto event = decode_notify(line, &work);
     if (!event || !jobs_.apply(*event)) return false;
+    work_ = std::move(work);
     return true;
   }
   // Track a share only while its job is current. Once sent, its reply can
@@ -109,9 +113,14 @@ class OfflineStratumSession {
     return result;
   }
   std::uint64_t session_generation() const { return session_generation_; }
+  const NotifyWork* active_notify() const {
+    return work_ && jobs_.active() ? &*work_ : nullptr;
+  }
+  const std::optional<SubscribeReply>& subscription() const { return subscription_.current(); }
   const JobState& jobs() const { return jobs_; }
  private:
   JobState jobs_;
+  std::optional<NotifyWork> work_;
   ShareCounters counters_;
   std::unordered_set<std::string> pending_submits_;
   std::string last_submit_id_;
