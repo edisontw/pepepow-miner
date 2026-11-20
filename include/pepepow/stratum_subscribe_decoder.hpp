@@ -82,6 +82,7 @@ class SubscribeWorkGuard {
     return true;
   }
   void reset() { current_.reset(); }
+  const std::optional<SubscribeReply>& current() const { return current_; }
  private:
   std::optional<SubscribeReply> current_;
 };
