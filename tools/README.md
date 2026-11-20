@@ -9,7 +9,7 @@ The reference library is not bundled yet. Never pass the pool candidate's
 canonical/display string without independently establishing the byte mapping.
 A successful synthetic contract test is not a HooHash KAT.
 
-## Real reference build (pending)
+## Real reference build (pinned Core/OpenLibm; offline only)
 
 ```sh
 cmake -S . -B build/reference -DPEPEPOW_REFERENCE_LIBRARY=/absolute/path/to/reviewed-reference-library
@@ -43,11 +43,11 @@ cmake --build build/contract
 python tests/harness/test_contract.py build/contract/kat-contract-test
 ```
 Use the actual executable path for multi-configuration generators.
-CMake itself has not yet been exercised in the current local environment.
+Earlier CI and native Linux validation exercised CMake; check the exact checkout and build flags for new evidence.
 
 ## Offline Stratum replay with native Core search
 
-Configure the pinned Core/OpenLibm build as described in PR #13, with
+Configure the pinned Core/OpenLibm build documented in [the current handoff](../docs/DEVELOPMENT_STATUS.md), with
 `-DPEPEPOW_NATIVE_STRATUM_SEARCH=ON`. This adds the native replay and its
 integration test. It requires OpenSSL Crypto for coinbase and Merkle SHA256d.
 The bounded nonce search uses the same Core HooHash V110 code as

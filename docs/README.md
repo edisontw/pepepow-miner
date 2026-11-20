@@ -1,56 +1,37 @@
-# PEPEPOW Miner 文件索引
+# PEPEPOW Miner documentation index
 
-> 更新：2026-11-04。以 GitHub `main` 的實際內容為準。**研究結論不等於已經實機驗證；規劃文件不等於已完成程式。**
+**Updated 2026-11-20.** Read live GitHub main and PR heads before relying on this dated index. This is a **pre-release offline validation prototype**, not a supported miner.
 
-## 文件位置與閱讀順序
+## Canonical reading order
 
-| 文件 | 用途 | 狀態 |
-| --- | --- | --- |
-| [README](../README.md) | 產品定位與目前狀態 | 已存在 |
-| [01 核心技術研究](research/01_CORE_TECHNICAL_RESEARCH.md) | PEPEPOW HooHash V110、header、Stratum、difficulty、授權與 golden vectors | 已上傳、可讀 |
-| [02 架構與效能研究](research/02_ARCHITECTURE_PERFORMANCE.md) | CPU/GPU 架構、FP64 風險、Qt/C++ 方案、benchmark、CI | 已上傳、可讀 |
-| [03 產品開發計畫](research/03_PRODUCT_DEVELOPMENT_PLAN.md) | 競品、差異化、UX、細部里程碑、工程流程 | 已歸檔、可讀 |
-| [架構決策](ARCHITECTURE.md) | 研究衝突裁決、層次契約與條件式選型 | 規劃已採納、未實作 |
-| [研究查核表](RESEARCH_LEDGER.md) | 固定 main/Core/pool SHA、逐項證據與未決問題 | 靜態查核；runtime pending |
-| [G0 技術驗證計畫](G0_TECHNICAL_VALIDATION.md) | 首個技術驗收的範圍、測例與完成門檻 | 待執行 |
-| [Roadmap](ROADMAP.md) | **G0–G5 階段進度與完成門檻的主要依據** | G0 待執行 |
-| [AGENTS.md](../AGENTS.md) | AI Coding Agent 的讀取順序、安全與證據規範 | 已存在 |
+| Document | Purpose |
+| --- | --- |
+| [Project README](../README.md) | Product scope and release safety boundary |
+| [Development handoff](DEVELOPMENT_STATUS.md) | Concise G0/G1 implementation, evidence, and current blockers |
+| [Roadmap](ROADMAP.md) | G0–G5 acceptance criteria and phase status |
+| [G0 validation plan](G0_TECHNICAL_VALIDATION.md) | Full-digest parity and platform acceptance gates |
+| [Source audit](G0_SOURCE_AUDIT.md) | Pinned sources, candidate provenance and licenses |
+| [Implementation notes](G0_IMPLEMENTATION_NOTES.md) | Historical G0 harness and test records |
+| [Research ledger](RESEARCH_LEDGER.md) | Source review and unresolved assumptions |
+| [Architecture decisions](ARCHITECTURE.md) | CPU/Stratum/GUI/GPU architecture |
+| [Source manifest](sources/g0-source-manifest.json) | Source revision and blob inventory |
+| [Native evidence](VALIDATION_EVIDENCE/G0/) | Archived focused validation evidence |
+| [Offline CLI usage](../tools/README.md) | KAT/search/replay build and test commands |
+| [Coding agent rules](../AGENTS.md) | Security, evidence and English documentation policy |
 
-三份研究報告都位於 `docs/research/`，檔名與正文保留；僅將原先無法在 GitHub 使用的 `sandbox:/mnt/data/` 下載連結改為儲存庫相對連結。**研究原文內的 `cite…` 標記不是 GitHub 可解析的引用**，因此其「已驗證」字樣仍須以原始 Core/pool、版本 SHA、授權與可重現測試重新核對，不應直接升級成工程驗收事實。
+The original research reports remain available under `docs/research/`:
+[01 Core technical research](research/01_CORE_TECHNICAL_RESEARCH.md),
+[02 Architecture and performance](research/02_ARCHITECTURE_PERFORMANCE.md), and
+[03 Product development plan](research/03_PRODUCT_DEVELOPMENT_PLAN.md).
+Research claims and imported citation tokens are not independent consensus evidence.
 
-## 目前文件樹
+## Historical handoff archive
 
-```text
-/
-├── README.md
-├── AGENTS.md
-└── docs/
-    ├── README.md
-    ├── ARCHITECTURE.md
-    ├── RESEARCH_LEDGER.md
-    ├── ROADMAP.md
-    ├── G0_TECHNICAL_VALIDATION.md
-    └── research/
-        ├── 01_CORE_TECHNICAL_RESEARCH.md
-        ├── 02_ARCHITECTURE_PERFORMANCE.md
-        └── 03_PRODUCT_DEVELOPMENT_PLAN.md
-```
+The former ~149 KB chronological status document, with historical CI, source changes and test claims, is retained verbatim in [Git history at the pre-cleanup main commit](https://github.com/edisontw/pepepow-miner/blob/ebe03bed5ced88c4e11070b2e87eca57c05fce7b/docs/DEVELOPMENT_STATUS.md). Replacing the active file does not remove historical evidence or committed fixtures.
 
-## 研究整合後的執行規則
+## Current boundaries
 
-已完整讀取三份研究並核對 main；原文不改寫。技術選型以 [架構決策](ARCHITECTURE.md) 為準，事實與來源以 [查核表](RESEARCH_LEDGER.md) 為準，進度只在 [Roadmap](ROADMAP.md) 維護。
-
-已採納 C/C++ + CMake 的 CPU-first 路線；Qt 為 G2 有條件首選，Rust/Tauri 為替代；AMD 不預設 HIP。明確區分 32-bit wire nonce／內部 allocator、job generation／submit eligibility，GPU 每個 candidate 都 CPU 複核。API/service、自動活動偵測與 SQLite 不擴大首版。
-
-Core/pool 分支 SHA 已重新查核，但來源授權、runtime parity 與實際互通仍未完成。pool KAT 工具的 8-byte 比對／失敗 exit 0 缺陷已由當前來源確認；difficulty float rounding 另列 G1 邊界驗收。
-
-## 下一步：G0-01
-
-[**GitHub Issue #1：查核 Core/pool 來源與授權，建立首組完整 32-byte KAT**](https://github.com/edisontw/pepepow-miner/issues/1)
-
-1. 閱讀 01／02／03，將與共識相關的研究主張逐項對照 Core/pool 最新 commit、原始碼與授權；記錄證據與待確認事項。
-2. 取得獨立 reference 的 **80-byte header → 完整 32-byte expected digest**；記錄來源與 byte order。
-3. 建立 CPU CLI harness，對全部 32 bytes 比對，非法輸入與 mismatch 回傳非零；故意改壞 digest 最後一個 byte 必須失敗。
-4. 擴充至至少 **10,000** 組 parity，並收集 Windows 11 x64、Ubuntu 22.04／24.04 x64 **原生** build/run 證據，才能依 [G0 計畫](G0_TECHNICAL_VALIDATION.md) 評估是否通過。
-
-**目前狀態：只有研究與規劃文件；尚無已驗收的礦工程式、hash parity、accepted shares 或發行檔。**
+- **G0:** the pinned Core harness, independent Python checks, real-chain fixtures, and earlier reported Linux 10,000-case parity exist, but formal acceptance is **NOT PASSED**. Windows 11 hardware verification is owner-deferred.
+- **G1:** bounded offline CPU search, cooperative deadline and mock/loopback Stratum replay merged via [PR #14](https://github.com/edisontw/pepepow-miner/pull/14). No production pool/share or OS support claim.
+- **Unmerged work:** [PR #5](https://github.com/edisontw/pepepow-miner/pull/5) prevhash, [#7](https://github.com/edisontw/pepepow-miner/pull/7) nBits, [#9](https://github.com/edisontw/pepepow-miner/pull/9) and [#10](https://github.com/edisontw/pepepow-miner/pull/10) localhost preflight/deadline; review independently, not as part of #14.
+- **G2–G5:** desktop/UI/GPU release gates not passed.
