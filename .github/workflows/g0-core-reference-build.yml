@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: edisontw/PePe-core
-          ref: c1394e652045a8abef3cb54f87eafec0844d3b1f
+          ref: bc08108ceccd957c79040dc7fedc1d56d8d47f97
           path: core
           persist-credentials: false
       # Ubuntu 24.04 does not provide libopenlibm-dev in the runner apt sources.
@@ -31,12 +31,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: JuliaMath/openlibm
-          ref: 5fe399749f9276eaa0b8403e507470da05cbbb3f
+          ref: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d # v0.8.7, as pinned in Core depends
           path: openlibm
           persist-credentials: false
       - name: Build pinned OpenLibm locally
         run: |
-          test "$(git -C openlibm rev-parse HEAD)" = 5fe399749f9276eaa0b8403e507470da05cbbb3f
+          test "$(git -C openlibm rev-parse HEAD)" = 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
           cmake -S openlibm -B openlibm-build -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/openlibm"
           cmake --build openlibm-build --parallel 2
@@ -49,7 +49,7 @@ jobs:
             -DOPENLIBM_INCLUDE_DIR="$GITHUB_WORKSPACE/openlibm/include" \
             -DOPENLIBM_LIBRARY="$GITHUB_WORKSPACE/openlibm-build/libopenlibm.a" \
             -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
-            -DPEPEPOW_CORE_EXPECTED_SHA=c1394e652045a8abef3cb54f87eafec0844d3b1f
+            -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97
       - name: Build and link real Core reference
         run: cmake --build build --config Release --parallel 2
       - name: Check reference executable exists without invoking hashing
