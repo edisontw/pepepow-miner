@@ -2,7 +2,16 @@ name: G0 synthetic header corpus checks (no hash parity claim)
 
 on:
   pull_request:
+    paths:
+      - '.github/workflows/g0-header-corpus.yml'
+      - 'tests/generate_g0_headers.py'
+      - 'tests/test_generate_g0_headers.py'
   workflow_dispatch:
+
+# Keep PR runs separate from pushes and manual acceptance runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

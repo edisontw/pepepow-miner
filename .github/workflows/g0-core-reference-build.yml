@@ -2,7 +2,25 @@ name: G0 pinned Core reference build (no parity claim)
 
 on:
   pull_request:
+    paths:
+      - '.github/workflows/g0-core-reference-build.yml'
+      - 'CMakeLists.txt'
+      - 'tools/kat.c'
+      - 'tools/g0_v110_independent.py'
+      - 'tests/test_g0_v110_independent.py'
+      - 'tests/vectors/candidates/**'
+      - 'tests/generate_g0_headers.py'
+      - 'tests/check_pinned_pool_candidate.py'
+      - 'tests/test_check_pinned_pool_candidate.py'
+      - 'tests/*export_core_reference_digests.py'
+      - 'tests/*compare_digest_parity.py'
+      - 'docs/sources/g0-source-manifest.json'
   workflow_dispatch:
+
+# Keep PR runs separate from pushes and manual acceptance runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -17,6 +35,8 @@ jobs:
         with:
           path: miner
           persist-credentials: false
+      - name: Test independent V110 CLI and full-digest negative controls
+        run: python3 -m unittest discover -s miner/tests -p test_g0_v110_independent.py -v
       - name: Checkout pinned PEPEPOW Core
         uses: actions/checkout@v4
         with:
