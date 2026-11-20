@@ -1,0 +1,223 @@
+name: G0 pinned Core reference build (no parity claim)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-reference-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout miner
+        uses: actions/checkout@v4
+        with:
+          path: miner
+          persist-credentials: false
+      - name: Checkout pinned PEPEPOW Core
+        uses: actions/checkout@v4
+        with:
+          repository: edisontw/PePe-core
+          ref: c1394e652045a8abef3cb54f87eafec0844d3b1f
+          path: core
+          persist-credentials: false
+      # Ubuntu 24.04 does not provide libopenlibm-dev in the runner apt sources.
+      # Build an explicitly pinned upstream dependency instead of using system libm.
+      # Link directly from the build tree: upstream CMake install tries /pkgconfig.
+      - name: Checkout pinned OpenLibm
+        uses: actions/checkout@v4
+        with:
+          repository: JuliaMath/openlibm
+          ref: 5fe399749f9276eaa0b8403e507470da05cbbb3f
+          path: openlibm
+          persist-credentials: false
+      - name: Build pinned OpenLibm locally
+        run: |
+          test "$(git -C openlibm rev-parse HEAD)" = 5fe399749f9276eaa0b8403e507470da05cbbb3f
+          cmake -S openlibm -B openlibm-build -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/openlibm"
+          cmake --build openlibm-build --parallel 2
+          test -f openlibm-build/libopenlibm.a
+          test -f openlibm/include/openlibm_math.h
+      - name: Configure real Core reference (synthetic disabled)
+        run: |
+          cmake -S miner -B build -DCMAKE_BUILD_TYPE=Release \
+            -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
+            -DOPENLIBM_INCLUDE_DIR="$GITHUB_WORKSPACE/openlibm/include" \
+            -DOPENLIBM_LIBRARY="$GITHUB_WORKSPACE/openlibm-build/libopenlibm.a" \
+            -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
+            -DPEPEPOW_CORE_EXPECTED_SHA=c1394e652045a8abef3cb54f87eafec0844d3b1f
+      - name: Build and link real Core reference
+        run: cmake --build build --config Release --parallel 2
+      - name: Check reference executable exists without invoking hashing
+        run: test -x build/pepepow-kat
+      - name: Execute real reference binary and verify invalid-input exit codes
+        shell: bash
+        run: |
+          set -euo pipefail
+          # An executable existing is not proof that it starts or rejects bad input.
+          set +e
+          build/pepepow-kat >"$RUNNER_TEMP/kat-noargs.out" 2>&1
+          noargs_status=$?
+          build/pepepow-kat "$(printf '00%.0s' {1..79})" "$(printf '00%.0s' {1..32})" >"$RUNNER_TEMP/kat-short.out" 2>&1
+          short_status=$?
+          build/pepepow-kat "$(printf '00%.0s' {1..80})" "$(printf '00%.0s' {1..31})" >"$RUNNER_TEMP/kat-digest.out" 2>&1
+          digest_status=$?
+          set -e
+          test "$noargs_status" -eq 2
+          test "$short_status" -eq 2
+          test "$digest_status" -eq 2
+          echo "Pinned reference binary starts and rejects missing/short arguments (exit 2)."
+          echo "No valid HooHash input was evaluated; digest parity remains untested."
+      - name: Execute pinned Core HooHash on a valid 80-byte header (mismatch smoke only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # All-zero digest is deliberately NOT an independent golden vector.
+          # This checks that a syntactically valid input reaches the real hash
+          # function and that a mismatched full digest returns exit code 1.
+          header="$(printf '00%.0s' {1..80})"
+          wrong_digest="$(printf '00%.0s' {1..32})"
+          set +e
+          build/pepepow-kat "$header" "$wrong_digest" >"$RUNNER_TEMP/kat-smoke.out" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/kat-smoke.out"
+          test "$status" -eq 1
+          grep -Eq '^actual=[0-9a-f]{64}$' "$RUNNER_TEMP/kat-smoke.out"
+          grep -Fxq 'MISMATCH' "$RUNNER_TEMP/kat-smoke.out"
+          echo "Valid-header HooHash invocation and full-digest mismatch path passed."
+          echo "This is NOT independent parity evidence and must not count toward G0 KATs."
+      - name: Verify full-digest round-trip and final-byte rejection (same reference only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This checks the real reference executable's output and comparator.
+          # It is a SELF-CONSISTENCY test, not an independent golden KAT.
+          header="$(printf '00%.0s' {1..80})"
+          wrong="$(printf '00%.0s' {1..32})"
+          set +e
+          output="$(build/pepepow-kat "$header" "$wrong" 2>&1)"
+          status=$?
+          set -e
+          test "$status" -eq 1
+          actual="$(printf '%s\n' "$output" | grep -E '^actual=[0-9a-f]{64}$' | cut -d= -f2)"
+          test "${#actual}" -eq 64
+          build/pepepow-kat "$header" "$actual" >"$RUNNER_TEMP/kat-roundtrip.out"
+          grep -Fxq 'MATCH' "$RUNNER_TEMP/kat-roundtrip.out"
+          last="${actual:62:2}"
+          if [ "$last" = "00" ]; then replacement="01"; else replacement="00"; fi
+          corrupted="${actual:0:62}$replacement"
+          set +e
+          build/pepepow-kat "$header" "$corrupted" >"$RUNNER_TEMP/kat-last-byte.out" 2>&1
+          corrupt_status=$?
+          set -e
+          test "$corrupt_status" -eq 1
+          grep -Fxq 'MISMATCH' "$RUNNER_TEMP/kat-last-byte.out"
+          echo "Real Core output round-trip and last-byte mismatch rejection passed."
+          echo "Expected digest came from the SAME binary: independent parity remains pending."
+      - name: Verify pool candidate byte-order mapping against pinned Core (full 32 bytes)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Source: pool-pepepow@c1298d7b40e5e9fd39f76af179c6e10a1c313147
+          # apps/pool-core/tools/verify_known_vector.c. The source tool's
+          # 8-byte intermediate check is NOT a full-digest golden KAT.
+          # CI run 42017663568 showed Core actual is byte-reversed candidate.
+          header="0040002038e31388c54124146478ff691985eecd02610db91efbc9cd7aabca490000000007647f0508057dbf8c99ddaa87543c04e31dfe3f383e7386903d50c91728fabe830be16971e3021da96d9d33"
+          pool_display="00000001fb895a82973fca52938848908d6a6cb3c0dfb93995dc61020ced0a6b"
+          test "${#header}" -eq 160
+          test "${#pool_display}" -eq 64
+          core_raw="$(python3 -c 'import sys; print(bytes.fromhex(sys.argv[1])[::-1].hex())' "$pool_display")"
+          test "${#core_raw}" -eq 64
+          build/pepepow-kat "$header" "$core_raw" >"$RUNNER_TEMP/pool-endian-match.out"
+          cat "$RUNNER_TEMP/pool-endian-match.out"
+          grep -Fxq 'MATCH' "$RUNNER_TEMP/pool-endian-match.out"
+          grep -Fxq "actual=$core_raw" "$RUNNER_TEMP/pool-endian-match.out"
+          # A direct display-order digest MUST fail, not silently pass.
+          set +e
+          build/pepepow-kat "$header" "$pool_display" >"$RUNNER_TEMP/pool-endian-wrong.out" 2>&1
+          wrong_status=$?
+          set -e
+          test "$wrong_status" -eq 1
+          grep -Fxq 'MISMATCH' "$RUNNER_TEMP/pool-endian-wrong.out"
+          echo "Full 32-byte candidate-to-Core byte reversal verified; display-order negative test passed."
+          echo "Candidate provenance remains provisional: this is not independent G0 parity."
+      - name: Verify pinned pool candidate full digest and last-byte failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 miner/tests/check_pinned_pool_candidate.py --kat "$GITHUB_WORKSPACE/build/pepepow-kat"
+          echo "Pinned pool candidate is provisional, not independently established consensus parity."
+      - name: Run offline pinned pool candidate runner regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=miner/tests python3 -m unittest discover -s miner/tests -p 'test_check_pinned_pool_candidate.py' -v
+          echo "Mock runner tests only; independent HooHash parity remains pending."
+      - name: Run offline digest exporter regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=miner/tests python3 -m unittest discover -s miner/tests -p 'test_export_core_reference_digests.py' -v
+      - name: Run offline digest parity comparator regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=miner/tests python3 -m unittest discover -s miner/tests -p 'test_compare_digest_parity.py' -v
+          echo "Comparator fixture tests only; independent HooHash parity remains pending."
+      - name: Export 32 pinned Core reference digests (not independent parity)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 miner/tests/generate_g0_headers.py --count 32 > "$RUNNER_TEMP/g0-headers.tsv"
+          python3 miner/tests/export_core_reference_digests.py \
+            --kat "$GITHUB_WORKSPACE/build/pepepow-kat" \
+            --corpus "$RUNNER_TEMP/g0-headers.tsv" \
+            --output "$RUNNER_TEMP/g0-core-digests.tsv" --limit 32
+          python3 - "$RUNNER_TEMP/g0-core-digests.tsv" <<'PY'
+          import pathlib, re, sys
+          rows = pathlib.Path(sys.argv[1]).read_text(encoding="ascii").splitlines()
+          assert len(rows) == 32, len(rows)
+          for i, row in enumerate(rows):
+              case, header, digest = row.split("\t")
+              assert case == f"g0-synthetic-{i:05d}"
+              assert re.fullmatch(r"[0-9a-f]{160}", header)
+              assert re.fullmatch(r"[0-9a-f]{64}", digest)
+          print("Core digest TSV smoke: 32 complete rows")
+          print("Self-reference export only; independent parity pending")
+          PY
+      - name: Exercise parity CLI against exported Core TSV (self-consistency only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="$RUNNER_TEMP/g0-core-digests.tsv"
+          candidate="$RUNNER_TEMP/g0-candidate-copy.tsv"
+          cp "$ref" "$candidate"
+          python3 miner/tests/compare_digest_parity.py "$ref" "$candidate" --count 32
+          python3 - "$candidate" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          lines = path.read_text(encoding="ascii").splitlines()
+          assert len(lines) == 32
+          case, header, digest = lines[-1].split("\t")
+          replacement = "00" if digest[-2:] != "00" else "01"
+          lines[-1] = "\t".join((case, header, digest[:-2] + replacement))
+          path.write_text("\n".join(lines) + "\n", encoding="ascii")
+          PY
+          set +e
+          python3 miner/tests/compare_digest_parity.py "$ref" "$candidate" --count 32 >"$RUNNER_TEMP/parity-negative.out" 2>&1
+          status=$?
+          set -e
+          test "$status" -eq 1
+          grep -Fq 'full 32-byte digest mismatch at row 32' "$RUNNER_TEMP/parity-negative.out"
+          echo "CLI round-trip and last-byte corruption rejection passed (same Core TSV only)."
+          echo "Independent HooHash implementation parity remains pending."
+      - name: Evidence boundary
+        run: |
+          echo "Real pinned Core reference build/link succeeded."
+          echo "No golden vectors, digest parity, GPU, Stratum, or pool submit tested."

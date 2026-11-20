@@ -4,15 +4,15 @@
 
 本次已完成三份研究整合、main 檔案盤點及部分 Core/pool 靜態來源查核，詳見 [架構決策](ARCHITECTURE.md) 與 [研究查核表](RESEARCH_LEDGER.md)。這不代表 G0 完成。
 
-目前交付只有產品規劃與技術驗收文件；沒有產品程式碼、編譯結果、hash parity 或實際 accepted share 證據。
+目前已有規劃、來源盤點與離線 C harness 前端；native Windows 的 synthetic 前端測試已通過，見 [實作紀錄](G0_IMPLEMENTATION_NOTES.md)。尚無真正 HooHash parity、可用礦工或 accepted share 證據。
 
 | 階段 | 可驗證交付 | 完成門檻 | 狀態 |
 | --- | --- | --- | --- |
-| G0 技術驗證 | 來源鎖定、授權清單、CPU hash harness、測例與報告 | 至少 10,000 組完整 hash parity，Windows／Linux 原生執行 | 待執行 |
+| G0 技術驗證 | 來源鎖定、授權清單、CPU hash harness、測例與報告 | 至少 10,000 組完整 hash parity，Windows／Linux 原生執行 | 進行中：來源查核；未通過 |
 | G1 CPU CLI | Stratum、job／target、nonce、重連、JSON 事件 | 雙平台實際 accepted shares，協定及故障 fixtures 通過 | 未開始 |
 | G2 桌面 MVP | 開始／停止、手動資源 profile、診斷、設定、匣列、繁中／英文 | 全新環境安裝，睡眠／斷線恢復，各 OS 24h 觀察 | 未開始 |
 | G3 Beta 發行 | 封裝、checksums、來源與授權、使用說明、支援矩陣 | 可重現 build，設定與診斷不洩漏敏感資料 | 未開始 |
-| G4 NVIDIA | CUDA、監測、CPU 抽樣複核 | Windows／Linux parity、實際 shares、24h 驅動觀察 | 未開始 |
+| G4 NVIDIA | CUDA、監測、每 candidate CPU 複核 | Windows／Linux parity、實際 shares、24h 驅動觀察 | 未開始 |
 | G5 AMD | OpenCL／HIP 路線與設備矩陣 | 各平台與設備分別驗收 | 未開始 |
 
 ## G1 要保留的協定驗收
@@ -41,7 +41,7 @@ G2 不要求自動活動偵測、數值健康評分、效率自調、收益追�
 
 | 順序 / ID | 依賴 | 交付與驗收 | 狀態 |
 | --- | --- | --- | --- |
-| G0-01 / Issue #1 | 無 | 來源／授權 manifest、獨立完整 KAT、C/CMake harness、末 byte 負向測試非零退出；記錄實際命令 | 來源靜態查核部分完成；KAT/harness 未開始 |
+| G0-01 / Issue #1 | 無 | 來源／授權 manifest、獨立完整 KAT、C/CMake harness、末 byte 負向測試非零退出；記錄實際命令 | [來源與 C 前端已交付](G0_IMPLEMENTATION_NOTES.md)；前端 debug/release 各 17 測例通過；Core KAT/整合 pending |
 | G0-02 | G0-01 | 擴充 ≥10,000 corpus、低 8-bit nonce 全覆蓋、cache/FP64 診斷，Windows 11 + Ubuntu 22.04/24.04 原生報告 | 未開始 |
 | G1-01 | G0 passed | 固定 dialect fixtures、header/target、獨立 mock、job/difficulty race、fragmented/multiple JSON frames、超長／畸形輸入、error shapes、TLS 失敗（適用時） | 未開始 |
 | G1-02 | G1-01 | CPU CLI、有限重連／同模式 failover、JSONL 證據；明確授權與資源上限下各主要 OS/模式配置 ≥1,000 replied shares | 未開始 |

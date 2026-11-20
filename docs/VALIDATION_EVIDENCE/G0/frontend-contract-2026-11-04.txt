@@ -1,0 +1,63 @@
+Scope: synthetic frontend contract only; NOT HooHash parity.
+Host: native Windows x64, registry DisplayVersion=25H2, CurrentBuildNumber=26200.
+Registry ProductName reports Windows 10 Pro; no G0 OS support claim is made.
+Compiler: Zig 0.15.2 cc / clang 20.1.2, target x86_64-unknown-windows-gnu.
+Python: 3.12.14.
+Compiler archive SHA256 verified against official download index:
+3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c
+https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip
+
+Commands (PowerShell; python is the available Python 3 executable):
+$env:ZIG_GLOBAL_CACHE_DIR = Join-Path (Get-Location) '.tools/zig-cache-native'
+.tools/zig-x86_64-windows-0.15.2/zig.exe cc -std=c11 -Wall -Wextra -Werror -O0 tools/kat.c tests/harness/synthetic_reference.c -o build/kat-contract-debug.exe
+python tests/harness/test_contract.py build/kat-contract-debug.exe
+.tools/zig-x86_64-windows-0.15.2/zig.exe cc -std=c11 -Wall -Wextra -Werror -O2 tools/kat.c tests/harness/synthetic_reference.c -o build/kat-contract-release.exe
+python tests/harness/test_contract.py build/kat-contract-release.exe
+
+Both compile commands and both Python processes exited 0.
+Earlier restricted executions failed with temp rename/write permission errors;
+the successful run used native execution with the cache inside the workspace.
+No network/mining in test programs; no third-party hash implementation linked.
+CMake, real Core linkage, full HooHash KAT and Linux runs: pending.
+
+Debug log followed by release log:
+PASS match: exit=0
+PASS uppercase: exit=0
+PASS last-byte-mismatch: exit=1
+PASS first-byte-mismatch: exit=1
+PASS truncated-header: exit=2
+PASS oversize-header: exit=2
+PASS odd-header: exit=2
+PASS invalid-header-hex: exit=2
+PASS header-whitespace: exit=2
+PASS truncated-digest: exit=2
+PASS oversize-digest: exit=2
+PASS invalid-digest-hex: exit=2
+PASS missing-digest: exit=2
+PASS missing-all: exit=2
+PASS extra-argument: exit=2
+PASS empty-header: exit=2
+PASS empty-digest: exit=2
+PASS 17 frontend contract cases; HooHash parity NOT tested
+PASS match: exit=0
+PASS uppercase: exit=0
+PASS last-byte-mismatch: exit=1
+PASS first-byte-mismatch: exit=1
+PASS truncated-header: exit=2
+PASS oversize-header: exit=2
+PASS odd-header: exit=2
+PASS invalid-header-hex: exit=2
+PASS header-whitespace: exit=2
+PASS truncated-digest: exit=2
+PASS oversize-digest: exit=2
+PASS invalid-digest-hex: exit=2
+PASS missing-digest: exit=2
+PASS missing-all: exit=2
+PASS extra-argument: exit=2
+PASS empty-header: exit=2
+PASS empty-digest: exit=2
+PASS 17 frontend contract cases; HooHash parity NOT tested
+
+Executable SHA256 (local test binaries, not published mining releases):
+debug: f37f89f6f467d56f3ec7dff16d932ed30a4a905adcd9f8fa9f05c646d4aa4add
+release: dc8354b637bb22294fda62e2661163f252eec4d598d45c5452fb7f4ae31827d4
