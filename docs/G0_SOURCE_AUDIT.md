@@ -1,68 +1,59 @@
-# G0-01：來源與候選向量查核
+# G0-01 source and candidate vector audit
 
-日期：2026-11-04。基準 main：`9e2c3c671f300ba8efaa72969b5172ad855328e8`。
-狀態：**本頁為首輪來源盤點；後續已確認 upstream 改授權提交、三個 BLAKE3 差異，並完成 C harness 前端測試，見 [實作紀錄](G0_IMPLEMENTATION_NOTES.md)。獨立 Core KAT 與原生 hash parity 仍 pending。Issue #1 不關閉，G0 不通過。**
+Date: 2026-11-04. Baseline main: `9e2c3c671f300ba8efaa72969b5172ad855328e8`.
+This records the initial source inventory. See the [implementation notes](G0_IMPLEMENTATION_NOTES.md) for the upstream relicensing commit, classification of the three BLAKE3 differences, and C harness frontend results. At this snapshot, the independent Core KAT and native hash parity were pending. Issue #1 remained open and G0 had not passed.
 
-## 交付
+## Deliverables
 
-- [來源 manifest](sources/g0-source-manifest.json)：20 個固定 commit/path/Git blob ID，未複製第三方程式。
-- [候選向量](../tests/vectors/candidates/pool-known-chain-001.json)：80-byte header、32-byte pool canonical digest 與來源 symbol。候選獨立於未來 miner，但尚未由獨立 Core 執行確認；刻意不填 Core output 或鏈上高度。
-- 本文件記錄可重現的靜態結果及下一步，不代表執行過 hash。
+- [Source manifest](sources/g0-source-manifest.json): 20 pinned commit, path, and Git blob IDs. No third-party source was copied.
+- [Candidate vector](../tests/vectors/candidates/pool-known-chain-001.json): 80-byte header, 32-byte pool canonical digest, and source symbol. The candidate is independent of the future miner. Core output and block height were deliberately left unset pending independent verification.
+- The observations below are reproducible static findings. No hash execution was part of this snapshot.
 
-## 發現與處置
+## Findings
 
-### 1. HooHash 授權訊號衝突已定位到歷史 commit
+### HooHash license signals in the historical source
 
-Core hoohash.c 指向 Hoosat `9634f11410a2d71be21086e813263fa007fb6810`。
-該 commit 的 [LICENSE](https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/LICENSE) 是 MIT，
-但 [hoohash.c](https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/hoohash.c) 與
-[hoohash.h](https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/hoohash.h) 明列 GPL-3.0-or-later。
-Core 自己的 COPYING／hoohash.c 則標 MIT。這是原始檔觀察，並非斷言哪一授權依法優先，也不是已完成相容性審查。
+Core's hoohash.c points to Hoosat commit `9634f11410a2d71be21086e813263fa007fb6810`.
+That revision's [LICENSE](https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/LICENSE) is MIT, while [hoohash.c](https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/hoohash.c) and [hoohash.h](https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/hoohash.h) state GPL-3.0-or-later. Core's own COPYING and hoohash.c state MIT. This records the source observations without deciding legal precedence or compatibility.
 
-[AGENTS.md](../AGENTS.md) 規定「未驗證來源授權前不複製或發行第三方程式碼」；因此本交付不 vendor、不發布 binary、不擅自替專案選 LICENSE。
-後續更正：已找到該作者明確把 GPLv3 改為 MIT 的提交；不可再將缺少改授權依據列為全面阻擋。舊檔頭與改授權提交需一併記錄，其他依賴及最終散布 notices 仍逐項整理。詳見實作紀錄。
+[AGENTS.md](../AGENTS.md) requires source license verification before copying or distributing third-party code. This work did not vendor code, distribute binaries, or select a project license. The follow-up found the author's explicit GPLv3-to-MIT change. Retain that commit and the old headers together, and assess dependency and distribution notices individually. See the implementation notes.
 
-### 2. BLAKE3 不能僅依 version string 視為原版
+### BLAKE3 1.5.1 source differences
 
-Core blake3.h 為 1.5.1；以 upstream tag 的 commit
-[54930c95227daaac4dcf1eb3028e2f4e0768d139](https://github.com/BLAKE3-team/BLAKE3/tree/54930c95227daaac4dcf1eb3028e2f4e0768d139) 比對 Git blob：
+Core blake3.h reports version 1.5.1. Git blob comparisons against upstream [54930c95227daaac4dcf1eb3028e2f4e0768d139](https://github.com/BLAKE3-team/BLAKE3/tree/54930c95227daaac4dcf1eb3028e2f4e0768d139) found:
 
-| 檔案 | 是否 byte-identical |
+| File | Byte-identical |
 | --- | --- |
-| blake3.h | 是 |
-| blake3_portable.c | 是 |
-| blake3.c | 否 |
-| blake3_impl.h | 否 |
-| blake3_dispatch.c | 否 |
+| blake3.h | Yes |
+| blake3_portable.c | Yes |
+| blake3.c | No |
+| blake3_impl.h | No |
+| blake3_dispatch.c | No |
 
-上游 LICENSE 提供 CC0-1.0 或 Apache-2.0。三個不同檔案後續已完成靜態差異分類，見實作紀錄；runtime parity 與完整 notices 仍待驗證。
+The upstream license offers CC0-1.0 or Apache-2.0. See the implementation notes for the static classification. Runtime parity and complete notices remained pending at this snapshot.
 
-### 3. openlibm 版本已定位，但不能默默 fallback
+### OpenLibm pin and fallback behavior
 
-Core 的 [depends recipe](https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/depends/packages/openlibm.mk)
-指定 0.8.7，archive SHA-256 已抄入 manifest；tag 對應 `9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`。
-未下載 archive，未宣稱 checksum 實測通過。
+The Core [depends recipe](https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/depends/packages/openlibm.mk) pins 0.8.7. The manifest records the archive SHA-256 from the recipe and the tag commit `9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`. The archive was not downloaded or checksum-tested during this audit.
 
-[openlibm LICENSE.md](https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/LICENSE.md)
-列多種來源授權，包含 MIT/BSD/ISC、FDLIBM notices，部分測試為 LGPL；需要按實際建置／散布檔案分類。
+[OpenLibm LICENSE.md](https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/LICENSE.md) lists MIT, BSD, ISC, and FDLIBM notices, with LGPL terms for some tests. Classify notices according to the files actually built or distributed.
 
-Core configure.ac 找不到 openlibm 時會警告並 fallback 到 system libm。
-未來 G0 build 必須驗證 HAVE_OPENLIBM、實際 linked library 與 flags，缺依賴時明確失敗，不以 configure exit 0 視為符合 deterministic profile。
-src/Makefile.am 設定 no-fast-math、fp-contract=off、excess-precision=standard；x86 flags 由 configure 探測，須記錄最終命令，不能只記計畫 flags。
+Core configure.ac warns and falls back to system libm when OpenLibm is absent. The G0 build must confirm HAVE_OPENLIBM, the linked library, and the actual compiler flags. Missing dependencies must fail explicitly. The src/Makefile.am settings include no-fast-math, fp-contract=off, and excess-precision=standard. Record the configure-detected x86 flags from the actual compile commands.
 
-### 4. Pool 的兩個向量測試必須區分
+### Pool candidate comparison and encoding
 
-- verify_known_vector.c：只 memcmp 前 8 bytes，FAIL 也 return 0。
-- tests/test_stratum_ingress.py 的 test_pepepow_header_hash_matches_known_chain_vector：比較完整 64 hex chars。不能聲稱 pool 完全沒有全長比較。
-- _calculate_pepepow_share_hash 將 native output reverse 一次再返回 canonical bytes；C 工具直接呼叫 matrix multiplication。兩者 API 層級不同，不能盲目共用 digest encoding。
-- 測試名稱稱 chain vector，但目前未取得高度、RPC 原始 header 或獨立 Core 執行輸出，因此候選仍非正式鏈上 KAT。所有來源 permalink 與 blob ID 見 manifest。
+- verify_known_vector.c compares the first eight bytes with memcmp and returns 0 even on FAIL.
+- test_pepepow_header_hash_matches_known_chain_vector in tests/test_stratum_ingress.py compares all 64 hex characters.
+- _calculate_pepepow_share_hash reverses native output once before returning canonical bytes. The C tool calls matrix multiplication directly. These API layers use different digest encodings.
+- The test name refers to a chain vector. This audit had no height, raw RPC header, or independent Core execution output, so the candidate remained provisional. See the manifest for source permalinks and blob IDs.
 
-## 本輪驗證結果
+## Results at this snapshot
 
-本機 PowerShell 執行 JSON 與長度檢查，exit 0：
+The local PowerShell JSON and length checks exited 0:
+
 `PASS: JSON parses; header=80 bytes; candidate digest=32 bytes; Core digest remains pending; 20 pinned source entries; no vendored code.`
 
-重現（repo root，PowerShell）：
+Reproduction from the repository root in PowerShell:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
@@ -79,22 +70,22 @@ foreach ($entry in $m.entries) {
 }
 ```
 
-| 檢查 | 結果 |
+| Check | Result |
 | --- | --- |
-| JSON/長度/來源 ID 格式 | passed（只驗資料格式） |
-| Core/pool 分支重新查核 | SHA 與 manifest 一致 |
-| HooHash/BLAKE3/openlibm 授權整合 | pending |
-| C/CMake harness build、32-byte KAT、末 byte 負向測試 | pending，未執行 |
-| Windows 11／Ubuntu 22.04／24.04 native parity | pending |
-| pool／GPU 測試 | 未執行，不在本工作包 |
+| JSON, lengths, and source ID format | Passed, format only |
+| Core and pool branch recheck | SHAs matched the manifest |
+| HooHash, BLAKE3, and OpenLibm license integration | Pending |
+| C/CMake harness build, 32-byte KAT, and final-byte negative test | Pending, unrun |
+| Windows 11 and Ubuntu 22.04/24.04 native parity | Pending |
+| Pool and GPU testing | Unrun, outside this work package |
 
-環境探測：PATH 未找到 cmake、clang、gcc、cl；常見 Visual Studio／LLVM／MSYS2／CMake 位置未找到安裝。這只反映本次可見環境，未完成全磁碟工具鏈盤點。未安裝系統工具或以其他平台冒充原生證據。
+PATH did not contain cmake, clang, gcc, or cl. Common Visual Studio, LLVM, MSYS2, and CMake locations contained no installation. This was a limited environment survey. No system tools were installed and no other platform was substituted for native evidence.
 
-## 下一個可執行交付
+## Next steps recorded in the audit
 
-1. 審查三個 BLAKE3 差異檔與 HooHash lineage；整理可採用的逐檔 notices／授權決策，必要時取得權利人澄清（本輪未對外聯絡）。
-2. 建立可重現的 native C/CMake 工具鏈與獨立 Core reference；記錄 openlibm、compiler/flags。
-3. 以候選 header 取得獨立 Core output，確認 canonical/raw 映射與鏈上來源，再升格正式 KAT。
-4. 建立全 32-byte harness，最後一個 byte 故意修改必須非零退出；非法 hex、錯長、缺資料皆拒絕。之後才擴至 10,000 組。
+1. Review the three BLAKE3 differences and HooHash lineage, gather file-level notices and license decisions, and seek rights-holder clarification if needed. This audit did not contact external parties.
+2. Establish a reproducible native C/CMake toolchain and independent Core reference. Record OpenLibm, compiler, and flags.
+3. Obtain independent Core output for the candidate header, confirm raw-to-canonical mapping and chain provenance, and then promote the candidate to a formal KAT.
+4. Compare all 32 bytes, require nonzero exit for a final-byte mutation, and reject invalid hex, wrong lengths, and missing input before expanding to 10,000 cases.
 
-上述測試結果與環境限制為首輪快照；後續 C harness 前端測試及工具鏈取得結果以實作紀錄為準。不可把前端測試視為 G0-01 完成。
+See the implementation notes for later frontend and toolchain evidence. Frontend results alone do not complete G0-01.
