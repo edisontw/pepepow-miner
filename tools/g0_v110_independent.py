@@ -150,7 +150,7 @@ def main() -> int:
             ok += good
             bad += not good
     print('matched:',ok,'mismatched:',bad,'(not G0 acceptance)')
-    return 0 if bad == 0 else 1
+    return 0 if ok > 0 and bad == 0 else 1
 
 
 if __name__ == '__main__':

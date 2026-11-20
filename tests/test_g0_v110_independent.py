@@ -71,5 +71,19 @@ class IndependentV110Test(unittest.TestCase):
         self.assertEqual(failure.returncode, 1, failure.stdout + failure.stderr)
         self.assertIn('MISMATCH', failure.stdout)
 
+    def test_cli_rejects_empty_and_whitespace_corpus(self):
+        script = REPO / 'tools/g0_v110_independent.py'
+        with tempfile.TemporaryDirectory() as td:
+            for name, content in (('empty.jsonl', ''), ('blank.jsonl', ' \n\t\n')):
+                with self.subTest(name=name):
+                    corpus = Path(td) / name
+                    corpus.write_text(content, encoding='utf-8')
+                    result = subprocess.run(
+                        [sys.executable, str(script), str(corpus)],
+                        capture_output=True, text=True, check=False,
+                    )
+                    self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                    self.assertIn('matched: 0 mismatched: 0', result.stdout)
+
 if __name__ == '__main__':
     unittest.main()
