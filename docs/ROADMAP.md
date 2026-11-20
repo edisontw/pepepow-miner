@@ -1,13 +1,13 @@
 # Development roadmap
 
-Updated 2026-11-04 (Taiwan time). This snapshot records integration of three research reports, the main-branch inventory, and initial static review of Core and pool sources. See [architecture decisions](ARCHITECTURE.md) and the [research ledger](RESEARCH_LEDGER.md).
+Updated 2026-11-20 (Taiwan time), following the rebase merge of [PR #14](https://github.com/edisontw/pepepow-miner/pull/14). For current evidence and open PRs, consult the [concise development handoff](DEVELOPMENT_STATUS.md).
 
-The [implementation notes](G0_IMPLEMENTATION_NOTES.md) record a native Windows pass for the synthetic C frontend. At this snapshot, real HooHash parity, a usable miner, and accepted shares had yet to be demonstrated. See [development status](DEVELOPMENT_STATUS.md) for later evidence.
+The pinned Core harness, independent Python V110 prototype, uint256 comparator, and offline CPU search/Stratum replay now exist on main. Existing Linux native fixture tests and CI checks do not establish formal G0/G1 acceptance, approved live pool integration, or Windows 11 hardware compatibility.
 
 | Gate | Verifiable deliverable | Acceptance criteria | Status at this snapshot |
 | --- | --- | --- | --- |
-| G0 Technical validation | Source pins, license inventory, CPU hash harness, vectors and report | At least 10,000 full-digest parity cases, native Windows and Linux | Source review in progress, pending |
-| G1 CPU CLI | Stratum, job and target, nonce, reconnect, JSON events | Actual accepted shares on both platforms, passing protocol and fault fixtures | Not started |
+| G0 Technical validation | Source pins, license inventory, CPU hash harness, vectors and report | At least 10,000 independently checked full-digest cases and required native Windows/Linux evidence | Harness and reported Linux parity evidence available; formal acceptance pending |
+| G1 CPU CLI | Stratum, job and target, nonce, reconnect, JSON events | Actual accepted shares on authorized platforms, passing protocol and fault fixtures | Offline CPU search and fixed transcript replay tested on Linux; live interoperability and formal acceptance pending |
 | G2 Desktop MVP | Start/stop, manual resource profiles, diagnostics, settings, system tray, Traditional Chinese and English | Clean install, sleep and disconnect recovery, 24h observation per OS | Not started |
 | G3 Beta release | Packaging, checksums, sources and licenses, instructions, support matrix | Reproducible build, no sensitive data in configuration or diagnostics | Not started |
 | G4 NVIDIA | CUDA, monitoring, CPU recheck for every candidate | Windows/Linux parity, actual shares, 24h driver observation | Not started |
@@ -39,9 +39,9 @@ These are work-package IDs. Use [Issue #1](https://github.com/edisontw/pepepow-m
 
 | ID | Dependency | Deliverable and acceptance | Status at this snapshot |
 | --- | --- | --- | --- |
-| G0-01 / Issue #1 | None | Source and license manifest, independent full KAT, C/CMake harness, nonzero exit on last-byte mutation, actual commands | [Source and frontend delivered](G0_IMPLEMENTATION_NOTES.md). Debug and Release frontend each passed 17 cases. Core KAT and integration pending. |
-| G0-02 | G0-01 | At least 10,000 cases, all low eight nonce bits covered, cache and FP64 diagnostics, native Windows 11 and Ubuntu 22.04/24.04 evidence | Not started |
-| G1-01 | G0 passed | Fixed-dialect fixtures, header and target, independent mock, job/difficulty races, fragmented and multiple JSON frames, oversized and malformed input, error shapes, TLS failure where applicable | Not started |
+| G0-01 / Issue #1 | None | Source and license manifest, independent full KAT, C/CMake harness, nonzero exit on last-byte mutation, actual commands | Core harness and independent Python checks integrated on main; remaining sign-off and provenance caveats tracked in the handoff. |
+| G0-02 | G0-01 | At least 10,000 cases, all low eight nonce bits covered, cache and FP64 diagnostics, native Windows 11 and Ubuntu 22.04/24.04 evidence | Earlier Linux parity evidence reported; independently review against merged main. Windows 11 owner-deferred, NOT passed. |
+| G1-01 | G0 passed | Fixed-dialect fixtures, header and target, independent mock, job/difficulty races, fragmented and multiple JSON frames, oversized and malformed input, error shapes, TLS failure where applicable | Offline fixture/replay subset merged and Linux-tested; remaining network and fault cases pending. |
 | G1-02 | G1-01 | CPU CLI, bounded reconnect and same-mode failover, JSONL evidence, at least 1,000 answered shares per major OS/mode configuration under explicit authorization and resource limits | Not started |
 | G2-00 | G1 passed | Native Qt packaging and licensing spike. Evaluate Tauri under the same criteria if Qt fails. Record selection evidence. | Not started |
 | G2-01 | G2-00 | Minimal wizard, start/stop, readiness, Share Doctor, system tray, diagnostics preview, Traditional Chinese and English, 24h on each of the three target OS configurations | Not started |

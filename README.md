@@ -8,7 +8,7 @@
 
 A PEPEPOW-specific native miner for Windows and Linux, designed to be friendly to everyday computers and to explain mining performance clearly.
 
-**Current status: planning and technical validation. No usable miner or downloadable release is available.**
+**Current status: offline-only validation prototype.** Pinned-Core CPU nonce search and Stratum replay are in source control following [PR #14](https://github.com/edisontw/pepepow-miner/pull/14); G0/G1 acceptance is still open. No production-ready miner or downloadable release is available.
 
 ## Product direction
 
