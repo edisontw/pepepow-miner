@@ -1,0 +1,46 @@
+name: G0 synthetic header corpus checks (no hash parity claim)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  corpus:
+    name: Synthetic corpus / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Unit tests including uint32 boundary
+        run: python -m unittest discover -s tests -p test_generate_g0_headers.py -v
+      - name: Generate and validate deterministic 10000-header corpus
+        shell: python
+        run: |
+          import hashlib
+          import subprocess
+          import sys
+          command = [sys.executable, "tests/generate_g0_headers.py", "--count", "10000"]
+          first = subprocess.run(command, check=True, capture_output=True).stdout
+          second = subprocess.run(command, check=True, capture_output=True).stdout
+          assert first == second, "corpus changed between identical invocations"
+          rows = first.decode("ascii").splitlines()
+          assert len(rows) == 10000
+          for i, row in enumerate(rows):
+              case_id, header = row.split("\t")
+              assert case_id == f"g0-synthetic-{i:05d}"
+              assert len(bytes.fromhex(header)) == 80
+          print("Synthetic headers:", len(rows))
+          print("Corpus SHA256:", hashlib.sha256(first).hexdigest())
+          print("Evidence: corpus structure and determinism only; NO HooHash parity.")
