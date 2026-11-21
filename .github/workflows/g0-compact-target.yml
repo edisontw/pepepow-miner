@@ -1,0 +1,29 @@
+name: G0 native compact target contract
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/g0-compact-target.yml'
+      - 'include/pepepow/compact_target.h'
+      - 'tests/test_compact_target.c'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  compact-target:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check compact target boundaries with GCC
+        run: |
+          gcc -std=c11 -O2 -DNDEBUG -Wall -Wextra -Werror -pedantic -Iinclude tests/test_compact_target.c -o /tmp/test-compact-target
+          timeout 10s /tmp/test-compact-target
