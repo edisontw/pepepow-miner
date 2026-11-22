@@ -1,0 +1,26 @@
+name: Offline CLI preflight native
+on:
+  pull_request:
+    paths:
+      - 'tools/miner_preflight.cpp'
+      - 'include/pepepow/local_endpoint.hpp'
+      - 'include/pepepow/local_handshake.hpp'
+      - 'tests/preflight/test_local_handshake.cpp'
+      - 'tests/preflight/CMakeLists.txt'
+      - '.github/workflows/miner-preflight-native.yml'
+  workflow_dispatch:
+jobs:
+  preflight:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S tests/preflight -B build/preflight
+      - name: Compile
+        run: cmake --build build/preflight --config Release
+      - name: Focused tests
+        run: ctest --test-dir build/preflight -C Release --output-on-failure
