@@ -1,0 +1,49 @@
+name: G0 native compact target contract
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/g0-compact-target.yml'
+      - 'include/pepepow/compact_target.h'
+      - 'tests/test_compact_target.c'
+      - 'tests/test_compact_core_parity.cpp'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  compact-target:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check compact target boundaries with GCC
+        run: |
+          gcc -std=c11 -O2 -DNDEBUG -Wall -Wextra -Werror -pedantic -Iinclude tests/test_compact_target.c -o /tmp/test-compact-target
+          timeout 10s /tmp/test-compact-target
+      - uses: actions/checkout@v4
+        with:
+          repository: edisontw/PePe-core
+          ref: bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          path: pinned-core
+          persist-credentials: false
+          sparse-checkout: src
+      - name: Confirm exact Core revision and compare native SetCompact output
+        run: |
+          test "$(git -C pinned-core rev-parse HEAD)" = "bc08108ceccd957c79040dc7fedc1d56d8d47f97"
+          defs="-DHAVE_ENDIAN_H=1"
+          for macro in HTOBE16 HTOLE16 BE16TOH LE16TOH HTOBE32 HTOLE32 BE32TOH LE32TOH HTOBE64 HTOLE64 BE64TOH LE64TOH; do
+            defs="$defs -DHAVE_DECL_${macro}=1"
+          done
+          g++ -std=c++11 -O2 -ffunction-sections -fdata-sections $defs \
+            -Iinclude -Ipinned-core/src \
+            tests/test_compact_core_parity.cpp pinned-core/src/arith_uint256.cpp \
+            -Wl,--gc-sections -o /tmp/test-compact-core-parity
+          timeout 20s /tmp/test-compact-core-parity
