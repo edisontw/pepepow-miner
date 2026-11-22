@@ -1,0 +1,71 @@
+name: G0 frontend contract (synthetic only)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/g0-frontend-contract.yml'
+      - 'CMakeLists.txt'
+      - 'tools/kat.c'
+      - 'tools/run_kat_corpus.py'
+      - 'tests/harness/synthetic_reference.c'
+      - 'tests/harness/test_contract.py'
+      - 'tests/harness/test_corpus_runner.py'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/g0-frontend-contract.yml'
+      - 'CMakeLists.txt'
+      - 'tools/kat.c'
+      - 'tools/run_kat_corpus.py'
+      - 'tests/harness/synthetic_reference.c'
+      - 'tests/harness/test_contract.py'
+      - 'tests/harness/test_corpus_runner.py'
+  workflow_dispatch:
+
+# Keep PR runs separate from pushes and manual acceptance runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-contract:
+    name: Synthetic frontend / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+        build_type: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Configure synthetic-only harness
+        run: cmake -S . -B build -DHARNESS_CONTRACT_TESTS_ONLY=ON -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+      - name: Build synthetic-only harness
+        run: cmake --build build --config ${{ matrix.build_type }}
+      - name: Verify parser, full 32-byte comparison, and nonzero failures
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            exe="build/${{ matrix.build_type }}/kat-contract-test.exe"
+          else
+            exe="build/kat-contract-test"
+          fi
+          python tests/harness/test_contract.py "$exe"
+      - name: Verify offline corpus runner failure propagation (synthetic only)
+        run: python -m unittest discover -s tests/harness -p test_corpus_runner.py -v
+      - name: Confirm no real reference library is silently substituted
+        shell: bash
+        run: |
+          if cmake -S . -B build-missing-reference -DHARNESS_CONTRACT_TESTS_ONLY=OFF; then
+            echo "ERROR: missing real reference must fail configuration"
+            exit 1
+          fi
+          echo "PASS: missing real reference rejected; this workflow does not test HooHash parity"

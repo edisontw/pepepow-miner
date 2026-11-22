@@ -1,0 +1,24 @@
+{
+  "source_chain_case_id": "explorer-block-4371217",
+  "source_header_hex": "0040002038e31388c54124146478ff691985eecd02610db91efbc9cd7aabca490000000007647f0508057dbf8c99ddaa87543c04e31dfe3f383e7386903d50c91728fabe830be16971e3021da96d9d33",
+  "source_url": "https://explorer.pepepow.net/api/getblock?hash=00000001fb895a82973fca52938848908d6a6cb3c0dfb93995dc61020ced0a6b",
+  "input_reference": "Independent pure-Python V110 derived from pinned chain header; expectations frozen separately from the test execution",
+  "core_revision": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
+  "openlibm_revision": "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d",
+  "start_nonce": 4294967288,
+  "nonce_count": 8,
+  "expected_nonce": 4294967295,
+  "expected_header_hex": "0040002038e31388c54124146478ff691985eecd02610db91efbc9cd7aabca490000000007647f0508057dbf8c99ddaa87543c04e31dfe3f383e7386903d50c91728fabe830be16971e3021dffffffff",
+  "expected_digest_raw_hex": "65e0b9bdaca135ea1fe8a0ffd7d2a83f1862719b0b43cd5d12f797b68487581f",
+  "target_be_hex": "1f588784b697f7125dcd430b9b7162183fa8d2d7ffa0e81fea35a1acbdb9e065",
+  "candidate_digests_raw_hex": [
+    "5a70c2cf2c149567ac339553674840814a5013f4b7c8c7d94f3358b7e6d17534",
+    "680a8e85cd678d6ecc91639a922ad951d00b93d96ffde9f91338200082d37deb",
+    "e7e57e35ed1e636878a66f640487905ec9aa1bfc44e1ed7ba9a4315bb40f31c8",
+    "d381baa5a7fcc9b69ce43fb00c87ef83e5da4459fce51f10a90292f326690a8b",
+    "697811c112ddef27f8d9d921d267873159ea8f50414d67e2be87c779dcb79f7c",
+    "a1fc0d9c3b68f48b81f2603aff26c9ab2bcec9e5c00460c371436dfeb54d10cd",
+    "0f2406ec4e3ad6928ba13935a255697f7e3542531ba109e804d7f61c7cf945f2",
+    "65e0b9bdaca135ea1fe8a0ffd7d2a83f1862719b0b43cd5d12f797b68487581f"
+  ]
+}

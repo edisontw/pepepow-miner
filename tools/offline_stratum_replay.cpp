@@ -1,4 +1,7 @@
 #include "pepepow/offline_stratum_controller.hpp"
+#ifdef PEPEPOW_NATIVE_STRATUM_SEARCH
+#include "pepepow/offline_stratum_search.hpp"
+#endif
 #include <array>
 #include <iostream>
 #include <sstream>
@@ -57,28 +60,55 @@ static int cancellation_self_test() {
 }
 
 int main(int argc, char** argv) {
+#ifdef PEPEPOW_NATIVE_STRATUM_SEARCH
+  std::uint32_t start = 0, count = 0;
+  double scale = pepepow::OfflineStratumSearch::default_wire_difficulty_scale;
+  const bool search = (argc == 6 || argc == 7) && std::string_view(argv[2]) == "--search";
+  if (search) {
+    const auto parse = [](std::string_view text, auto& number) {
+      const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), number);
+      return error == std::errc{} && end == text.data() + text.size();
+    };
+    if (!parse(argv[3], start) || !parse(argv[4], count) ||
+        !pepepow::valid_search_range(start, count)) {
+      std::cerr << "Invalid nonce range\n";
+      return 2;
+    }
+    if (argc == 7 && (!parse(argv[6], scale) || !std::isfinite(scale) || scale < 1.0)) {
+      std::cerr << "Invalid wire difficulty scale\n";
+      return 2;
+    }
+  }
+#else
+  constexpr bool search = false;
+#endif
   // Machine-readable readiness for launchers. Never report mining as ready
   // while independent HooHash G0 parity and a live transport are absent.
   if (argc == 2 && std::string(argv[1]) == "--health-json") {
     std::cout << R"({"mode":"offline-replay","g0":"NOT PASSED","transport":"unavailable","mining_ready":false})" << '\n';
     return 0;
   }
-  if (argc != 2 || std::string(argv[1]) == "--help") {
+  if ((!search && argc != 2) || std::string(argv[1]) == "--help") {
     std::cout << "Usage: offline_stratum_replay LOGIN < transcript.jsonl\n"
+#ifdef PEPEPOW_NATIVE_STRATUM_SEARCH
+                 "       offline_stratum_replay LOGIN --search START COUNT EXTRANONCE2_HEX [WIRE_DIFFICULTY_SCALE] < transcript.jsonl\n"
+                 "Offline only: search emits a mock request to stdout. No sockets.\n";
+#else
                  "Offline only: no socket, hashing or share submission.\n";
+#endif
     return argc == 2 ? 0 : 2;
   }
 
-  if (std::string(argv[1]) == "--self-test-reconnect") return reconnect_self_test();
-  if (std::string(argv[1]) == "--self-test-cancel") return cancellation_self_test();
-  const bool truncated_test = std::string(argv[1]) == "--self-test-truncated";
-  const bool malformed_test = std::string(argv[1]) == "--self-test-malformed";
-  const bool missing_authorize_test = std::string(argv[1]) == "--self-test-missing-authorize";
-  const bool missing_subscribe_test = std::string(argv[1]) == "--self-test-missing-subscribe";
-  const bool unexpected_test = std::string(argv[1]) == "--self-test-unexpected";
-  const bool self_test = std::string(argv[1]) == "--self-test" || truncated_test || malformed_test || unexpected_test || missing_authorize_test || missing_subscribe_test;
+  if (!search && std::string(argv[1]) == "--self-test-reconnect") return reconnect_self_test();
+  if (!search && std::string(argv[1]) == "--self-test-cancel") return cancellation_self_test();
+  const bool truncated_test = !search && std::string(argv[1]) == "--self-test-truncated";
+  const bool malformed_test = !search && std::string(argv[1]) == "--self-test-malformed";
+  const bool missing_authorize_test = !search && std::string(argv[1]) == "--self-test-missing-authorize";
+  const bool missing_subscribe_test = !search && std::string(argv[1]) == "--self-test-missing-subscribe";
+  const bool unexpected_test = !search && std::string(argv[1]) == "--self-test-unexpected";
+  const bool self_test = (!search && std::string(argv[1]) == "--self-test") || truncated_test || malformed_test || unexpected_test || missing_authorize_test || missing_subscribe_test;
   // Unknown flags are not pool logins; fail before emitting a request frame.
-  if (!self_test && argv[1][0] == '-') {
+  if ((!self_test || search) && argv[1][0] == '-') {
     std::cerr << "Unknown option: " << argv[1] << '\n';
     return 2;
   }
@@ -193,6 +223,31 @@ int main(int argc, char** argv) {
   // This also makes --self-test check the CLI pending-status lifecycle.
   const bool no_pending = !pending.subscribe_pending &&
                           !pending.authorize_pending && !pending.submit_pending;
-  return (subscribed == 1 && authorized == 1 && no_pending &&
-          (!self_test || (applied == 1 && ignored == 0 && rejected == 0))) ? 0 : 1;
+  if (subscribed != 1 || authorized != 1 || !no_pending ||
+      (self_test && applied != 1)) return 1;
+#ifdef PEPEPOW_NATIVE_STRATUM_SEARCH
+  if (search) {
+    auto work = pepepow::OfflineStratumSearch::capture(controller, argv[5], scale);
+    if (!work) {
+      std::cerr << "No valid work for the supplied extranonce2\n";
+      return 2;
+    }
+    const auto status = work->search(start, count);
+    if (status == pepepow::SearchStatus::Timeout) {
+      std::cerr << "status=timeout\n";
+      return 4;
+    }
+    if (status == pepepow::SearchStatus::Exhausted) {
+      std::cerr << "status=exhausted\n";
+      return 1;
+    }
+    auto request = work->make_mock_submit(controller, login);
+    if (!request) {
+      std::cerr << "Cannot construct mock submit request\n";
+      return 3;
+    }
+    std::cout << *request;
+  }
+#endif
+  return 0;
 }

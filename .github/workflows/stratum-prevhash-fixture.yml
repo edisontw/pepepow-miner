@@ -1,0 +1,34 @@
+name: Offline Stratum prevhash fixture
+
+on:
+  pull_request:
+    paths:
+      - 'tests/test_stratum_prevhash.py'
+      - 'tests/vectors/stratum/pool-loopback.jsonl'
+      - 'tests/vectors/stratum/pool-loopback-expected.json'
+      - '.github/workflows/stratum-prevhash-fixture.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tests/test_stratum_prevhash.py'
+      - 'tests/vectors/stratum/pool-loopback.jsonl'
+      - 'tests/vectors/stratum/pool-loopback-expected.json'
+      - '.github/workflows/stratum-prevhash-fixture.yml'
+  workflow_dispatch:
+
+# Keep PR runs separate from pushes and manual acceptance runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  prevhash:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify prevhash against captured offline pool fixture
+        run: python3 -m unittest discover -s tests -p test_stratum_prevhash.py -v
