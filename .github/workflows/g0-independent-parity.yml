@@ -1,0 +1,160 @@
+name: G0 independent V110 10000 parity (not acceptance)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/g0-independent-parity.yml'
+      - 'tools/g0_v110_independent.py'
+      - 'tests/export_independent_v110_digests.py'
+      - 'tests/export_core_reference_digests.py'
+      - 'tests/compare_digest_parity.py'
+      - 'tests/generate_g0_headers.py'
+      - 'tests/vectors/candidates/**'
+      - 'CMakeLists.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  full-digest-parity:
+    name: Ubuntu 24.04 ${{ matrix.configuration }} independent parity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Release, Debug]
+    steps:
+      - name: Checkout exact miner PR head
+        uses: actions/checkout@v4
+        with:
+          path: miner
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Checkout pinned Core
+        uses: actions/checkout@v4
+        with:
+          repository: edisontw/PePe-core
+          ref: bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          path: core
+          persist-credentials: false
+      - name: Checkout pinned OpenLibm
+        uses: actions/checkout@v4
+        with:
+          repository: JuliaMath/openlibm
+          ref: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+          path: openlibm
+          persist-credentials: false
+      - name: Record exact sources and native toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C miner rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git -C core rev-parse HEAD)" = bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          test "$(git -C openlibm rev-parse HEAD)" = 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+          echo "Miner HEAD: $(git -C miner rev-parse HEAD)"
+          echo "Core HEAD: $(git -C core rev-parse HEAD)"
+          echo "OpenLibm HEAD: $(git -C openlibm rev-parse HEAD)"
+          uname -a
+          lscpu | grep -E 'Architecture:|Model name:' || true
+          cc --version | head -n 1
+          cmake --version | head -n 1
+          python3 --version
+          python3 - <<'PY'
+          import ctypes, sys
+          libc = ctypes.CDLL(None)
+          libc.fegetround.restype = ctypes.c_int
+          print("FP mode (FE_TONEAREST is 0):", libc.fegetround())
+          print("Python float info:", sys.float_info)
+          PY
+      - name: Build pinned OpenLibm and native Core KAT
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -S openlibm -B openlibm-build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DBUILD_SHARED_LIBS=OFF
+          cmake --build openlibm-build --parallel 2
+          test -f openlibm-build/libopenlibm.a
+          cmake -S miner -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} \
+            -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
+            -DOPENLIBM_INCLUDE_DIR="$GITHUB_WORKSPACE/openlibm/include" \
+            -DOPENLIBM_LIBRARY="$GITHUB_WORKSPACE/openlibm-build/libopenlibm.a" \
+            -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
+            -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          cmake --build build --target pepepow-kat --parallel 2
+          test -x build/pepepow-kat
+          grep -Fq -- '-fno-fast-math' build/CMakeFiles/pepepow_core_reference.dir/flags.make
+          grep -Fq -- '-ffp-contract=off' build/CMakeFiles/pepepow_core_reference.dir/flags.make
+          grep -E '^C_FLAGS = ' build/CMakeFiles/pepepow_core_reference.dir/flags.make
+      - name: Validate independent implementation and ten Explorer-derived chain vectors
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s miner/tests -p test_g0_v110_independent.py -v
+          python3 - <<'PY'
+          import json, pathlib, subprocess
+          root = pathlib.Path('miner/tests/vectors/candidates/explorer-chain-4371217-4371226.jsonl')
+          records = [json.loads(line) for line in root.read_text().splitlines() if line.strip()]
+          assert len(records) == 10, len(records)
+          for record in records:
+              digest = record['expected_core_function_output_hex']
+              run = subprocess.run(['build/pepepow-kat', record['header_hex'], digest],
+                                   capture_output=True, text=True, timeout=30)
+              assert run.returncode == 0 and 'MATCH' in run.stdout.splitlines(), (
+                  record['case_id'], run.returncode, run.stdout, run.stderr)
+              assert ('actual=' + digest) in run.stdout.splitlines(), record['case_id']
+          print('PASS: 10 Explorer-derived headers checked against native pinned Core (all 32 bytes).')
+          print('Explorer provenance has not been independently audited.')
+          PY
+      - name: Execute 10000 independent 32-byte Core versus Python comparisons
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 miner/tests/generate_g0_headers.py --count 10000 > "$RUNNER_TEMP/headers.tsv"
+          test "$(wc -l < "$RUNNER_TEMP/headers.tsv")" -eq 10000
+          python3 miner/tests/export_independent_v110_digests.py \
+            "$RUNNER_TEMP/headers.tsv" "$RUNNER_TEMP/independent.tsv" --count 10000
+          python3 miner/tests/export_core_reference_digests.py \
+            --kat "$GITHUB_WORKSPACE/build/pepepow-kat" \
+            --corpus "$RUNNER_TEMP/headers.tsv" \
+            --output "$RUNNER_TEMP/core.tsv" --limit 10000
+          python3 miner/tests/compare_digest_parity.py \
+            "$RUNNER_TEMP/core.tsv" "$RUNNER_TEMP/independent.tsv" --count 10000
+          sha256sum "$RUNNER_TEMP/headers.tsv" "$RUNNER_TEMP/core.tsv" "$RUNNER_TEMP/independent.tsv"
+          echo "PASS: exact full-digest equality for 10000 synthetic 80-byte headers."
+      - name: Negative control must detect last-byte digest corruption on row 10000
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/independent.tsv" "$RUNNER_TEMP/poisoned.tsv"
+          python3 - "$RUNNER_TEMP/poisoned.tsv" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          rows = path.read_text(encoding='ascii').splitlines()
+          assert len(rows) == 10000
+          case_id, header, digest = rows[-1].split('\t')
+          assert len(digest) == 64 and case_id == 'g0-synthetic-09999'
+          rows[-1] = '\t'.join((case_id, header, digest[:-2] + ('00' if digest[-2:] != '00' else '01')))
+          path.write_text('\n'.join(rows) + '\n', encoding='ascii')
+          PY
+          set +e
+          python3 miner/tests/compare_digest_parity.py \
+            "$RUNNER_TEMP/core.tsv" "$RUNNER_TEMP/poisoned.tsv" --count 10000 \
+            >"$RUNNER_TEMP/negative.log" 2>&1
+          status=$?
+          set -e
+          test "$status" -eq 1
+          grep -Fq 'full 32-byte digest mismatch at row 10000' "$RUNNER_TEMP/negative.log"
+          cat "$RUNNER_TEMP/negative.log"
+          echo "PASS: deliberately corrupted final digest byte rejected at row 10000."
+      - name: Declare evidence boundary
+        run: |
+          echo "Independent Python versus pinned native Core parity tested on Ubuntu 24.04 ${{ matrix.configuration }}."
+          echo "This is NOT formal G0 or G1 acceptance: licenses and Windows/Ubuntu 22.04 OS matrix remain pending."
