@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/g0-independent-parity.yml'
       - 'tools/g0_v110_independent.py'
+      - 'tools/kat.c'
       - 'tests/export_independent_v110_digests.py'
       - 'tests/export_core_reference_digests.py'
       - 'tests/compare_digest_parity.py'
