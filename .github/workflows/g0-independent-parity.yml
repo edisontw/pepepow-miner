@@ -34,6 +34,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: miner
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Checkout pinned Core
         uses: actions/checkout@v4
@@ -53,6 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git -C miner rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
           test "$(git -C core rev-parse HEAD)" = bc08108ceccd957c79040dc7fedc1d56d8d47f97
           test "$(git -C openlibm rev-parse HEAD)" = 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
           echo "Miner HEAD: $(git -C miner rev-parse HEAD)"
