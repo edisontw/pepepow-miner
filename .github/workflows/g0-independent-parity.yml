@@ -12,6 +12,18 @@ on:
       - 'tests/generate_g0_headers.py'
       - 'tests/vectors/candidates/**'
       - 'CMakeLists.txt'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/g0-independent-parity.yml'
+      - 'tools/g0_v110_independent.py'
+      - 'tools/kat.c'
+      - 'tests/export_independent_v110_digests.py'
+      - 'tests/export_core_reference_digests.py'
+      - 'tests/compare_digest_parity.py'
+      - 'tests/generate_g0_headers.py'
+      - 'tests/vectors/candidates/**'
+      - 'CMakeLists.txt'
   workflow_dispatch:
 
 permissions:
@@ -23,15 +35,16 @@ concurrency:
 
 jobs:
   full-digest-parity:
-    name: Ubuntu 24.04 ${{ matrix.configuration }} independent parity
-    runs-on: ubuntu-24.04
+    name: ${{ matrix.os }} ${{ matrix.configuration }} independent parity
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
         configuration: [Release, Debug]
     steps:
-      - name: Checkout exact miner PR head
+      - name: Checkout exact miner revision
         uses: actions/checkout@v4
         with:
           path: miner
@@ -157,5 +170,5 @@ jobs:
           echo "PASS: deliberately corrupted final digest byte rejected at row 10000."
       - name: Declare evidence boundary
         run: |
-          echo "Independent Python versus pinned native Core parity tested on Ubuntu 24.04 ${{ matrix.configuration }}."
-          echo "This is NOT formal G0 or G1 acceptance: licenses and Windows/Ubuntu 22.04 OS matrix remain pending."
+          echo "Independent Python versus pinned native Core parity tested on ${{ matrix.os }} ${{ matrix.configuration }}."
+          echo "This is NOT formal G0 or G1 acceptance: licenses, Windows native acceptance and complete matrix sign-off remain pending."
