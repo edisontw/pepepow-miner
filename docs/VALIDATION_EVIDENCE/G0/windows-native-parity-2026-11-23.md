@@ -9,7 +9,7 @@
 | PR #19 exact head | `fca225035b40bc8bfd3b4e5a08095317bbded7f0` | Debug and Release succeeded | [GitHub Actions run 45179968956](https://github.com/edisontw/pepepow-miner/actions/runs/45179968956) |
 | Post-merge main | `565d7002678905acdaa4eb21c82b1c7fb60dc4dc` | Debug and Release succeeded; every step in both jobs succeeded | [GitHub Actions run 45181410916](https://github.com/edisontw/pepepow-miner/actions/runs/45181410916) |
 
-The workflow definition at the tested code baseline is [.github/workflows/g0-windows-native-parity.yml](https://github.com/edisontw/pepepow-miner/blob/565d7002678905acdaa4eb21c82b1c7fb60dc4dc/.github/workflows/g0-windows-native-parity.yml). It records the full CMake configuration, build commands, Python commands, per-step timeouts, artifact collection, and evidence boundary.
+The workflow definition at the tested code baseline is [.github/workflows/g0-windows-native-parity.yml](https://github.com/edisontw/pepepow-miner/blob/565d7002678905acdaa4eb21c82b1c7fb60dc4dc/.github/workflows/g0-windows-native-parity.yml). It records the full CMake configuration, build commands, Python commands, the 90-minute job timeout, artifact collection, and evidence boundary.
 
 ## Pinned inputs and native toolchain
 
