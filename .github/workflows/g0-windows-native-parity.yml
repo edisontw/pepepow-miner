@@ -99,6 +99,10 @@ jobs:
           MINER_HEAD="$(git -C "$WORKSPACE_UNIX/miner" rev-parse HEAD)"
           CORE_HEAD="$(git -C "$WORKSPACE_UNIX/core" rev-parse HEAD)"
           OPENLIBM_HEAD="$(git -C "$WORKSPACE_UNIX/openlibm" rev-parse HEAD)"
+          # Align MSYS2 Git's line-ending view with the Windows checkout performed by actions/checkout.
+          git -C "$WORKSPACE_UNIX/miner" config core.autocrlf true
+          git -C "$WORKSPACE_UNIX/core" config core.autocrlf true
+          git -C "$WORKSPACE_UNIX/openlibm" config core.autocrlf true
           MINER_STATUS="$(git -C "$WORKSPACE_UNIX/miner" status --porcelain)"
           CORE_STATUS="$(git -C "$WORKSPACE_UNIX/core" status --porcelain)"
           OPENLIBM_STATUS="$(git -C "$WORKSPACE_UNIX/openlibm" status --porcelain)"
