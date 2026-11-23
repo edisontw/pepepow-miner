@@ -92,18 +92,24 @@ jobs:
         env:
           PYTHON_EXE: ${{ steps.windows-python.outputs.python-path }}
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           PYTHON="$(cygpath -u "$PYTHON_EXE")"
           WORKSPACE_UNIX="$(cygpath -u "$GITHUB_WORKSPACE")"
-          test "$(git -C "$WORKSPACE_UNIX/miner" rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
-          test -z "$(git -C "$WORKSPACE_UNIX/miner" status --porcelain)"
-          test "$(git -C "$WORKSPACE_UNIX/core" rev-parse HEAD)" = bc08108ceccd957c79040dc7fedc1d56d8d47f97
-          test "$(git -C "$WORKSPACE_UNIX/openlibm" rev-parse HEAD)" = 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
-          test -z "$(git -C "$WORKSPACE_UNIX/core" status --porcelain)"
-          test -z "$(git -C "$WORKSPACE_UNIX/openlibm" status --porcelain)"
-          echo "Miner HEAD: $(git -C "$WORKSPACE_UNIX/miner" rev-parse HEAD)"
-          echo "Core HEAD: $(git -C "$WORKSPACE_UNIX/core" rev-parse HEAD)"
-          echo "OpenLibm upstream HEAD: $(git -C "$WORKSPACE_UNIX/openlibm" rev-parse HEAD)"
+          printf 'Python path: %s\nWorkspace path: %s\n' "$PYTHON" "$WORKSPACE_UNIX"
+          MINER_HEAD="$(git -C "$WORKSPACE_UNIX/miner" rev-parse HEAD)"
+          CORE_HEAD="$(git -C "$WORKSPACE_UNIX/core" rev-parse HEAD)"
+          OPENLIBM_HEAD="$(git -C "$WORKSPACE_UNIX/openlibm" rev-parse HEAD)"
+          MINER_STATUS="$(git -C "$WORKSPACE_UNIX/miner" status --porcelain)"
+          CORE_STATUS="$(git -C "$WORKSPACE_UNIX/core" status --porcelain)"
+          OPENLIBM_STATUS="$(git -C "$WORKSPACE_UNIX/openlibm" status --porcelain)"
+          printf 'Miner HEAD: %s\nCore HEAD: %s\nOpenLibm HEAD: %s\n' "$MINER_HEAD" "$CORE_HEAD" "$OPENLIBM_HEAD"
+          printf 'Miner status: %s\nCore status: %s\nOpenLibm status: %s\n' "$MINER_STATUS" "$CORE_STATUS" "$OPENLIBM_STATUS"
+          test "$MINER_HEAD" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$MINER_STATUS"
+          test "$CORE_HEAD" = bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          test "$OPENLIBM_HEAD" = 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+          test -z "$CORE_STATUS"
+          test -z "$OPENLIBM_STATUS"
           echo "Runner: Windows Server 2022 GitHub-hosted x64, native UCRT64"
           uname -a
           gcc --version | head -n 1
