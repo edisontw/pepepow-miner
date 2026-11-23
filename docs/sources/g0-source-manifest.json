@@ -1,123 +1,123 @@
 {
   "schema_version": 1,
-  "date": "2026-11-04",
+  "date": "2026-11-23",
   "status": "audit-only-not-approved-dependencies",
   "checksum_format": "Git blob SHA-1 (hash of blob header plus original file bytes), not plain file SHA-1 or SHA-256",
   "entries": [
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "COPYING",
       "git_blob_sha1": "f9561cadf757269902fa62b42d534476eececc1c",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/COPYING",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/COPYING",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "src/crypto/hoohash/hoohash.c",
       "git_blob_sha1": "7337a51806b6e4db87711cb8776332032c86724d",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/hoohash/hoohash.c",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/src/crypto/hoohash/hoohash.c",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "src/crypto/hoohash/hoohash.h",
       "git_blob_sha1": "01cc66a9ec4f8d4a76a321e0920fa8be2db23487",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/hoohash/hoohash.h",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/src/crypto/hoohash/hoohash.h",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "src/crypto/hoohash/dev_vectors.cpp",
       "git_blob_sha1": "b5a54c9879bc6a4403b6da3497df7dc9ebf3482b",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/hoohash/dev_vectors.cpp",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/src/crypto/hoohash/dev_vectors.cpp",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "src/primitives/block.cpp",
       "git_blob_sha1": "c7b72b7a49a69f59f9f2081f2cfe70a47ed24d19",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/primitives/block.cpp",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/src/primitives/block.cpp",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "src/crypto/blake3.c",
       "git_blob_sha1": "9becead0a00cd05fd707f454b7d890beabac598d",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/blake3.c",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/src/crypto/blake3.c",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "src/crypto/blake3.h",
       "git_blob_sha1": "48284e50891147a94c4a5bbc4a01ddf2a39af3cf",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/blake3.h",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/src/crypto/blake3.h",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "src/crypto/blake3_impl.h",
       "git_blob_sha1": "98611c319d562b32d88872ae54cb2b345de64b9b",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/blake3_impl.h",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/src/crypto/blake3_impl.h",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "src/crypto/blake3_dispatch.c",
       "git_blob_sha1": "138f0dd9b9434dcec8085e0986cf58a6ab5fe2e9",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/blake3_dispatch.c",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/src/crypto/blake3_dispatch.c",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "src/crypto/blake3_portable.c",
       "git_blob_sha1": "062dd1b47fb6424f4d3db4c6edd2f90efcb92973",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/crypto/blake3_portable.c",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/src/crypto/blake3_portable.c",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "configure.ac",
-      "git_blob_sha1": "52c18545331a2e5794eb3835114d8a1995ae8e1c",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/configure.ac",
+      "git_blob_sha1": "2b3b48a4b0be18f93c81ea15042b6425c6123c94",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/configure.ac",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "src/Makefile.am",
       "git_blob_sha1": "508bce7fbbc631fcd9b050b7e99475b05398ff6f",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/src/Makefile.am",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/src/Makefile.am",
       "vendored": false,
       "redistribution_review": "pending"
     },
     {
       "repository": "MattF42/PePe-core",
-      "commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+      "commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
       "path": "depends/packages/openlibm.mk",
       "git_blob_sha1": "89594fec06d529ceb9e097bfddafbdcbf9b18378",
-      "url": "https://github.com/MattF42/PePe-core/blob/38e801428688dfd0aee272b4a91819ac1a13ab4e/depends/packages/openlibm.mk",
+      "url": "https://github.com/MattF42/PePe-core/blob/bc08108ceccd957c79040dc7fedc1d56d8d47f97/depends/packages/openlibm.mk",
       "vendored": false,
       "redistribution_review": "pending"
     },
@@ -239,5 +239,19 @@
     "message": "Change GPLv3 to MIT for more permissive algorithm usage.",
     "status": "upstream-relicense-intent-confirmed; stale GPL file headers recorded; final distribution review pending",
     "url": "https://github.com/HoosatNetwork/hoohash/commit/9634f11410a2d71be21086e813263fa007fb6810"
+  },
+  "core_revision_reconciliation": {
+    "previous_commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
+    "current_commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
+    "verified_paths": 13,
+    "unchanged_blobs": 12,
+    "changed_blobs": [
+      {
+        "path": "configure.ac",
+        "previous_blob": "52c18545331a2e5794eb3835114d8a1995ae8e1c",
+        "current_blob": "2b3b48a4b0be18f93c81ea15042b6425c6123c94"
+      }
+    ],
+    "scope": "Existing Core inventory only; blob identity checked using GitHub file metadata. Changed configure.ac content review and per-file license/NOTICE review remain pending. No redistribution approval."
   }
 }
