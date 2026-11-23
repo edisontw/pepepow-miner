@@ -19,7 +19,7 @@
 
 ## Formal gates
 
-**G0 — NOT PASSED.** Full-digest Windows Server CI and prior Ubuntu matrix evidence are available, but per-file source provenance, license/NOTICE review and redistribution readiness remain pending. Windows 11 full native G0 evidence and final checklist sign-off also remain open. A successful build is not a license clearance.
+**G0 — NOT PASSED.** Full-digest Windows Server CI and prior Ubuntu matrix evidence are available, but the 2026-11-04 source manifest still inventories an older Core revision and needs current per-file blob/license reconciliation; license/NOTICE and redistribution readiness remain pending. Windows 11 full native G0 evidence and final checklist sign-off also remain open. A successful build is not a license clearance.
 
 **G1 — OFFLINE PROTOTYPE ONLY; NOT PASSED.** Bounded CPU nonce search, mock/localhost Stratum replay, stale-job controls, and cooperative `--max-ms` deadline handling are implemented. The deadline cannot interrupt a single synchronous hash already in progress. No production pool connection, live share submission, released binary, or supported-miner claim has been authorized or demonstrated.
 
