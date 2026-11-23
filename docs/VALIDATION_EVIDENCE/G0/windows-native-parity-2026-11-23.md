@@ -49,6 +49,14 @@ Artifacts can be downloaded from each run's GitHub Actions page. SHA-256 below i
 
 Each artifact contains the generated corpus, Core and Python digest TSVs, comparator output, source/toolchain/FP evidence, and build records. The main-run artifacts expire 2026-12-23.
 
+## Provenance and notice audit checkpoint
+
+The build records the exact Core and OpenLibm commit IDs, clean source checkouts, Windows build patch SHA-256, compiler commands, and artifact checksums. The source manifest at `docs/sources/g0-source-manifest.json` is still dated 2026-11-04 and inventories an older Core revision; its per-file blob IDs need reconciliation against the Core SHA used here before formal G0 sign-off.
+
+At the pinned Core revision, `COPYING` is MIT and `src/crypto/hoohash/hoohash.c` carries an MIT notice and cites the Hoosat source commit. The earlier [G0 source audit](../../G0_SOURCE_AUDIT.md) records that the cited Hoosat revision has mixed license signals: its LICENSE file says MIT while the source-file headers say GPL-3.0-or-later. This requires file-level provenance and license review; this evidence report does not resolve it.
+
+The pinned OpenLibm `LICENSE.md` describes code under Julia-project MIT, Moshier ISC, FreeBSD two-clause BSD, and FDLIBM notices; it also identifies LGPL terms for two test files. The per-file mapping from compiled/distributed files to retained notices remains incomplete. No binary is being distributed, and this build result is not a legal or redistribution approval.
+
 ## Scope and remaining gates
 
 This is native execution on a GitHub-hosted Windows Server 2022 runner. It must not be described as Windows 10 or Windows 11 device validation. The recorded Windows 11 owner result remains partial: Release build, frozen full-digest KAT, and an eight-nonce offline search passed on 2026-11-22; the full native parity matrix and formal checklist sign-off are not established by that result.
