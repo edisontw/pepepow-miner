@@ -170,9 +170,17 @@ jobs:
           test -f "$KAT"
           objdump -f "$KAT"
           objdump -f "$KAT" | grep -Fq 'pei-x86-64'
-          nm -g "$KAT" | grep -Eq '[Tt] exp$'
-          nm -g "$KAT" | grep -Eq '[Tt] sin$'
-          nm -g "$KAT" | grep -Eq '[Tt] sincos$'
+          nm -g "$KAT" > "$BUILD/native-kat-symbols.txt"
+          nm -g "$BUILD/openlibm/libopenlibm.a" > "$BUILD/openlibm-global-symbols.txt"
+          grep -Eq '[Tt] exp$' "$BUILD/native-kat-symbols.txt"
+          grep -Eq '[Tt] sin$' "$BUILD/native-kat-symbols.txt"
+          for symbol in exp sin cos sqrt floor fabs; do
+            grep -Eq "[Tt] $symbol$" "$BUILD/openlibm-global-symbols.txt"
+          done
+          grep -E '[Tt] (exp|sin|cos|sqrt|floor|fabs)$' "$BUILD/openlibm-global-symbols.txt" \
+            > "$BUILD/openlibm-math-symbols.txt"
+          grep -E '[Tt] (exp|sin)$' "$BUILD/native-kat-symbols.txt" \
+            > "$BUILD/native-kat-math-symbols.txt"
           "$PYTHON" - "$BUILD/miner/compile_commands.json" "$BUILD/openlibm/compile_commands.json" "$BUILD/native-fp-flags.txt" <<'PY'
           import json,sys
           selected=[]
@@ -207,6 +215,8 @@ jobs:
           cp "$BUILD/miner/compile_commands.json" "$EVIDENCE_UNIX/miner-compile-commands.json"
           cp "$BUILD/openlibm/compile_commands.json" "$EVIDENCE_UNIX/openlibm-compile-commands.json"
           cp "$BUILD/native-fp-flags.txt" "$EVIDENCE_UNIX/native-fp-flags.txt"
+          cp "$BUILD/openlibm-math-symbols.txt" "$EVIDENCE_UNIX/openlibm-math-symbols.txt"
+          cp "$BUILD/native-kat-math-symbols.txt" "$EVIDENCE_UNIX/native-kat-math-symbols.txt"
           sha256sum "$KAT" "$BUILD/openlibm/libopenlibm.a" \
             | tee "$EVIDENCE_UNIX/native-binary-checksums.txt"
           cat > "$BUILD/fp-mode.c" <<'C'
@@ -336,7 +346,8 @@ jobs:
           case_id,header,digest=rows[-1].split("\t")
           assert case_id=="g0-synthetic-09999" and len(digest)==64
           rows[-1]="\t".join((case_id,header,digest[:-2]+("00" if digest[-2:]!="00" else "01")))
-          destination.write_text("\n".join(rows)+"\n",encoding="ascii")
+          destination.write_text("\n".join(rows)+"\n",encoding="ascii",newline="\n")
+          assert b"\r\n" not in destination.read_bytes()
           PY
           CONFIG="${{ matrix.configuration }}"
           KAT_WIN="$(cygpath -w "$WORKSPACE_UNIX/build/windows-parity-$CONFIG/miner/pepepow-kat.exe")"
