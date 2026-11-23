@@ -321,7 +321,37 @@
           "redistribution_review": "pending"
         }
       ],
-      "remaining": "Extract archived compile commands for exact compiled inventory, inspect included headers and final linked members, review additional test files and all applicable notices."
+      "remaining": "Archived Windows compile databases inspected; map 254 paths and included headers to pinned blobs and notices, inspect final linked members and Linux variants.",
+      "windows_compile_inventory": {
+        "scope": "Archived successful Windows Server 2022 x64 UCRT64 main run 45181410916, code SHA 565d7002678905acdaa4eb21c82b1c7fb60dc4dc. Both ZIP SHA-256 verified against GitHub metadata; parsed openlibm-compile-commands.json, normalized source paths relative to checkout /openlibm/, sorted unique paths. Every output targets CMakeFiles/openlibm.dir. This proves the compile database target inventory, not final executable member inclusion.",
+        "run_url": "https://github.com/edisontw/pepepow-miner/actions/runs/45181410916",
+        "artifacts": [
+          {
+            "configuration": "Release",
+            "id": 14821916780,
+            "archive_sha256": "b48e8d643a592733854aaa0d8abefb24e01c07230827bf23e968b29b031238fd",
+            "compile_database_sha256": "cf9e66249af5707d462b6a1b922011591674e4ff539e26c11a92222b5af84e70"
+          },
+          {
+            "configuration": "Debug",
+            "id": 14820563640,
+            "archive_sha256": "6796680bfcc0ea47408b9e2385b06a1c5a23d15a229b3db2f124838f4d80e249",
+            "compile_database_sha256": "f78ec6131bb4d3204c71f2e63f2641f3066a096e9402a1dd8056ee82da8eb375"
+          }
+        ],
+        "commands_per_configuration": 254,
+        "unique_paths_per_configuration": 254,
+        "identical_path_sets": true,
+        "path_counts": {
+          "src": 229,
+          "ld80": 21,
+          "bsdsrc": 3,
+          "amd64": 1
+        },
+        "test_directory_paths": 0,
+        "sorted_paths_sha256_lf_final_newline": "b58b2e555e29a5bcc246abd5ed2b8006817a6f215ad282d7fabbdea0314cf03a",
+        "remaining": "Map all 254 paths and included headers to pinned blobs and notices; obtain final link map; no redistribution approval."
+      }
     }
   },
   "hoohash_relicense_evidence": {
