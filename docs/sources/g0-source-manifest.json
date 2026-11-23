@@ -246,7 +246,83 @@
     "commit": "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d",
     "archive_sha256_from_core_recipe": "e328a1d59b94748b111e022bca6a9d2fc0481fb57d23c87d90f394b559d4f062",
     "archive_download_verified": false,
-    "license_review": "per-file pending"
+    "license_review": "per-file pending",
+    "file_audit": {
+      "scope": "Partial static audit of pinned upstream file metadata, headers and CMake target source lists. Not a compile database or final linker map; no redistribution clearance.",
+      "windows_patch": {
+        "path": ".github/patches/openlibm-portable-c-windows.patch",
+        "sha256": "f780e659c0a94a8a28a942553c2b0bc7da8c4119b2a897842c361ce97f19c5b2",
+        "evidence_run": "https://github.com/edisontw/pepepow-miner/actions/runs/45181410916",
+        "scope": "Recorded prior CI evidence; static build with OPENLIBM_USE_ASM=OFF."
+      },
+      "files": [
+        {
+          "path": "LICENSE.md",
+          "git_blob_sha1": "d76019ef1d1e038a7d43b3389cdb23789896651d",
+          "url": "https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/LICENSE.md",
+          "role": "license-evidence",
+          "license_observation": "Mixed MIT, ISC, BSD, FDLIBM and LGPL test notices; retain applicable notices.",
+          "redistribution_review": "pending"
+        },
+        {
+          "path": "CMakeLists.txt",
+          "git_blob_sha1": "81045e25978ebb96001fd4b82ec3c658e8402257",
+          "url": "https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/CMakeLists.txt",
+          "role": "upstream-build-definition",
+          "license_observation": "Build definition, not a compiled translation unit; Windows patch changes ASM selection.",
+          "redistribution_review": "pending"
+        },
+        {
+          "path": "test/test-double.c",
+          "git_blob_sha1": "4d239a71d2996f2a1a04bf075b5f28e33f6289dd",
+          "url": "https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/test/test-double.c",
+          "role": "test-only-not-listed-in-library-target",
+          "license_observation": "LGPL-2.1-or-later header.",
+          "redistribution_review": "pending"
+        },
+        {
+          "path": "test/test-float.c",
+          "git_blob_sha1": "26a4213b4755e2dd040937171e7628443ffd3341",
+          "url": "https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/test/test-float.c",
+          "role": "test-only-not-listed-in-library-target",
+          "license_observation": "LGPL-2.1-or-later header.",
+          "redistribution_review": "pending"
+        },
+        {
+          "path": "src/e_sqrt.c",
+          "git_blob_sha1": "2eb4a1a66d76bf5938c497c92eb93a4dec5d8fbc",
+          "url": "https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/src/e_sqrt.c",
+          "role": "portable-c-build-candidate",
+          "license_observation": "Sun Microsystems FDLIBM notice; preserve notice. Assembly can replace this file on other builds.",
+          "redistribution_review": "pending"
+        },
+        {
+          "path": "src/e_log.c",
+          "git_blob_sha1": "29584bb9bf400da654bcfbec4fb7936ff27f09d9",
+          "url": "https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/src/e_log.c",
+          "role": "cmake-library-source-candidate",
+          "license_observation": "Sun Microsystems FDLIBM notice; preserve notice.",
+          "redistribution_review": "pending"
+        },
+        {
+          "path": "src/s_sin.c",
+          "git_blob_sha1": "cc0a5c6fd897aeae2ecd42d8900e9911e5309fab",
+          "url": "https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/src/s_sin.c",
+          "role": "cmake-library-source-candidate",
+          "license_observation": "Sun Microsystems FDLIBM notice; preserve notice.",
+          "redistribution_review": "pending"
+        },
+        {
+          "path": "amd64/fenv.c",
+          "git_blob_sha1": "ddf7dba6d0a53e1b620f83cca54b942ccf4b85e5",
+          "url": "https://github.com/JuliaMath/openlibm/blob/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d/amd64/fenv.c",
+          "role": "amd64-cmake-library-source-candidate",
+          "license_observation": "David Schultz BSD-2-Clause style header; retain copyright, conditions and disclaimer in source and binary distribution materials.",
+          "redistribution_review": "pending"
+        }
+      ],
+      "remaining": "Extract archived compile commands for exact compiled inventory, inspect included headers and final linked members, review additional test files and all applicable notices."
+    }
   },
   "hoohash_relicense_evidence": {
     "commit": "9634f11410a2d71be21086e813263fa007fb6810",
