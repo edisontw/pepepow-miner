@@ -1,0 +1,356 @@
+name: G0 Windows native V110 parity (not acceptance)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/g0-windows-native-parity.yml'
+      - '.github/patches/openlibm-portable-c-windows.patch'
+      - 'tools/g0_v110_independent.py'
+      - 'tools/kat.c'
+      - 'tests/export_independent_v110_digests.py'
+      - 'tests/export_core_reference_digests.py'
+      - 'tests/compare_digest_parity.py'
+      - 'tests/compare_windows_digest_parity.py'
+      - 'tests/generate_g0_headers.py'
+      - 'tests/test_g0_v110_independent.py'
+      - 'tests/test_compare_digest_parity.py'
+      - 'tests/vectors/candidates/**'
+      - 'CMakeLists.txt'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/g0-windows-native-parity.yml'
+      - '.github/patches/openlibm-portable-c-windows.patch'
+      - 'tools/g0_v110_independent.py'
+      - 'tools/kat.c'
+      - 'tests/export_independent_v110_digests.py'
+      - 'tests/export_core_reference_digests.py'
+      - 'tests/compare_digest_parity.py'
+      - 'tests/compare_windows_digest_parity.py'
+      - 'tests/generate_g0_headers.py'
+      - 'tests/test_g0_v110_independent.py'
+      - 'tests/test_compare_digest_parity.py'
+      - 'tests/vectors/candidates/**'
+      - 'CMakeLists.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  windows-native-parity:
+    name: Windows Server 2022 x64 ${{ matrix.configuration }} native parity
+    runs-on: windows-2022
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+    steps:
+      - name: Checkout exact miner commit
+        uses: actions/checkout@v4
+        with:
+          path: miner
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Checkout pinned PePe-core
+        uses: actions/checkout@v4
+        with:
+          repository: edisontw/PePe-core
+          ref: bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          path: core
+          persist-credentials: false
+      - name: Checkout pinned OpenLibm
+        uses: actions/checkout@v4
+        with:
+          repository: JuliaMath/openlibm
+          ref: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+          path: openlibm
+          persist-credentials: false
+      - name: Install native Windows x64 UCRT64 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            coreutils
+            git
+      - name: Install native Windows Python
+        id: windows-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record pinned sources, native toolchain, and floating-point environment
+        shell: msys2 {0}
+        env:
+          PYTHON_EXE: ${{ steps.windows-python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          PYTHON="$(cygpath -u "$PYTHON_EXE")"
+          WORKSPACE_UNIX="$(cygpath -u "$GITHUB_WORKSPACE")"
+          test "$(git -C "$WORKSPACE_UNIX/miner" rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          test -z "$(git -C "$WORKSPACE_UNIX/miner" status --porcelain)"
+          test "$(git -C "$WORKSPACE_UNIX/core" rev-parse HEAD)" = bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          test "$(git -C "$WORKSPACE_UNIX/openlibm" rev-parse HEAD)" = 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+          test -z "$(git -C "$WORKSPACE_UNIX/core" status --porcelain)"
+          test -z "$(git -C "$WORKSPACE_UNIX/openlibm" status --porcelain)"
+          echo "Miner HEAD: $(git -C "$WORKSPACE_UNIX/miner" rev-parse HEAD)"
+          echo "Core HEAD: $(git -C "$WORKSPACE_UNIX/core" rev-parse HEAD)"
+          echo "OpenLibm upstream HEAD: $(git -C "$WORKSPACE_UNIX/openlibm" rev-parse HEAD)"
+          echo "Runner: Windows Server 2022 GitHub-hosted x64, native UCRT64"
+          uname -a
+          gcc --version | head -n 1
+          gcc -dumpmachine
+          g++ --version | head -n 1
+          cmake --version | head -n 1
+          ninja --version
+          "$PYTHON" -c "import platform,sys; print('Python:',sys.version); print('Python executable:',sys.executable); print('Python platform:',sys.platform,platform.machine()); print('Python float:',sys.float_info); assert sys.platform == 'win32' and platform.machine().lower() in ('amd64','x86_64')"
+          test "$(gcc -dumpmachine)" = x86_64-w64-mingw32
+      - name: Apply pinned OpenLibm portable-C Windows build patch
+        shell: msys2 {0}
+        env:
+          PYTHON_EXE: ${{ steps.windows-python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          PYTHON="$(cygpath -u "$PYTHON_EXE")"
+          WORKSPACE_UNIX="$(cygpath -u "$GITHUB_WORKSPACE")"
+          cd "$WORKSPACE_UNIX"
+          git -C "$WORKSPACE_UNIX/openlibm" apply --check "$WORKSPACE_UNIX/miner/.github/patches/openlibm-portable-c-windows.patch"
+          git -C "$WORKSPACE_UNIX/openlibm" apply "$WORKSPACE_UNIX/miner/.github/patches/openlibm-portable-c-windows.patch"
+          git -C openlibm diff --check
+          test "$(git -C openlibm status --porcelain | wc -l)" -eq 1
+          sha256sum miner/.github/patches/openlibm-portable-c-windows.patch
+          git -C openlibm diff -- CMakeLists.txt
+      - name: Build pinned portable-C OpenLibm and real Core KAT
+        shell: msys2 {0}
+        env:
+          PYTHON_EXE: ${{ steps.windows-python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          PYTHON="$(cygpath -u "$PYTHON_EXE")"
+          WORKSPACE_UNIX="$(cygpath -u "$GITHUB_WORKSPACE")"
+          cd "$WORKSPACE_UNIX"
+          CONFIG="${{ matrix.configuration }}"
+          BUILD="$WORKSPACE_UNIX/build/windows-parity-$CONFIG"
+          CORE_WIN="$(cygpath -w "$WORKSPACE_UNIX/core")"
+          OPENLIBM_INCLUDE_WIN="$(cygpath -w "$WORKSPACE_UNIX/openlibm/include")"
+          OPENLIBM_LIBRARY_WIN="$(cygpath -w "$BUILD/openlibm/libopenlibm.a")"
+          cmake -S openlibm -B "$BUILD/openlibm" -G Ninja \
+            -DCMAKE_BUILD_TYPE="$CONFIG" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DBUILD_SHARED_LIBS=OFF -DOPENLIBM_USE_ASM=OFF
+          ! grep -q '^CMAKE_ASM_COMPILER:' "$BUILD/openlibm/CMakeCache.txt"
+          cmake --build "$BUILD/openlibm" --parallel 2
+          test -f "$BUILD/openlibm/libopenlibm.a"
+          cmake -S miner -B "$BUILD/miner" -G Ninja \
+            -DCMAKE_BUILD_TYPE="$CONFIG" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
+            -DOPENLIBM_INCLUDE_DIR="$OPENLIBM_INCLUDE_WIN" \
+            -DOPENLIBM_LIBRARY="$OPENLIBM_LIBRARY_WIN" \
+            -DPEPEPOW_CORE_SOURCE_DIR="$CORE_WIN" \
+            -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          cmake --build "$BUILD/miner" --target pepepow-kat --parallel 2
+          KAT="$BUILD/miner/pepepow-kat.exe"
+          test -f "$KAT"
+          objdump -f "$KAT"
+          objdump -f "$KAT" | grep -Fq 'pei-x86-64'
+          nm -g "$KAT" | grep -Eq '[Tt] exp$'
+          nm -g "$KAT" | grep -Eq '[Tt] sin$'
+          nm -g "$KAT" | grep -Eq '[Tt] sincos$'
+          "$PYTHON" - "$BUILD/miner/compile_commands.json" "$BUILD/openlibm/compile_commands.json" "$BUILD/native-fp-flags.txt" <<'PY'
+          import json,sys
+          selected=[]
+          for path in sys.argv[1:3]:
+              commands=json.load(open(path,encoding="utf-8"))
+              found_core=found_openlibm=False
+              for item in commands:
+                  command=item.get("command"," ".join(item.get("arguments",[])))
+                  normalized=command.lower().replace("\\","/")
+                  if "core/src/crypto/" in normalized:
+                      assert "-fno-fast-math" in command and "-ffp-contract=off" in command, command
+                      assert "-ffast-math" not in command, command
+                      if "hoohash.c" in normalized:
+                          selected.append("Core HooHash: "+command)
+                          found_core=True
+                  if "openlibm" in normalized and ("src/e_" in normalized or "src/k_" in normalized):
+                      assert "-fno-fast-math" in command and "-ffp-contract=off" in command, command
+                      assert "-fno-rounding-math" in command, command
+                      assert "-ffast-math" not in command, command
+                      if "src/e_exp.c" in normalized:
+                          selected.append("OpenLibm exp C: "+command)
+                          found_openlibm=True
+              if "miner/compile_commands" in path:
+                  assert found_core, path
+              else:
+                  assert found_openlibm, path
+          open(sys.argv[3],"w",encoding="utf-8").write("\n".join(selected)+"\n")
+          print("Verified and recorded Core/OpenLibm FP flags.")
+          PY
+          EVIDENCE_UNIX="$(cygpath -u "$RUNNER_TEMP")/g0-windows-$CONFIG"
+          mkdir -p "$EVIDENCE_UNIX"
+          cp "$BUILD/miner/compile_commands.json" "$EVIDENCE_UNIX/miner-compile-commands.json"
+          cp "$BUILD/openlibm/compile_commands.json" "$EVIDENCE_UNIX/openlibm-compile-commands.json"
+          cp "$BUILD/native-fp-flags.txt" "$EVIDENCE_UNIX/native-fp-flags.txt"
+          sha256sum "$KAT" "$BUILD/openlibm/libopenlibm.a" \
+            | tee "$EVIDENCE_UNIX/native-binary-checksums.txt"
+          cat > "$BUILD/fp-mode.c" <<'C'
+          #include <fenv.h>
+          #include <float.h>
+          #include <stdio.h>
+          int main(void) {
+            printf("FLT_ROUNDS=%d FE_TONEAREST=%d fegetround=%d DBL_MANT_DIG=%d sizeof(double)=%zu\n",
+                   FLT_ROUNDS, FE_TONEAREST, fegetround(), DBL_MANT_DIG, sizeof(double));
+            return fegetround() == FE_TONEAREST && FLT_ROUNDS == 1 &&
+                   DBL_MANT_DIG == 53 && sizeof(double) == 8 ? 0 : 1;
+          }
+          C
+          gcc -std=c11 -O2 -fno-fast-math -ffp-contract=off "$BUILD/fp-mode.c" -o "$BUILD/fp-mode.exe"
+          "$BUILD/fp-mode.exe" | tee "$EVIDENCE_UNIX/fp-mode.txt"
+          echo "Windows native Core/OpenLibm flags: FP64 binary64, round-to-nearest, contraction off, fast-math off."
+          echo "OpenLibm implementation: pinned v0.8.7 C sources; assembly language detection disabled by the recorded local patch."
+      - name: Validate Python reference and ten Explorer chain headers against native Core
+        shell: msys2 {0}
+        env:
+          PYTHON_EXE: ${{ steps.windows-python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          PYTHON="$(cygpath -u "$PYTHON_EXE")"
+          WORKSPACE_UNIX="$(cygpath -u "$GITHUB_WORKSPACE")"
+          WORKSPACE_WIN="$(cygpath -w "$WORKSPACE_UNIX")"
+          cd "$WORKSPACE_UNIX"
+          "$PYTHON" -m unittest discover -s miner/tests -p test_g0_v110_independent.py -v
+          CONFIG="${{ matrix.configuration }}"
+          KAT_WIN="$(cygpath -w "$WORKSPACE_UNIX/build/windows-parity-$CONFIG/miner/pepepow-kat.exe")"
+          "$PYTHON" - "$WORKSPACE_WIN" "$KAT_WIN" <<'PY'
+          import json,pathlib,subprocess,sys
+          root=pathlib.Path(sys.argv[1])/"miner/tests/vectors/candidates/explorer-chain-4371217-4371226.jsonl"
+          kat=sys.argv[2]
+          records=[json.loads(line) for line in root.read_text(encoding="utf-8").splitlines() if line.strip()]
+          assert len(records)==10, len(records)
+          for record in records:
+              digest=record["expected_core_function_output_hex"]
+              run=subprocess.run([kat,record["header_hex"],digest],capture_output=True,text=True,timeout=30)
+              assert run.returncode==0 and "MATCH" in run.stdout.splitlines(),(record["case_id"],run.returncode,run.stdout,run.stderr)
+              assert "actual="+digest in run.stdout.splitlines(),record["case_id"]
+          print("PASS: 10 Explorer-derived 80-byte headers matched all 32 digest bytes using native Windows Core.")
+          print("Explorer source provenance remains subject to the existing G0 audit.")
+          PY
+      - name: Execute 10000 independent Windows Core versus Python comparisons
+        shell: msys2 {0}
+        env:
+          PYTHON_EXE: ${{ steps.windows-python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          PYTHON="$(cygpath -u "$PYTHON_EXE")"
+          WORKSPACE_UNIX="$(cygpath -u "$GITHUB_WORKSPACE")"
+          WORKSPACE_WIN="$(cygpath -w "$WORKSPACE_UNIX")"
+          cd "$WORKSPACE_UNIX"
+          CONFIG="${{ matrix.configuration }}"
+          TEMP_UNIX="$(cygpath -u "$RUNNER_TEMP")/g0-windows-$CONFIG"
+          mkdir -p "$TEMP_UNIX"
+          TEMP_WIN="$(cygpath -w "$TEMP_UNIX")"
+          KAT_WIN="$(cygpath -w "$WORKSPACE_UNIX/build/windows-parity-$CONFIG/miner/pepepow-kat.exe")"
+          "$PYTHON" miner/tests/generate_g0_headers.py --count 10000 > "$TEMP_UNIX/headers.tsv"
+          "$PYTHON" - "$TEMP_WIN/headers.tsv" <<'PY'
+          from pathlib import Path
+          import sys
+          assert len(Path(sys.argv[1]).read_text(encoding="ascii").splitlines()) == 10000
+          PY
+          "$PYTHON" miner/tests/export_independent_v110_digests.py \
+            "$TEMP_WIN/headers.tsv" "$TEMP_WIN/independent.tsv" --count 10000
+          "$PYTHON" miner/tests/export_core_reference_digests.py \
+            --kat "$KAT_WIN" --corpus "$TEMP_WIN/headers.tsv" \
+            --output "$TEMP_WIN/core.tsv" --limit 10000
+          sha256sum "$TEMP_UNIX/headers.tsv" "$TEMP_UNIX/core.tsv" "$TEMP_UNIX/independent.tsv" | tee "$TEMP_UNIX/checksums.txt"
+          {
+            echo "Runner: Windows Server 2022 GitHub-hosted native x64, UCRT64"
+            echo "Configuration: $CONFIG"
+            echo "Core: bc08108ceccd957c79040dc7fedc1d56d8d47f97"
+            echo "OpenLibm upstream: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d"
+            echo "OpenLibm build patch SHA256: $(sha256sum miner/.github/patches/openlibm-portable-c-windows.patch | cut -d' ' -f1)"
+            echo "Compiler: $(gcc --version | head -n 1)"
+            echo "Target: $(gcc -dumpmachine)"
+            echo "CMake: $(cmake --version | head -n 1)"
+            echo "Ninja: $(ninja --version)"
+            "$PYTHON" -c "import sys; print('Python:',sys.version); print('Python float:',sys.float_info)"
+            echo "FP: binary64, FE_TONEAREST, -fno-fast-math, -ffp-contract=off; OpenLibm also uses -fno-rounding-math"
+            echo "Cases: 10000 full 32-byte comparisons; 10 Explorer headers; negative control below"
+            cat "$TEMP_UNIX/checksums.txt"
+          } > "$TEMP_UNIX/evidence.txt"
+          "$PYTHON" miner/tests/compare_windows_digest_parity.py \
+            "$TEMP_WIN/core.tsv" "$TEMP_WIN/independent.tsv" --count 10000 \
+            | tee "$TEMP_UNIX/comparison.txt"
+          echo "PASS: 10000 full 32-byte native Windows Core/Python comparisons in $CONFIG." \
+            | tee -a "$TEMP_UNIX/evidence.txt"
+      - name: Reject empty corpora
+        shell: msys2 {0}
+        env:
+          PYTHON_EXE: ${{ steps.windows-python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          PYTHON="$(cygpath -u "$PYTHON_EXE")"
+          WORKSPACE_UNIX="$(cygpath -u "$GITHUB_WORKSPACE")"
+          TEMP_UNIX="$(cygpath -u "$RUNNER_TEMP")/g0-windows-${{ matrix.configuration }}"
+          TEMP_WIN="$(cygpath -w "$TEMP_UNIX")"
+          : > "$TEMP_UNIX/empty.tsv"
+          set +e
+          "$PYTHON" "$WORKSPACE_UNIX/miner/tests/export_independent_v110_digests.py" \
+            "$TEMP_WIN/empty.tsv" "$TEMP_WIN/empty-output.tsv" --count 10000
+          status=$?
+          set -e
+          test "$status" -eq 1
+          test ! -e "$TEMP_UNIX/empty-output.tsv"
+          echo "PASS: empty corpus rejected without publishing output."
+      - name: Reject deliberately corrupted final digest byte
+        shell: msys2 {0}
+        env:
+          PYTHON_EXE: ${{ steps.windows-python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          PYTHON="$(cygpath -u "$PYTHON_EXE")"
+          WORKSPACE_UNIX="$(cygpath -u "$GITHUB_WORKSPACE")"
+          TEMP_UNIX="$(cygpath -u "$RUNNER_TEMP")/g0-windows-${{ matrix.configuration }}"
+          TEMP_WIN="$(cygpath -w "$TEMP_UNIX")"
+          "$PYTHON" - "$TEMP_WIN/independent.tsv" "$TEMP_WIN/poisoned.tsv" <<'PY'
+          from pathlib import Path
+          import sys
+          source,destination=map(Path,sys.argv[1:])
+          rows=source.read_text(encoding="ascii").splitlines()
+          assert len(rows)==10000
+          case_id,header,digest=rows[-1].split("\t")
+          assert case_id=="g0-synthetic-09999" and len(digest)==64
+          rows[-1]="\t".join((case_id,header,digest[:-2]+("00" if digest[-2:]!="00" else "01")))
+          destination.write_text("\n".join(rows)+"\n",encoding="ascii")
+          PY
+          CONFIG="${{ matrix.configuration }}"
+          KAT_WIN="$(cygpath -w "$WORKSPACE_UNIX/build/windows-parity-$CONFIG/miner/pepepow-kat.exe")"
+          set +e
+          "$PYTHON" "$WORKSPACE_UNIX/miner/tests/compare_windows_digest_parity.py" \
+            "$TEMP_WIN/core.tsv" "$TEMP_WIN/poisoned.tsv" --count 10000 \
+            > "$TEMP_UNIX-negative.log" 2>&1
+          status=$?
+          set -e
+          test "$status" -eq 1
+          grep -Fq 'MISMATCH row=10000 case=g0-synthetic-09999' "$TEMP_UNIX-negative.log"
+          cat "$TEMP_UNIX-negative.log"
+          echo "PASS: last digest byte corruption rejected at row 10000."
+      - name: Upload Windows parity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-server-2022-ucrt64-${{ matrix.configuration }}-parity-evidence
+          path: ${{ runner.temp }}/g0-windows-${{ matrix.configuration }}/
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: State evidence boundary
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "This job is native Windows Server 2022 GitHub Actions CI, not Windows 10 or Windows 11 device acceptance."
+          Write-Host "G0/G1 formal acceptance remains pending until all source, license, provenance, and required device evidence is reviewed."

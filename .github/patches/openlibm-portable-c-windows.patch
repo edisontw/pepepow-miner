@@ -1,0 +1,39 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -3,10 +3,18 @@
+ # Get version string from Make.inc
+ file(READ "${CMAKE_CURRENT_LIST_DIR}/Make.inc" MAKE_FILE)
+ string(REGEX MATCH "VERSION = ([0-9\.]+)" _ ${MAKE_FILE})
++set(OPENLIBM_VERSION "${CMAKE_MATCH_1}")
++
++option(OPENLIBM_USE_ASM "Use architecture-specific assembly implementations" ON)
++if(OPENLIBM_USE_ASM)
++    set(OPENLIBM_LANGUAGES C ASM)
++else()
++    set(OPENLIBM_LANGUAGES C)
++endif()
+ 
+ project(openlibm
+-        VERSION ${CMAKE_MATCH_1}
+-        LANGUAGES C ASM)
++        VERSION ${OPENLIBM_VERSION}
++        LANGUAGES ${OPENLIBM_LANGUAGES})
+ 
+ option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
+ 
+@@ -405,6 +413,7 @@
+         "${PROJECT_SRC}/amd64/fenv.c"
+     )
+ 
++    if(OPENLIBM_USE_ASM)
+     list(APPEND OPENLIBM_ASM_SOURCE
+         "${PROJECT_SRC}/amd64/e_remainder.S"
+         "${PROJECT_SRC}/amd64/e_remainderf.S"
+@@ -430,6 +439,7 @@
+         "${PROJECT_SRC}/amd64/e_fmodf.S"
+         "${PROJECT_SRC}/amd64/e_fmodl.S"
+     )
++    endif()
+ 
+ elseif(${OPENLIBM_ARCH_FOLDER} STREQUAL "aarch64")
+     list(APPEND OPENLIBM_C_SOURCE
