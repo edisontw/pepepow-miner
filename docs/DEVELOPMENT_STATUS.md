@@ -1,37 +1,34 @@
 # PEPEPOW Miner — Current development handoff
 
-**Snapshot: 2026-11-20, Asia/Taipei.** GitHub `main` is the source of truth. At this snapshot, main was `ebe03bed5ced88c4e11070b2e87eca57c05fce7b`; re-fetch the actual HEAD, PRs and checks before making changes.
-
-The former ~149 KB chronological handoff remains retrievable without modification in [the pre-cleanup Git revision](https://github.com/edisontw/pepepow-miner/blob/ebe03bed5ced88c4e11070b2e87eca57c05fce7b/docs/DEVELOPMENT_STATUS.md). Do not reintroduce hourly append-only logs. Keep original evidence, tracked fixtures and source manifests in version history.
+**Snapshot: 2026-11-23 (Asia/Taipei).** The tested code baseline is main `565d7002678905acdaa4eb21c82b1c7fb60dc4dc`. Re-fetch main, open PRs, and checks before relying on this snapshot.
 
 ## Integrated implementation
 
-- [PR #14](https://github.com/edisontw/pepepow-miner/pull/14) was **rebase merged** into main with a linear commit history. It includes the pinned Core/CMake KAT, standalone independent Python HooHash V110, full 32-byte corpus/trace utilities, uint256 little-endian comparison, bounded offline CPU nonce search, and offline Stratum replay.
-- Its prior contributors [#2](https://github.com/edisontw/pepepow-miner/pull/2), [#6](https://github.com/edisontw/pepepow-miner/pull/6), [#11](https://github.com/edisontw/pepepow-miner/pull/11), and [#13](https://github.com/edisontw/pepepow-miner/pull/13) are closed as **superseded**, not independently merged.
-- Earlier [PR #8](https://github.com/edisontw/pepepow-miner/pull/8) provided the offline Stratum session/controller. Do not duplicate it.
-- Still open at this snapshot: #5 prevhash byte-order fixture, #7 compact nBits target decoder, and stacked #9/#10 localhost-only preflight/handshake deadline. These files are not on main; require separate review and focused native evidence.
+- [PR #14](https://github.com/edisontw/pepepow-miner/pull/14) integrated the pinned Core/CMake KAT, independent Python HooHash V110 implementation, full-digest corpus tools, uint256 little-endian target comparison, bounded offline CPU search, and offline Stratum replay. Earlier [#2](https://github.com/edisontw/pepepow-miner/pull/2), [#6](https://github.com/edisontw/pepepow-miner/pull/6), [#11](https://github.com/edisontw/pepepow-miner/pull/11), and [#13](https://github.com/edisontw/pepepow-miner/pull/13) were superseded.
+- [PRs #5](https://github.com/edisontw/pepepow-miner/pull/5), [#7](https://github.com/edisontw/pepepow-miner/pull/7), [#9](https://github.com/edisontw/pepepow-miner/pull/9), [#10](https://github.com/edisontw/pepepow-miner/pull/10), [#16](https://github.com/edisontw/pepepow-miner/pull/16), [#17](https://github.com/edisontw/pepepow-miner/pull/17), and [#18](https://github.com/edisontw/pepepow-miner/pull/18) are merged.
+- [PR #19](https://github.com/edisontw/pepepow-miner/pull/19) added native Windows Server 2022 Debug/Release independent parity CI and was squash merged as `565d7002678905acdaa4eb21c82b1c7fb60dc4dc`. Its exact PR-head and post-merge main runs both passed. At this snapshot, no PRs are open.
+- [Issue #1](https://github.com/edisontw/pepepow-miner/issues/1) remains open and is the G0 acceptance tracker.
 
-## Exact reference pins and evidence boundary
+## Pinned sources and validation evidence
 
 - PEPEPOW Core: `bc08108ceccd957c79040dc7fedc1d56d8d47f97`.
 - OpenLibm v0.8.7: `9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`.
-- Pool serializer fixture reference: `edisontw/pool-pepepow@c1298d7b40e5e9fd39f76af179c6e10a1c313147`.
-- PR #14 final-head native Linux Release tests were reported passing: 15 offline search CLI cases and 8 independently checked full digests, fixed local-loopback replay/nonce 2, 10/10 chain corpus KATs, 42/42 Python regression tests, 22/22 native job state tests, and 1/1 native Stratum search CTest.
-- Four PR-head Actions workflows succeeded at `c24bcb68c29e60d9d61141e79578d937c2b3bb74`. After rebase merge, the G0 synthetic frontend main-push workflow at `ebe03bed5ced88c4e11070b2e87eca57c05fce7b` also succeeded. These CI jobs do **not** collectively establish G0 or G1 acceptance.
-- Earlier Linux Debug/Release runs reportedly compared 10,000 independent full 32-byte digests with zero mismatches; the original exact commands, traces, compiler/FP assumptions and provenance are in the archived handoff. This cleanup did **not** rerun them at merged main.
+- Windows Server 2022 x64 GitHub-hosted native UCRT64 Debug and Release parity each compared 10,000 full 32-byte digests against the independent Python V110 implementation, matched 10 Explorer-derived headers, rejected an empty corpus, and rejected a deliberately corrupted final digest byte. Exact main-head evidence is [run 45181410916](https://github.com/edisontw/pepepow-miner/actions/runs/45181410916); PR-head evidence is [run 45179968956](https://github.com/edisontw/pepepow-miner/actions/runs/45179968956). The complete environment, commands, checksums, and boundaries are recorded in [Windows native G0 parity evidence](VALIDATION_EVIDENCE/G0/windows-native-parity-2026-11-23.md).
+- The existing Ubuntu 22.04/24.04 × Debug/Release run remains [45075278541](https://github.com/edisontw/pepepow-miner/actions/runs/45075278541), on the prior code baseline `2ff357a8687f46f2ac6d593a8502bfa60a56d76b`. PR #19 changed CI/evidence tooling and a Windows-only OpenLibm build patch; it did not change HooHash or header hashing code.
+- Windows Server CI is not Windows 10/11 device acceptance. The recorded Windows 11 owner result is partial: native Release build, frozen full 32-byte KAT, and an eight-nonce offline search passed on 2026-11-22. It does not replace the full Windows Debug/Release parity matrix or formal G0 sign-off.
 
 ## Formal gates
 
-**G0 — NOT PASSED.** Review and reproduce >=10,000 independent full-digest parity cases, Core/reference provenance, source licenses/notices, platform-specific native execution and negative controls. Never equate a synthetic harness or self-consistency check with independent HooHash parity. Windows 10/Server results are distinct from Windows 11; the Windows 11 workstation run is **owner-deferred, NOT passed**.
+**G0 — NOT PASSED.** Full-digest Windows Server CI and prior Ubuntu matrix evidence are available, but per-file source provenance, license/NOTICE review and redistribution readiness remain pending. Windows 11 full native G0 evidence and final checklist sign-off also remain open. A successful build is not a license clearance.
 
-**G1 — OFFLINE PROTOTYPE ONLY.** The source includes count-bounded (1–10,000) CPU nonce search, cooperative `--max-ms` deadline, mock Stratum notify/coinbase/Merkle/target reconstruction, pool wire difficulty scale 65536 fixture, and stale/reconnect controls. The deadline does not preempt a single active hash call. No live mining, production pool connection, accepted shares, released binary, or Windows 11 acceptance has been authorized or demonstrated.
+**G1 — OFFLINE PROTOTYPE ONLY; NOT PASSED.** Bounded CPU nonce search, mock/localhost Stratum replay, stale-job controls, and cooperative `--max-ms` deadline handling are implemented. The deadline cannot interrupt a single synchronous hash already in progress. No production pool connection, live share submission, released binary, or supported-miner claim has been authorized or demonstrated.
 
-**G2–G5 — NOT ACCEPTED.** GUI, packaging and GPU support are not production features.
+**G2–G5 — NOT ACCEPTED.** GUI, packaging, and GPU support are not production features.
 
 ## Next reviewable work
 
-1. Reproduce the independent 10,000-case parity evidence on exact merged main against pinned Core/OpenLibm in native Linux Release/Debug. Preserve provenance and negative controls; mark unsupported OS platforms pending.
-2. Review #5/#7 and #9/#10 separately; do not silently import their old branch history or run live pool tests.
-3. Expand G1 offline error/reconnect/deadline fixtures only for a demonstrated gap. Seek owner authorization before any live pool or accepted-share run.
+1. Complete the per-file source, provenance, license and NOTICE audit tracked by Issue #1. Preserve source notices and do not infer redistribution permission from CI.
+2. Complete and record the remaining Windows 11 native G0 checklist without repeating the already-recorded Release/KAT/eight-nonce owner checks.
+3. Keep subsequent G1 work offline and tied to a specific acceptance gap.
 
-English is required for new or substantively edited project documentation. Keep one concise status document; track work by commit/PR instead of hourly log appendices.
+English is required for project documentation. Keep this handoff concise; track work by commit and PR rather than hourly append-only logs.
