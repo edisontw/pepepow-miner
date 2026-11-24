@@ -6,6 +6,8 @@ on:
       - '.github/workflows/g0-core-reference-build.yml'
       - 'CMakeLists.txt'
       - 'tools/kat.c'
+      - 'tools/g0_openlibm_inventory.py'
+      - 'tools/test_g0_openlibm_inventory.py'
       - 'tools/g0_v110_independent.py'
       - 'tests/test_g0_v110_independent.py'
       - 'tests/vectors/candidates/**'
@@ -15,6 +17,7 @@ on:
       - 'tests/*export_core_reference_digests.py'
       - 'tests/*compare_digest_parity.py'
       - 'docs/sources/g0-source-manifest.json'
+      - 'docs/sources/openlibm-windows-compile-inventory.json'
   workflow_dispatch:
 
 # Keep PR runs separate from pushes and manual acceptance runs.
@@ -37,6 +40,8 @@ jobs:
           persist-credentials: false
       - name: Test independent V110 CLI and full-digest negative controls
         run: python3 -m unittest discover -s miner/tests -p test_g0_v110_independent.py -v
+      - name: Run offline OpenLibm inventory regression tests
+        run: python3 miner/tools/test_g0_openlibm_inventory.py -v
       - name: Checkout pinned PEPEPOW Core
         uses: actions/checkout@v4
         with:
