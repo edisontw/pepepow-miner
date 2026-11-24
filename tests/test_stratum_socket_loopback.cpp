@@ -2,6 +2,8 @@
 #include "pepepow/stratum_socket_io.hpp"
 #include "pepepow/stratum_loopback_transport.hpp"
 #include <array>
+#include <chrono>
+#include <thread>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -231,6 +233,35 @@ int main() {
     if (pepepow::socket_io::expire_controller_transport_request(
             client, controller, timeout_generation, 10, 20, 21, 1)) break;
     if (!controller.pending_status().subscribe_pending) break;
+    // A slow-drip peer keeps every recv below the socket inactivity timeout,
+    // but the complete JSONL frame exceeds the absolute 2-second budget.
+    // Exercise the controller path so expiry also retires pending requests.
+    close_socket(client);
+    client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (client == invalid_socket) break;
+    if (connect(client, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) break;
+    peer = accept(listener, nullptr, nullptr);
+    if (peer == invalid_socket) break;
+    if (!pepepow::socket_io::configure_timeouts(client) ||
+        !pepepow::socket_io::configure_timeouts(peer)) break;
+    controller.disconnected();
+    controller.connected();
+    const auto drip_generation = controller.session().session_generation();
+    if (!controller.make_subscribe_request()) break;
+    bool sent = true;
+    std::thread drip([&] {
+      for (int i = 0; i < 20; ++i) {
+        if (!send_all(peer, " ")) { sent = false; return; }
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+      }
+      sent = send_all(peer, "\n");
+    });
+    const auto drip_events = pepepow::socket_io::receive_controller_line(
+        client, controller, drip_generation);
+    drip.join();
+    if (!sent || drip_events || controller.pending_status().connected ||
+        controller.pending_status().subscribe_pending ||
+        controller.session().session_generation() == drip_generation) break;
     result = 0;
   } while (false);
   close_socket(peer);
