@@ -55,5 +55,32 @@ class InventoryTests(unittest.TestCase):
                 inv.inventory(".", self.data, self.data)
 
 
+    def test_debug_database_checksum_rejected(self):
+        self.assert_bad_database("Debug", [b"invalid-debug", b"unused"])
+
+    def test_release_database_checksum_rejected(self):
+        self.assert_bad_database("Release", [b"fixture-debug", b"invalid-release"],
+                                 first_hash="f78ec6131bb4d3204c71f2e63f2641f3066a096e9402a1dd8056ee82da8eb375")
+
+    def assert_bad_database(self, configuration, contents, first_hash=None):
+        from contextlib import redirect_stderr
+        from io import StringIO
+        stderr = StringIO()
+        with patch.object(inv.Path, "read_bytes", side_effect=contents), \
+                patch.object(__import__("sys"),
+                             "argv", ["inventory", ".", "debug.json", "release.json"]), \
+                patch.object(inv, "inventory") as run, redirect_stderr(stderr):
+            if first_hash is not None:
+                with patch.object(inv, "sha", side_effect=[first_hash, "invalid"]):
+                    with self.assertRaises(SystemExit) as error:
+                        inv.main()
+            else:
+                with self.assertRaises(SystemExit) as error:
+                    inv.main()
+            self.assertEqual(error.exception.code, 1)
+            self.assertIn(configuration + " database checksum mismatch", stderr.getvalue())
+            run.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
