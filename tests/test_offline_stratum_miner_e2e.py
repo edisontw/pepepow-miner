@@ -125,9 +125,9 @@ def check_connection_fault(binary, mode):
     try:
         if mode != "connection_refused":
             peer, address = listener.accept()
-            assert address[0] == "127.0.0.1"
-            peer.settimeout(3)
             with peer:
+                assert address[0] == "127.0.0.1"
+                peer.settimeout(3)
                 assert json.loads(read_line(peer)) == {
                     "id": 1, "method": "mining.subscribe", "params": []
                 }
