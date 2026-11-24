@@ -1,6 +1,6 @@
 # PEPEPOW Miner documentation index
 
-**Updated 2026-11-24.** The provenance update is based on main `128f5ffd97fc57701e4bc228198dcc92b2b126c2` and PR #21. This is a pre-release offline validation prototype, not a supported miner.
+**Updated 2026-11-24.** This index reflects main `f8f9325ec9cb5c12ca0058ca2858536198f4b616` and PR #22 Windows 11 validation. This is a pre-release offline validation prototype, not a supported miner.
 
 ## Canonical reading order
 
@@ -18,14 +18,15 @@
 | [OpenLibm Windows compile inventory](sources/openlibm-windows-compile-inventory.json) | Full pinned Windows portable-C translation-unit and header-signal records |
 | [Provenance and license assessment](sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md) | Technical source evidence separated from unresolved redistribution review |
 | [Windows 11 owner acceptance](G0_WINDOWS11_OWNER_ACCEPTANCE.md) | Native Debug/Release full-parity procedure for the Owner host |
-| [Native evidence](VALIDATION_EVIDENCE/G0/) | Archived focused validation evidence |
+| [Windows 11 native G0/G1 evidence](VALIDATION_EVIDENCE/G0/windows11-native-g0-g1-2026-11-24.md) | Native Windows 11 Debug/Release parity and offline G1 test record |
+| [Native evidence archive](VALIDATION_EVIDENCE/G0/) | Archived focused validation evidence |
 | [Offline CLI usage](../tools/README.md) | KAT/search/replay build and test commands |
 | [Coding agent rules](../AGENTS.md) | Security, evidence, and English documentation policy |
 
 ## Current boundaries
 
-- **G0 — NOT PASSED.** Pinned Core/OpenLibm and independent reference checks are in place. Ubuntu 22.04/24.04 Debug/Release evidence is recorded in [run 45075278541](https://github.com/edisontw/pepepow-miner/actions/runs/45075278541). Native Windows Server 2022 Debug/Release parity is recorded in [run 45181410916](https://github.com/edisontw/pepepow-miner/actions/runs/45181410916) and [the evidence report](VALIDATION_EVIDENCE/G0/windows-native-parity-2026-11-23.md). Per-file source license/NOTICE clearance, Windows 11 full G0 evidence, and formal sign-off remain pending; Issue #1 stays open.
-- **G1 — OFFLINE PROTOTYPE ONLY; NOT PASSED.** Bounded CPU search, cooperative deadline, offline Stratum replay, and localhost preflight/deadline controls are implemented. There is no production pool/share authorization.
+- **G0 — NOT PASSED.** Pinned Core/OpenLibm and independent reference checks are in place. Ubuntu 22.04/24.04 Debug/Release evidence is recorded in [run 45075278541](https://github.com/edisontw/pepepow-miner/actions/runs/45075278541). Native Windows Server 2022 Debug/Release parity is recorded in [run 45181410916](https://github.com/edisontw/pepepow-miner/actions/runs/45181410916) and [the evidence report](VALIDATION_EVIDENCE/G0/windows-native-parity-2026-11-23.md). Windows 11 x64 Debug/Release technical parity evidence is now recorded in [the native report](VALIDATION_EVIDENCE/G0/windows11-native-g0-g1-2026-11-24.md). Per-file source license/NOTICE clearance and formal Owner sign-off remain pending; Issue #1 stays open.
+- **G1 — OFFLINE PROTOTYPE ONLY; NOT PASSED.** Bounded CPU search, cooperative deadline, offline Stratum replay, and localhost fault fixtures have native Windows 11 Debug/Release evidence. Mock replies do not establish production pool/share authorization.
 - [PR #21](https://github.com/edisontw/pepepow-miner/pull/21) carries the Core source reconciliation and OpenLibm source inventory. It does not approve redistribution or close Issue #1.
 - [PR #19](https://github.com/edisontw/pepepow-miner/pull/19) added Windows-native parity CI and is merged. PRs #5, #7, #9, #10, #14, #16, #17, and #18 are also merged.
 - **G2–G5 — NOT ACCEPTED.** GUI, packaging, and GPU releases remain out of scope.
