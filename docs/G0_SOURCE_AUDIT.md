@@ -3,6 +3,8 @@
 Date: 2026-11-04. Baseline main: `9e2c3c671f300ba8efaa72969b5172ad855328e8`.
 This records the initial source inventory. See the [implementation notes](G0_IMPLEMENTATION_NOTES.md) for the upstream relicensing commit, classification of the three BLAKE3 differences, and C harness frontend results. At this snapshot, the independent Core KAT and native hash parity were pending. Issue #1 remained open and G0 had not passed.
 
+Follow-up, 2026-11-24: the current pinned-source reconciliation, full Windows OpenLibm translation-unit inventory, conservative license-signal triage, and redistribution boundaries are recorded in the [G0 provenance and license assessment](sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md) and [current source manifest](sources/g0-source-manifest.json). G0 remains NOT PASSED.
+
 ## Deliverables
 
 - [Source manifest](sources/g0-source-manifest.json): 20 pinned commit, path, and Git blob IDs. No third-party source was copied.

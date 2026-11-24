@@ -1,10 +1,11 @@
-"""Offline synthetic regression checks for the G0 inventory parser.
+"""Offline regression checks for the G0 inventory parser and checked-in artifact.
 
 Run: python tools/test_g0_openlibm_inventory.py
-These fixtures do not establish the archived source inventory or license clearance.
+Fixture tests do not re-fetch artifacts or establish license clearance.
 """
 import hashlib
 import json
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 import g0_openlibm_inventory as inv
@@ -53,6 +54,44 @@ class InventoryTests(unittest.TestCase):
         with patch.object(inv.subprocess, "check_output", return_value=b"wrong\n"):
             with self.assertRaisesRegex(ValueError, "pinned commit"):
                 inv.inventory(".", self.data, self.data)
+
+    def test_license_candidates_require_review_when_unknown_or_mixed(self):
+        candidates, status = inv.classify_header(
+            b"Copyright (C) 1993 Sun Microsystems, Inc.\n"
+            b"Redistribution and use in source and binary forms are permitted.\n"
+        )
+        self.assertEqual(candidates, ["FDLIBM", "BSD-style"])
+        self.assertEqual(status, "REVIEW_REQUIRED")
+
+        candidates, status = inv.classify_header(
+            b"Copyright (C) 2013 Elliot Saba\nPermission to use, copy, modify.\n"
+        )
+        self.assertEqual(candidates, [])
+        self.assertEqual(status, "REVIEW_REQUIRED")
+
+        candidates, status = inv.classify_header(
+            b"Copyright (c) 2008 Stephen L. Moshier\n"
+        )
+        self.assertEqual(candidates, ["ISC (Moshier notice; see LICENSE.md)"])
+        self.assertEqual(status, "EVIDENCE_ONLY")
+
+    def test_checked_in_windows_inventory_is_complete(self):
+        path = (Path(__file__).resolve().parent.parent / "docs" / "sources" /
+                "openlibm-windows-compile-inventory.json")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(data["commit"], inv.PIN)
+        self.assertEqual(data["translation_unit_count"], 254)
+        self.assertEqual(len(data["files"]), 254)
+        self.assertEqual(len({row["path"] for row in data["files"]}), 254)
+        self.assertEqual(data["debug_database_sha256"],
+                         "f78ec6131bb4d3204c71f2e63f2641f3066a096e9402a1dd8056ee82da8eb375")
+        self.assertEqual(data["release_database_sha256"],
+                         "cf9e66249af5707d462b6a1b922011591674e4ff539e26c11a92222b5af84e70")
+        self.assertEqual(len(data["review_required_translation_units"]), 17)
+        for row in data["files"]:
+            self.assertEqual(len(row["git_blob_sha1"]), 40)
+            self.assertEqual(len(row["sha256"]), 64)
+            self.assertTrue(row["url"].startswith("https://github.com/JuliaMath/openlibm/blob/"))
 
 
     def test_debug_database_checksum_rejected(self):

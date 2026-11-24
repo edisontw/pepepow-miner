@@ -17,6 +17,7 @@ on:
       - 'tests/*export_core_reference_digests.py'
       - 'tests/*compare_digest_parity.py'
       - 'docs/sources/g0-source-manifest.json'
+      - 'docs/sources/openlibm-windows-compile-inventory.json'
   workflow_dispatch:
 
 # Keep PR runs separate from pushes and manual acceptance runs.

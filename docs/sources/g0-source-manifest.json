@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "date": "2026-11-23",
+  "date": "2026-11-24",
   "status": "audit-only-not-approved-dependencies",
   "checksum_format": "Git blob SHA-1 (hash of blob header plus original file bytes), not plain file SHA-1 or SHA-256",
   "entries": [
@@ -144,7 +144,9 @@
       "git_blob_sha1": "e5e5bf698ef388501f65be047f668301d1e0fd25",
       "url": "https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/LICENSE",
       "vendored": false,
-      "redistribution_review": "pending"
+      "redistribution_review": "pending",
+      "license_observation": "21-line MIT text replaced prior GPLv3 license text at 9634f114; source-file GPL headers remain unchanged. REVIEW_REQUIRED.",
+      "license_review_status": "REVIEW_REQUIRED"
     },
     {
       "repository": "HoosatNetwork/hoohash",
@@ -153,7 +155,9 @@
       "git_blob_sha1": "bddc52cb4cd92064398d5eb5e3f1d4a2798a2f4c",
       "url": "https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/hoohash.c",
       "vendored": false,
-      "redistribution_review": "pending"
+      "redistribution_review": "pending",
+      "license_observation": "Pinned upstream source header says GPL-3.0-or-later; root LICENSE at the same commit is MIT. The license commit changes only LICENSE. REVIEW_REQUIRED; see docs/sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md.",
+      "license_review_status": "REVIEW_REQUIRED"
     },
     {
       "repository": "HoosatNetwork/hoohash",
@@ -162,7 +166,9 @@
       "git_blob_sha1": "c276493cf512a6a9919aeecfcf73141328188014",
       "url": "https://github.com/HoosatNetwork/hoohash/blob/9634f11410a2d71be21086e813263fa007fb6810/hoohash.h",
       "vendored": false,
-      "redistribution_review": "pending"
+      "redistribution_review": "pending",
+      "license_observation": "Pinned upstream source header says GPL-3.0-or-later; root LICENSE at the same commit is MIT. The license commit changes only LICENSE. REVIEW_REQUIRED; see docs/sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md.",
+      "license_review_status": "REVIEW_REQUIRED"
     },
     {
       "repository": "edisontw/pool-pepepow",
@@ -171,7 +177,10 @@
       "git_blob_sha1": "2627e90746b3f838eb90df49c8189a6673bef211",
       "url": "https://github.com/edisontw/pool-pepepow/blob/c1298d7b40e5e9fd39f76af179c6e10a1c313147/apps/pool-core/tools/verify_known_vector.c",
       "vendored": false,
-      "redistribution_review": "pending"
+      "redistribution_review": "pending",
+      "license_observation": "No root LICENSE/COPYING/NOTICE found at pinned commit and no file-level grant identified; REVIEW_REQUIRED.",
+      "license_review_status": "REVIEW_REQUIRED",
+      "note": "The upstream helper checks only the first eight digest bytes. Full 32-byte raw/display mapping was verified separately with pinned Core; see provenance assessment."
     },
     {
       "repository": "edisontw/pool-pepepow",
@@ -180,7 +189,10 @@
       "git_blob_sha1": "a4cca1273ca76a6987e17a3a553be3ab4d359081",
       "url": "https://github.com/edisontw/pool-pepepow/blob/c1298d7b40e5e9fd39f76af179c6e10a1c313147/tests/test_stratum_ingress.py",
       "vendored": false,
-      "redistribution_review": "pending"
+      "redistribution_review": "pending",
+      "license_observation": "No root LICENSE/COPYING/NOTICE found at pinned commit and no file-level grant identified; REVIEW_REQUIRED.",
+      "license_review_status": "REVIEW_REQUIRED",
+      "note": "Contains the candidate display digest used in the full-digest pinned-Core mapping check; no license header identified."
     },
     {
       "repository": "edisontw/pool-pepepow",
@@ -189,7 +201,10 @@
       "git_blob_sha1": "0c473657b1ad70bb378dff55459d7fcbfa48a1c2",
       "url": "https://github.com/edisontw/pool-pepepow/blob/c1298d7b40e5e9fd39f76af179c6e10a1c313147/apps/pool-core/stratum_ingress.py",
       "vendored": false,
-      "redistribution_review": "pending"
+      "redistribution_review": "pending",
+      "license_observation": "No root LICENSE/COPYING/NOTICE found at pinned commit and no file-level grant identified; REVIEW_REQUIRED.",
+      "license_review_status": "REVIEW_REQUIRED",
+      "note": "Pool source used for provenance/context only; redistribution review pending."
     },
     {
       "repository": "edisontw/pool-pepepow",
@@ -198,7 +213,10 @@
       "git_blob_sha1": "2984c74954800740fb6638ab32a1c24a4bdbb153",
       "url": "https://github.com/edisontw/pool-pepepow/blob/c1298d7b40e5e9fd39f76af179c6e10a1c313147/apps/pool-core/pepepow_pow.py",
       "vendored": false,
-      "redistribution_review": "pending"
+      "redistribution_review": "pending",
+      "license_observation": "No root LICENSE/COPYING/NOTICE found at pinned commit and no file-level grant identified; REVIEW_REQUIRED.",
+      "license_review_status": "REVIEW_REQUIRED",
+      "note": "Pool source used for provenance/context only; redistribution review pending."
     }
   ],
   "blake3_comparison": [
@@ -246,14 +264,21 @@
     "commit": "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d",
     "archive_sha256_from_core_recipe": "e328a1d59b94748b111e022bca6a9d2fc0481fb57d23c87d90f394b559d4f062",
     "archive_download_verified": false,
-    "license_review": "per-file pending",
+    "license_review": "per-file candidate inventory recorded; redistribution and legal review pending",
     "file_audit": {
-      "scope": "Partial static audit of pinned upstream file metadata, headers and CMake target source lists. Not a compile database or final linker map; no redistribution clearance.",
+      "scope": "Pinned upstream Windows portable-C translation unit inventory generated from archived Debug and Release compile databases. It records fixed source blobs, raw source SHA-256 values and conservative header signals; it is not an included-header inventory, archive-member/link map, Linux inventory, or legal clearance.",
       "windows_patch": {
         "path": ".github/patches/openlibm-portable-c-windows.patch",
-        "sha256": "f780e659c0a94a8a28a942553c2b0bc7da8c4119b2a897842c361ce97f19c5b2",
+        "sha256_repository_lf": "9f37e2bb0e5c8160353bf7a624829eb2ffd14175495ae2e1a13a0c77739e0bb1",
+        "sha256_windows_runner_crlf": "f780e659c0a94a8a28a942553c2b0bc7da8c4119b2a897842c361ce97f19c5b2",
         "evidence_run": "https://github.com/edisontw/pepepow-miner/actions/runs/45181410916",
-        "scope": "Recorded prior CI evidence; static build with OPENLIBM_USE_ASM=OFF."
+        "changed_paths": [
+          "CMakeLists.txt"
+        ],
+        "upstream_cmake_git_blob_sha1": "81045e25978ebb96001fd4b82ec3c658e8402257",
+        "upstream_cmake_sha256": "36f50975ccf10f20daace4e8798d21cc6967189c00ab418b75a8c67a69ed6c1c",
+        "patched_cmake_sha256_reconstructed": "861e1e4eb190cc5a3425dde3de534308a90e1c8490b504ff62c1aea5711c689c",
+        "source_bytes_scope": "The patch changes only the CMake build definition; no C/C++ translation-unit bytes are modified. Per-file source hashes in the inventory are reconstructed from pinned upstream Git blobs, not captured from the historical runner working directory."
       },
       "files": [
         {
@@ -321,9 +346,9 @@
           "redistribution_review": "pending"
         }
       ],
-      "remaining": "Archived Windows compile databases inspected; map 254 paths and included headers to pinned blobs and notices, inspect final linked members and Linux variants.",
+      "remaining": "Compiler dependency files and included-header hashes, historical archive members, final KAT linker map, Linux source inventories, and redistribution/legal review remain pending.",
       "windows_compile_inventory": {
-        "scope": "Archived successful Windows Server 2022 x64 UCRT64 main run 45181410916, code SHA 565d7002678905acdaa4eb21c82b1c7fb60dc4dc. Both ZIP SHA-256 verified against GitHub metadata; parsed openlibm-compile-commands.json, normalized source paths relative to checkout /openlibm/, sorted unique paths. Every output targets CMakeFiles/openlibm.dir. This proves the compile database target inventory, not final executable member inclusion.",
+        "scope": "Windows Server 2022 x64 UCRT64 run 45181410916. GitHub artifact ZIPs were downloaded and matched the published SHA-256 values. Compile databases were parsed against the pinned OpenLibm Git tree. This proves the OpenLibm CMake target translation-unit inventory, not headers included by compiler, archive member inclusion, final executable link membership, or redistribution clearance.",
         "run_url": "https://github.com/edisontw/pepepow-miner/actions/runs/45181410916",
         "artifacts": [
           {
@@ -350,7 +375,51 @@
         },
         "test_directory_paths": 0,
         "sorted_paths_sha256_lf_final_newline": "b58b2e555e29a5bcc246abd5ed2b8006817a6f215ad282d7fabbdea0314cf03a",
-        "remaining": "Map all 254 paths and included headers to pinned blobs and notices; obtain final link map; no redistribution approval."
+        "remaining": "Compiler dependency files, included-header hashes, static archive member listing, final executable linker map/member inclusion, Linux source inventories and legal review are not available in the historical artifacts and remain pending.",
+        "inventory_path": "docs/sources/openlibm-windows-compile-inventory.json",
+        "inventory_sha256": "727fca0055538b5580b9f76b058828dab9ee6d52d668b796ea776a5945a6e201",
+        "license_candidate_counts": {
+          "FDLIBM": 128,
+          "ISC_Moshier_notice": 42,
+          "BSD_style": 70,
+          "public_domain": 3
+        },
+        "license_review_required_translation_units": 17,
+        "license_inventory_note": "Candidate counts overlap: two files contain FDLIBM and Moshier notices; one contains FDLIBM and BSD-style notices. Seventeen translation units are marked REVIEW_REQUIRED because their notices overlap or no recognized per-file signal was found. Other single-signal rows remain EVIDENCE_ONLY, never legal clearance.",
+        "separate_notice_files": [
+          {
+            "path": "LICENSE.md",
+            "sha256_source": "recorded-in-openlibm-windows-compile-inventory.json",
+            "observation": "Aggregate notice describes Julia Project MIT, Moshier ISC, FreeBSD BSD, FDLIBM and LGPL test sources; not a per-file grant map."
+          },
+          {
+            "path": "test/test-double.c",
+            "role": "LGPL test source",
+            "compiled_in_Debug_or_Release_library_database": false,
+            "published_artifact_evidence": false,
+            "note": "Not listed in either OpenLibm library compile database. Historical artifacts contain no final executable or archive membership list; no release artifact was produced by this CI.",
+            "observed_in_debug_release_compile_databases": false,
+            "link_membership": "not captured in historical linker map; source is absent from library compile databases and no test target was built",
+            "distribution": "no release binary was produced by this CI"
+          },
+          {
+            "path": "test/test-float.c",
+            "role": "LGPL test source",
+            "compiled_in_Debug_or_Release_library_database": false,
+            "published_artifact_evidence": false,
+            "note": "Not listed in either OpenLibm library compile database. Historical artifacts contain no final executable or archive membership list; no release artifact was produced by this CI.",
+            "observed_in_debug_release_compile_databases": false,
+            "link_membership": "not captured in historical linker map; source is absent from library compile databases and no test target was built",
+            "distribution": "no release binary was produced by this CI"
+          }
+        ]
+      },
+      "license_triage": {
+        "inventory": "docs/sources/openlibm-windows-compile-inventory.json",
+        "assessment": "docs/sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md",
+        "unit_candidate_counts_overlap": true,
+        "unit_review_required": 17,
+        "status": "Header-signal triage only; no redistribution clearance."
       }
     }
   },
@@ -360,7 +429,15 @@
     "date": "2025-10-14",
     "message": "Change GPLv3 to MIT for more permissive algorithm usage.",
     "status": "upstream-relicense-intent-confirmed; stale GPL file headers recorded; final distribution review pending",
-    "url": "https://github.com/HoosatNetwork/hoohash/commit/9634f11410a2d71be21086e813263fa007fb6810"
+    "url": "https://github.com/HoosatNetwork/hoohash/commit/9634f11410a2d71be21086e813263fa007fb6810",
+    "parent_commit": "ea4b9b054eac2e06a7c628330ceaed16ffce563b",
+    "changed_paths": [
+      "LICENSE"
+    ],
+    "hoohash_c_blob_unchanged": "bddc52cb4cd92064398d5eb5e3f1d4a2798a2f4c",
+    "hoohash_h_blob_unchanged": "c276493cf512a6a9919aeecfcf73141328188014",
+    "followup_public_commit_search": "2026-11-24; no later public commit or header correction found",
+    "rights_holder_questions": "See docs/sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md. No upstream contact or legal conclusion."
   },
   "core_revision_reconciliation": {
     "previous_commit": "38e801428688dfd0aee272b4a91819ac1a13ab4e",
@@ -377,5 +454,10 @@
       }
     ],
     "scope": "Existing Core inventory only; blob identity checked using GitHub file metadata and changed configure.ac patch reviewed. Per-file license/NOTICE review remains pending. No redistribution approval."
+  },
+  "provenance_assessment_documents": {
+    "technical_and_redistribution_review": "docs/sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md",
+    "windows_11_owner_acceptance": "docs/G0_WINDOWS11_OWNER_ACCEPTANCE.md",
+    "status": "Technical evidence recorded; all redistribution/legal review remains pending."
   }
 }
