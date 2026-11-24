@@ -6,6 +6,8 @@ on:
       - '.github/workflows/g0-core-reference-build.yml'
       - 'CMakeLists.txt'
       - 'tools/kat.c'
+      - 'tools/g0_openlibm_inventory.py'
+      - 'tools/test_g0_openlibm_inventory.py'
       - 'tools/g0_v110_independent.py'
       - 'tests/test_g0_v110_independent.py'
       - 'tests/vectors/candidates/**'
@@ -37,6 +39,8 @@ jobs:
           persist-credentials: false
       - name: Test independent V110 CLI and full-digest negative controls
         run: python3 -m unittest discover -s miner/tests -p test_g0_v110_independent.py -v
+      - name: Run offline OpenLibm inventory regression tests
+        run: python3 miner/tools/test_g0_openlibm_inventory.py -v
       - name: Checkout pinned PEPEPOW Core
         uses: actions/checkout@v4
         with:
