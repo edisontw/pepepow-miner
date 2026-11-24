@@ -92,3 +92,55 @@ with test data and contains no production traffic.
 timeout 30s python3 tests/check_pool_loopback_replay.py \
   build/reference/offline_stratum_replay build/reference/pepepow-kat
 ```
+
+## Offline loopback CPU miner MVP
+
+`offline_stratum_miner` joins the local TCP transport to the fixed-dialect
+controller, header builder, bounded CPU search, target comparison, and mock
+submit accounting. It creates an IPv4 socket for `127.0.0.1` internally; the
+CLI accepts a port number only and has no host, DNS, TLS, or public-pool option.
+Run it only with a mock Stratum server bound to loopback.
+
+Build against the pinned Core and OpenLibm inputs used above:
+
+```sh
+cmake -S . -B build/reference -DCMAKE_BUILD_TYPE=Release \
+  -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
+  -DPEPEPOW_NATIVE_STRATUM_SEARCH=ON \
+  -DPEPEPOW_CORE_SOURCE_DIR=/absolute/path/to/pinned-core \
+  -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
+  -DOPENLIBM_INCLUDE_DIR=/absolute/path/to/openlibm/include \
+  -DOPENLIBM_LIBRARY=/absolute/path/to/openlibm-build/libopenlibm.a
+cmake --build build/reference --parallel 4
+ctest --test-dir build/reference --output-on-failure \
+  -R 'native_stratum_search|offline_stratum_miner_loopback'
+```
+
+The end-to-end fixture starts a mock server on an OS-assigned `127.0.0.1`
+port, replays the pinned pool wire fixture, sends a replacement while a real
+Core search is running, checks the replacement candidate's complete 80-byte
+header and 32-byte digest, and returns one accepted and one rejected mock
+reply. It asserts stale-candidate accounting and exercises a real-Core 1 ms
+cooperative timeout with exit code 4. Run it directly with:
+
+```sh
+timeout 30s python3 tests/test_offline_stratum_miner_e2e.py \
+  build/reference/offline_stratum_miner
+```
+
+The CLI syntax is:
+
+```text
+offline_stratum_miner PORT LOGIN START COUNT EXTRANONCE2
+  [--responses N] [--max-ms N] [--scale N]
+```
+
+`COUNT` is 1–10,000 and the inclusive nonce range must fit uint32. `--max-ms`
+defaults to 30,000 and is capped at 60,000. The deadline and job replacement
+are cooperative between nonce hashes; neither can interrupt one synchronous
+Core hash call. JSONL stdout reports each full candidate, mock response, stale
+candidate, and final counters. A reported accepted/rejected share is only the
+local mock server's reply and is not pool interoperability evidence. Exit 0
+means the requested number of mock share replies arrived; 1 is transport,
+protocol, or exhausted-work failure; 2 is invalid input or work; 4 is the
+search deadline; and 5 is local socket initialization failure.

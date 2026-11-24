@@ -3,6 +3,7 @@
 #include "pepepow/uint256_target.h"
 
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <limits>
@@ -20,7 +21,7 @@ struct CpuCandidate {
   std::uint32_t nonce;
 };
 
-enum class SearchStatus { Found, Exhausted, Timeout, Invalid };
+enum class SearchStatus { Found, Exhausted, Timeout, Cancelled, Invalid };
 
 struct SearchResult {
   SearchStatus status;
@@ -37,11 +38,14 @@ inline constexpr std::uint32_t max_search_timeout_ms = 60000;
 
 inline SearchResult search_cpu(Header header, const Digest& target_le,
                                std::uint32_t start, std::uint32_t count,
-                               std::uint32_t timeout_ms = default_search_timeout_ms) {
+                               std::uint32_t timeout_ms = default_search_timeout_ms,
+                               const std::atomic_bool* cancel = nullptr) {
   if (!valid_search_range(start, count) || timeout_ms == 0 ||
       timeout_ms > max_search_timeout_ms) return {SearchStatus::Invalid, std::nullopt};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
   for (std::uint32_t offset = 0; offset < count; ++offset) {
+    if (cancel && cancel->load(std::memory_order_acquire))
+      return {SearchStatus::Cancelled, std::nullopt};
     // The synchronous Core call cannot be interrupted by this cooperative deadline.
     if (std::chrono::steady_clock::now() >= deadline)
       return {SearchStatus::Timeout, std::nullopt};
@@ -49,6 +53,8 @@ inline SearchResult search_cpu(Header header, const Digest& target_le,
     pepepow_header_set_nonce(header.data(), header.size(), nonce);
     Digest digest{};
     hoohashv110(header.data(), header.size(), digest.data());
+    if (cancel && cancel->load(std::memory_order_acquire))
+      return {SearchStatus::Cancelled, std::nullopt};
     if (std::chrono::steady_clock::now() >= deadline)
       return {SearchStatus::Timeout, std::nullopt};
     if (pepepow_uint256_meets_target_le(digest.data(), target_le.data()))

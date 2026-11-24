@@ -62,9 +62,10 @@ class OfflineStratumSearch {
   }
 
   SearchStatus search(std::uint32_t start, std::uint32_t count,
-                      std::uint32_t timeout_ms = default_search_timeout_ms) {
+                      std::uint32_t timeout_ms = default_search_timeout_ms,
+                      const std::atomic_bool* cancel = nullptr) {
     if (result_) return SearchStatus::Invalid;
-    result_ = search_cpu(header_, target_, start, count, timeout_ms);
+    result_ = search_cpu(header_, target_, start, count, timeout_ms, cancel);
     return result_->status;
   }
 

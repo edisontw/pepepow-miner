@@ -5,6 +5,16 @@ on:
     paths:
       - '.github/workflows/g0-core-reference-build.yml'
       - 'CMakeLists.txt'
+      - 'include/pepepow/bounded_cpu_search.hpp'
+      - 'include/pepepow/offline_stratum_search.hpp'
+      - 'include/pepepow/offline_stratum_controller.hpp'
+      - 'include/pepepow/stratum_socket_io.hpp'
+      - 'include/pepepow/stratum_loopback_transport.hpp'
+      - 'include/pepepow/local_handshake.hpp'
+      - 'tools/offline_stratum_miner.cpp'
+      - 'tests/test_native_stratum_search.cpp'
+      - 'tests/test_offline_stratum_miner_e2e.py'
+      - 'tests/vectors/stratum/**'
       - 'tools/kat.c'
       - 'tools/g0_openlibm_inventory.py'
       - 'tools/test_g0_openlibm_inventory.py'
@@ -74,9 +84,12 @@ jobs:
             -DOPENLIBM_INCLUDE_DIR="$GITHUB_WORKSPACE/openlibm/include" \
             -DOPENLIBM_LIBRARY="$GITHUB_WORKSPACE/openlibm-build/libopenlibm.a" \
             -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
-            -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97
+            -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
+            -DPEPEPOW_NATIVE_STRATUM_SEARCH=ON
       - name: Build and link real Core reference
         run: cmake --build build --config Release --parallel 2
+      - name: Run native CPU Stratum and loopback integration tests
+        run: ctest --test-dir build --output-on-failure -R 'native_stratum_search|offline_stratum_miner_loopback'
       - name: Check reference executable exists without invoking hashing
         run: test -x build/pepepow-kat
       - name: Execute real reference binary and verify invalid-input exit codes

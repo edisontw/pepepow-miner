@@ -1,13 +1,14 @@
 # PEPEPOW Miner — Current development handoff
 
-**Snapshot: 2026-11-24 (Asia/Taipei).** This source-audit update is based on main `128f5ffd97fc57701e4bc228198dcc92b2b126c2` and the PR #21 audit branch. Re-fetch main, open PRs, and checks before relying on this snapshot.
+**Snapshot: 2026-11-24 (Asia/Taipei).** This handoff is based on main after the PR #21 merge `f8f9325ec9cb5c12ca0058ca2858536198f4b616`. Re-fetch main, open PRs, and checks before relying on this snapshot.
 
 ## Integrated implementation
 
 - [PR #14](https://github.com/edisontw/pepepow-miner/pull/14) integrated the pinned Core/CMake KAT, independent Python HooHash V110 implementation, full-digest corpus tools, uint256 little-endian target comparison, bounded offline CPU search, and offline Stratum replay. Earlier [#2](https://github.com/edisontw/pepepow-miner/pull/2), [#6](https://github.com/edisontw/pepepow-miner/pull/6), [#11](https://github.com/edisontw/pepepow-miner/pull/11), and [#13](https://github.com/edisontw/pepepow-miner/pull/13) were superseded.
 - [PRs #5](https://github.com/edisontw/pepepow-miner/pull/5), [#7](https://github.com/edisontw/pepepow-miner/pull/7), [#9](https://github.com/edisontw/pepepow-miner/pull/9), [#10](https://github.com/edisontw/pepepow-miner/pull/10), [#16](https://github.com/edisontw/pepepow-miner/pull/16), [#17](https://github.com/edisontw/pepepow-miner/pull/17), and [#18](https://github.com/edisontw/pepepow-miner/pull/18) are merged.
-- [PR #19](https://github.com/edisontw/pepepow-miner/pull/19) added native Windows Server 2022 Debug/Release independent parity CI and was squash merged as `565d7002678905acdaa4eb21c82b1c7fb60dc4dc`. Its exact PR-head and post-merge main runs both passed. At this snapshot, no PRs are open.
-- [PR #21](https://github.com/edisontw/pepepow-miner/pull/21) reconciles the 13-file Core manifest to the exact tested Core pin and adds a generated 254-file Windows portable-C OpenLibm inventory, conservative notice signals, and provenance/Owner-validation instructions. These are audit records; they do not clear redistribution or formal G0 acceptance.
+- [PR #19](https://github.com/edisontw/pepepow-miner/pull/19) added native Windows Server 2022 Debug/Release independent parity CI and was squash merged as `565d7002678905acdaa4eb21c82b1c7fb60dc4dc`. Its exact PR-head and post-merge main runs both passed.
+- [PR #21](https://github.com/edisontw/pepepow-miner/pull/21) was squash-merged as `f8f9325ec9cb5c12ca0058ca2858536198f4b616`. It reconciles the 13-file Core manifest to the tested Core pin and adds the generated 254-file Windows portable-C OpenLibm inventory, conservative notice signals, and provenance/Owner-validation instructions. These audit records do not clear redistribution or formal G0 acceptance.
+- The offline CPU miner MVP now has a single local-only TCP CLI that connects the fixed Stratum controller, real pinned-Core search, and mock submit accounting. Its focused loopback test verifies replacement cancellation, a complete frozen header/digest, one accepted mock reply, one rejected mock reply, a real-Core cooperative timeout, and stale-candidate accounting. The Linux Release commands and results are recorded in [G1 loopback evidence](VALIDATION_EVIDENCE/G1/offline-loopback-cpu-miner-2026-11-24.md). It does not accept a remote host or connect to a production pool.
 - [Issue #1](https://github.com/edisontw/pepepow-miner/issues/1) remains open and is the G0 acceptance tracker.
 
 ## Pinned sources and validation evidence
@@ -24,7 +25,7 @@
 
 **G0 — NOT PASSED.** Current Core source blobs are reconciled to the tested pin, and Windows portable-C translation units are inventoried. Hoohash file headers conflict with the upstream root-license change; OpenLibm, BLAKE3, and pool-derived source notices still need redistribution review. Historical Windows artifacts lack dependency files and a final linker map. Windows 11 full native G0 evidence and final checklist sign-off remain open. A successful build is not a license clearance.
 
-**G1 — OFFLINE PROTOTYPE ONLY; NOT PASSED.** Bounded CPU nonce search, mock/localhost Stratum replay, stale-job controls, and cooperative `--max-ms` deadline handling are implemented. The deadline cannot interrupt a single synchronous hash already in progress. No production pool connection, live share submission, released binary, or supported-miner claim has been authorized or demonstrated.
+**G1 — OFFLINE PROTOTYPE ONLY; NOT PASSED.** The local-only CPU CLI performs subscribe/authorize, fixed-dialect work decoding, header construction, pinned-Core HooHash search, target comparison, mock submission, response accounting, job-replacement cancellation, and bounded response-count shutdown. Linux Release loopback evidence is a local mock only. The deadline and cancellation are cooperative between nonce hashes and cannot interrupt a single synchronous hash already in progress. Reconnect/failover, broader protocol fault coverage, authorized platform interoperability, and G0 acceptance remain pending. No production pool connection, live share, released binary, or supported-miner claim has been authorized or demonstrated.
 
 **G2–G5 — NOT ACCEPTED.** GUI, packaging, and GPU support are not production features.
 
@@ -32,6 +33,6 @@
 
 1. Record the remaining Owner/rightsholder decisions and platform-specific dependency/link evidence tracked by Issue #1.
 2. Complete and record the remaining Windows 11 native G0 checklist without repeating the already-recorded Release/KAT/eight-nonce owner checks.
-3. Continue CPU Miner MVP integration only through local mock Stratum and pinned Core/OpenLibm; keep G1 acceptance pending.
+3. Extend the local CPU CLI fault matrix and lifecycle controls without introducing remote endpoints; keep G1 acceptance pending.
 
 English is required for project documentation. Keep this handoff concise; track work by commit and PR rather than hourly append-only logs.

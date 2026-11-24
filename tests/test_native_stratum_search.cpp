@@ -1,5 +1,6 @@
 #include "pepepow/offline_stratum_search.hpp"
 
+#include <atomic>
 #include <iostream>
 #include <source_location>
 
@@ -63,6 +64,10 @@ bool run() {
   auto rejected = OfflineStratumSearch::capture(controller, extranonce2);
   if (!rejected || rejected->search(0, 6) != SearchStatus::Exhausted ||
       rejected->make_mock_submit(controller, login)) return failure();
+  auto cancelled = OfflineStratumSearch::capture(controller, extranonce2);
+  std::atomic_bool cancel{true};
+  if (!cancelled || cancelled->search(0, 7, 1000, &cancel) != SearchStatus::Cancelled ||
+      cancelled->candidate()) return failure();
   auto replaced = OfflineStratumSearch::capture(controller, extranonce2);
   if (!replaced || replaced->search(0, 7) != SearchStatus::Found ||
       !fixture_matches(replaced->candidate()) ||
