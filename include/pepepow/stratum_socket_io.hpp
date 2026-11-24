@@ -1,4 +1,5 @@
 #pragma once
+#include <chrono>
 #include <cstddef>
 #include <limits>
 #include <string>
@@ -9,6 +10,7 @@
 #include <ws2tcpip.h>
 #else
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -57,14 +59,34 @@ inline bool send_all(Socket s, std::string_view bytes) {
   return true;
 }
 // Read exactly one newline-terminated JSONL frame without consuming the next frame.
-// On timeout, EOF or oversized input, discard the partial frame.
-inline bool receive_line(Socket s, std::string& line) {
+// The absolute frame budget does not restart when another byte arrives.
+// The caller owns a blocking socket and is its only reader. On failure the
+// stream is not reusable without a new transport generation.
+inline bool receive_line(Socket s, std::string& line, int milliseconds = 2000) {
   line.clear();
-  if (s == invalid_socket) return false;
+  if (s == invalid_socket || milliseconds <= 0) return false;
+  using Clock = std::chrono::steady_clock;
+  const auto deadline = Clock::now() + std::chrono::milliseconds(milliseconds);
   char byte = 0;
   while (line.size() < max_frame_bytes) {
+    const auto now = Clock::now();
+    if (now >= deadline) break;
+    const auto remaining = static_cast<int>(
+        std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count());
+#ifdef _WIN32
+    fd_set readable;
+    FD_ZERO(&readable);
+    FD_SET(s, &readable);
+    timeval timeout{static_cast<long>(remaining / 1000),
+                    static_cast<long>((remaining % 1000) * 1000)};
+    if (select(0, &readable, nullptr, nullptr, &timeout) <= 0) break;
+#else
+    pollfd readable{s, POLLIN, 0};
+    if (poll(&readable, 1, remaining) <= 0) break;
+#endif
+    if (Clock::now() >= deadline) break;
     const int n = recv(s, &byte, 1, 0);
-    if (n != 1) { line.clear(); return false; }
+    if (n != 1 || Clock::now() >= deadline) break;
     line.push_back(byte);
     if (byte == '\n') return true;
   }
