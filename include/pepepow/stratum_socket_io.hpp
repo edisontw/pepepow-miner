@@ -1,13 +1,16 @@
 #pragma once
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
-#include <csignal>
 #include <cstddef>
 #include <limits>
 #include <string>
 #include <string_view>
 #ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -96,7 +99,7 @@ inline bool temporarily_unavailable() {
 }
 
 inline bool send_before(Socket s, std::string_view bytes, Deadline deadline,
-                        const volatile std::sig_atomic_t& stop) {
+                        const std::atomic_bool& stop) {
   if (bytes.empty() || bytes.size() > max_frame_bytes) return false;
   while (!bytes.empty() && !stop && Clock::now() < deadline) {
 #ifdef MSG_NOSIGNAL
@@ -119,16 +122,16 @@ inline bool send_before(Socket s, std::string_view bytes, Deadline deadline,
 // be reused after a failed read. Neither incoming bytes nor interrupted waits
 // can extend the absolute deadline.
 inline bool receive_line(Socket s, std::string& line, Deadline operation_deadline,
-                         const volatile std::sig_atomic_t* stop = nullptr,
+                         const std::atomic_bool* stop = nullptr,
                          Clock::duration budget = frame_budget) {
   line.clear();
   if (s == invalid_socket) return false;
-  const auto deadline = std::min(operation_deadline, Clock::now() + budget);
+  const auto deadline = (std::min)(operation_deadline, Clock::now() + budget);
   while (line.size() < max_frame_bytes && !(stop && *stop)) {
     const auto now = Clock::now();
     if (now >= deadline) break;
     auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now);
-    if (stop) remaining = std::min(remaining, std::chrono::milliseconds(25));
+    if (stop) remaining = (std::min)(remaining, std::chrono::milliseconds(25));
     const auto ready = socket_ready(s, static_cast<int>(remaining.count()));
     if (ready == Readiness::Error) break;
     if (ready == Readiness::Timeout) continue;
@@ -149,7 +152,7 @@ inline bool receive_line(Socket s, std::string& line, Deadline operation_deadlin
 }
 inline bool receive_line(Socket s, std::string& line, int milliseconds = 2000) {
   return milliseconds > 0
-      ? receive_line(s, line, Deadline::max(), nullptr, std::chrono::milliseconds(milliseconds))
+      ? receive_line(s, line, (Deadline::max)(), nullptr, std::chrono::milliseconds(milliseconds))
       : (line.clear(), false);
 }
 inline bool receive_exact(Socket s, std::string_view expected) {

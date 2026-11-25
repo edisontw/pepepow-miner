@@ -10,7 +10,7 @@ namespace pepepow::socket_io {
 // A stale caller must not consume bytes from a newly connected socket.
 inline std::optional<OfflineStratumController::WorkEvents> receive_controller_line(
     Socket socket, OfflineStratumController& controller, std::uint64_t generation,
-    Deadline deadline = Deadline::max(), const volatile std::sig_atomic_t* stop = nullptr) {
+    Deadline deadline = (Deadline::max)(), const std::atomic_bool* stop = nullptr) {
   if (socket == invalid_socket || generation != controller.session().session_generation()) return std::nullopt;
   std::string line;
   if (!receive_line(socket, line, deadline, stop)) {
