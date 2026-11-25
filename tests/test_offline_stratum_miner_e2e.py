@@ -25,10 +25,10 @@ def read_line(sock):
 
 
 def assert_peer_closed(peer):
-    # Winsock can reset a closing connection with unread inbound bytes.
+    # Winsock can reset or abort a connection with unread inbound bytes.
     try:
         assert peer.recv(1) == b"", "expected closed loopback connection"
-    except ConnectionResetError:
+    except (ConnectionResetError, ConnectionAbortedError):
         pass
 
 
@@ -342,18 +342,30 @@ def check_reconnect(binary, notify_template, extranonce2, failover):
 
 
 def check_retry_exhaustion(binary, cancel=False):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
-        reservation.bind(("127.0.0.1", 0))
-        command = [binary, str(reservation.getsockname()[1]), "mock.worker", "0", "1",
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        listener.settimeout(3)
+        command = [binary, str(listener.getsockname()[1]), "mock.worker", "0", "1",
                    "00000000", "--retries", "2", "--backoff-ms", "2000" if cancel else "20"]
         with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               text=True) as process:
             try:
+                # Accept and close each attempt to exercise deterministic TCP
+                # failure without relying on OS-specific refused-connect timing.
+                for _ in range(1 if cancel else 3):
+                    peer, _ = listener.accept()
+                    peer.close()
                 if cancel:
                     events = queue.Queue()
-                    threading.Thread(target=lambda: events.put(process.stdout.readline()),
-                                     daemon=True).start()
-                    assert json.loads(events.get(timeout=4))["event"] == "retry_wait"
+                    def wait_for_retry():
+                        for line in process.stdout:
+                            if json.loads(line)["event"] == "retry_wait":
+                                events.put(True)
+                                break
+
+                    threading.Thread(target=wait_for_retry, daemon=True).start()
+                    assert events.get(timeout=4)
                     started = time.monotonic()
                     process.send_signal(signal.SIGTERM)
                     process.communicate(timeout=1)
@@ -361,7 +373,9 @@ def check_retry_exhaustion(binary, cancel=False):
                 else:
                     stdout, stderr = process.communicate(timeout=4)
                     assert process.returncode == 1, stderr
-                    assert [json.loads(line)["backoff_ms"] for line in stdout.splitlines()] == [20, 40]
+                    waits = [item["backoff_ms"] for item in map(json.loads, stdout.splitlines())
+                             if item["event"] == "retry_wait"]
+                    assert waits == [20, 40], waits
                 print(f"PASS: bounded retry (cancel={cancel})")
             finally:
                 if process.poll() is None:
