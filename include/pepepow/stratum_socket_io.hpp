@@ -1,5 +1,8 @@
 #pragma once
+#include <algorithm>
+#include <cerrno>
 #include <chrono>
+#include <csignal>
 #include <cstddef>
 #include <limits>
 #include <string>
@@ -58,40 +61,96 @@ inline bool send_all(Socket s, std::string_view bytes) {
   }
   return true;
 }
-// Read exactly one newline-terminated JSONL frame without consuming the next frame.
-// The absolute frame budget does not restart when another byte arrives.
-// The caller owns a blocking socket and is its only reader. On failure the
-// stream is not reusable without a new transport generation.
-inline bool receive_line(Socket s, std::string& line, int milliseconds = 2000) {
+using Clock = std::chrono::steady_clock;
+using Deadline = Clock::time_point;
+inline constexpr auto frame_budget = std::chrono::seconds(2);
+
+enum class Readiness { Ready, Timeout, Error };
+
+inline Readiness socket_ready(Socket s, int milliseconds, bool writing = false) {
+#ifdef _WIN32
+  fd_set readable;
+  FD_ZERO(&readable);
+  FD_SET(s, &readable);
+  timeval timeout{milliseconds / 1000, (milliseconds % 1000) * 1000};
+  const int result = select(0, writing ? nullptr : &readable, writing ? &readable : nullptr,
+                            nullptr, &timeout);
+  if (result < 0 && WSAGetLastError() == WSAEINTR) return Readiness::Timeout;
+#else
+  pollfd readable{s, static_cast<short>(writing ? POLLOUT : POLLIN), 0};
+  const int result = poll(&readable, 1, milliseconds);
+  if (result < 0 && errno == EINTR) return Readiness::Timeout;
+#endif
+  if (result < 0) return Readiness::Error;
+  return result == 0 ? Readiness::Timeout : Readiness::Ready;
+}
+
+// Used after the miner switches its connected socket to nonblocking mode.
+inline bool temporarily_unavailable() {
+#ifdef _WIN32
+  const auto error = WSAGetLastError();
+  return error == WSAEWOULDBLOCK || error == WSAEINTR;
+#else
+  return errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK;
+#endif
+}
+
+inline bool send_before(Socket s, std::string_view bytes, Deadline deadline,
+                        const volatile std::sig_atomic_t& stop) {
+  if (bytes.empty() || bytes.size() > max_frame_bytes) return false;
+  while (!bytes.empty() && !stop && Clock::now() < deadline) {
+#ifdef MSG_NOSIGNAL
+    constexpr int flags = MSG_NOSIGNAL;
+#else
+    constexpr int flags = 0;
+#endif
+    const int n = send(s, bytes.data(), static_cast<int>(bytes.size()), flags);
+    if (n > 0) {
+      bytes.remove_prefix(static_cast<std::size_t>(n));
+    } else if (n == 0 || !temporarily_unavailable() ||
+               socket_ready(s, 1, true) == Readiness::Error) {
+      return false;
+    }
+  }
+  return bytes.empty() && !stop && Clock::now() < deadline;
+}
+
+// The caller owns the socket and is its sole reader. A partial frame cannot
+// be reused after a failed read. Neither incoming bytes nor interrupted waits
+// can extend the absolute deadline.
+inline bool receive_line(Socket s, std::string& line, Deadline operation_deadline,
+                         const volatile std::sig_atomic_t* stop = nullptr,
+                         Clock::duration budget = frame_budget) {
   line.clear();
-  if (s == invalid_socket || milliseconds <= 0) return false;
-  using Clock = std::chrono::steady_clock;
-  const auto deadline = Clock::now() + std::chrono::milliseconds(milliseconds);
-  char byte = 0;
-  while (line.size() < max_frame_bytes) {
+  if (s == invalid_socket) return false;
+  const auto deadline = std::min(operation_deadline, Clock::now() + budget);
+  while (line.size() < max_frame_bytes && !(stop && *stop)) {
     const auto now = Clock::now();
     if (now >= deadline) break;
-    const auto remaining = static_cast<int>(
-        std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count());
+    auto remaining = std::chrono::ceil<std::chrono::milliseconds>(deadline - now);
+    if (stop) remaining = std::min(remaining, std::chrono::milliseconds(25));
+    const auto ready = socket_ready(s, static_cast<int>(remaining.count()));
+    if (ready == Readiness::Error) break;
+    if (ready == Readiness::Timeout) continue;
+    if (Clock::now() >= deadline || (stop && *stop)) break;
+    char byte = 0;
 #ifdef _WIN32
-    fd_set readable;
-    FD_ZERO(&readable);
-    FD_SET(s, &readable);
-    timeval timeout{static_cast<long>(remaining / 1000),
-                    static_cast<long>((remaining % 1000) * 1000)};
-    if (select(0, &readable, nullptr, nullptr, &timeout) <= 0) break;
-#else
-    pollfd readable{s, POLLIN, 0};
-    if (poll(&readable, 1, remaining) <= 0) break;
-#endif
-    if (Clock::now() >= deadline) break;
     const int n = recv(s, &byte, 1, 0);
-    if (n != 1 || Clock::now() >= deadline) break;
+#else
+    const int n = recv(s, &byte, 1, MSG_DONTWAIT);
+#endif
+    if (n < 0 && temporarily_unavailable()) continue;
+    if (n != 1 || Clock::now() >= deadline || (stop && *stop)) break;
     line.push_back(byte);
     if (byte == '\n') return true;
   }
   line.clear();
   return false;
+}
+inline bool receive_line(Socket s, std::string& line, int milliseconds = 2000) {
+  return milliseconds > 0
+      ? receive_line(s, line, Deadline::max(), nullptr, std::chrono::milliseconds(milliseconds))
+      : (line.clear(), false);
 }
 inline bool receive_exact(Socket s, std::string_view expected) {
   if (s == invalid_socket || expected.empty() || expected.size() > max_frame_bytes) return false;

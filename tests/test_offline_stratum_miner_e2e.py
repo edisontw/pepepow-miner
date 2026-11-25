@@ -1,5 +1,8 @@
 """End-to-end loopback test using the pinned-Core offline miner binary."""
 import json
+import os
+import signal
+import time
 import queue
 import socket
 import subprocess
@@ -26,14 +29,14 @@ def notify_for(template, job_id):
     return (json.dumps(frame, separators=(",", ":")) + "\n").encode("ascii")
 
 
-def check_real_core_timeout(binary, notify_template, extranonce2):
+def check_real_core_timeout(binary, notify_template, extranonce2, drip=False):
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.bind(("127.0.0.1", 0))
     listener.listen(1)
     listener.settimeout(5)
     process = subprocess.Popen(
         [binary, str(listener.getsockname()[1]), "mock.worker", "0", "10000",
-         extranonce2, "--max-ms", "1"],
+         extranonce2, "--max-ms", "180" if drip else "1"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -77,7 +80,17 @@ def check_real_core_timeout(binary, notify_template, extranonce2):
             peer.sendall(
                 b'{"id":null,"method":"mining.set_difficulty","params":[1e15]}\n'
                 + notify_for(notify_template, "timeout-job")
+                + (b"{" if drip else b"")
             )
+            started = time.monotonic()
+            if drip:
+                while process.poll() is None and time.monotonic() - started < 1.25:
+                    try:
+                        peer.sendall(b" ")
+                    except (BrokenPipeError, ConnectionResetError):
+                        break
+                    time.sleep(0.04)
+                assert time.monotonic() - started < 1.1, "drip blocked mining deadline"
             timeout_event = until(lambda item: item.get("event") == "timeout")
             assert timeout_event["job_id"] == "timeout-job"
             summary = until(lambda item: item.get("event") == "summary")
@@ -94,6 +107,7 @@ def check_real_core_timeout(binary, notify_template, extranonce2):
 
 
 def check_connection_fault(binary, mode):
+    expected_status = 130 if mode == "cancel_pending" else 1
     listener = None
     process = None
     if mode == "connection_refused":
@@ -133,6 +147,10 @@ def check_connection_fault(binary, mode):
                 }
                 if mode == "no_subscribe_reply":
                     pass  # Keep the socket open until the bounded read timeout.
+                elif mode == "cancel_pending":
+                    peer.sendall(b'{"id":1,')
+                    process.send_signal(signal.SIGTERM)
+                    assert peer.recv(1) == b""
                 elif mode == "midstream_close":
                     peer.shutdown(socket.SHUT_RDWR)
                 elif mode == "truncated_subscribe":
@@ -140,7 +158,7 @@ def check_connection_fault(binary, mode):
                     peer.shutdown(socket.SHUT_WR)
                 elif mode == "invalid_subscribe":
                     peer.sendall(b'{"id":1,"result":false,"error":null}\n')
-                elif mode in ("rejected_authorize", "invalid_authorize"):
+                elif mode in ("rejected_authorize", "invalid_authorize", "no_authorize_reply"):
                     peer.sendall((
                         b'{"id":1,"result":[[["mining.set_difficulty","s"],'
                         b'["mining.notify","s"]],"aabbccdd",4],"error":null}\n'
@@ -152,7 +170,7 @@ def check_connection_fault(binary, mode):
                     }
                     if mode == "rejected_authorize":
                         peer.sendall(b'{"id":2,"result":false,"error":null}\n')
-                    else:
+                    elif mode == "invalid_authorize":
                         peer.sendall(b'{"id":2,"result":null,"error":null}\n')
                 else:
                     raise AssertionError(f"unknown connection fault: {mode}")
@@ -160,9 +178,9 @@ def check_connection_fault(binary, mode):
         else:
             stdout, stderr = process.communicate(timeout=5)
 
-        assert process.returncode == 1, (mode, process.returncode, stdout, stderr)
+        assert process.returncode == expected_status, (mode, process.returncode, stdout, stderr)
         assert process.poll() is not None, (mode, "miner process did not exit")
-        print(f"PASS: bounded loopback fault {mode} (exit 1; no child process left running)")
+        print(f"PASS: bounded loopback fault {mode} (exit {expected_status}; no child process left running)")
     finally:
         if listener is not None:
             listener.close()
@@ -206,7 +224,20 @@ def check_submit_without_reply(binary, notify_template, extranonce2):
         submit = json.loads(read_line(peer))
         assert submit["method"] == "mining.submit", submit
         assert submit["params"][1] == "unanswered-submit-job", submit
-        stdout, stderr = process.communicate(timeout=7)
+        # Every notification is valid and arrives faster than the frame timeout.
+        # Send a late accepted reply only if the client is incorrectly still alive.
+        started = time.monotonic()
+        while process.poll() is None and time.monotonic() - started < 3.0:
+            try:
+                peer.sendall(b'{"id":null,"method":"mining.set_difficulty","params":[98.304]}\n')
+            except (BrokenPipeError, ConnectionResetError):
+                break
+            time.sleep(0.08)
+        elapsed = time.monotonic() - started
+        if process.poll() is None and elapsed >= 3.0:
+            peer.sendall(json.dumps({"id": submit["id"], "result": True, "error": None}).encode() + b"\n")
+        stdout, stderr = process.communicate(timeout=4)
+        assert 1.3 <= elapsed < 2.9, (elapsed, stdout, stderr)
         assert process.returncode == 1, (process.returncode, stdout, stderr)
         events = [json.loads(line) for line in stdout.splitlines()]
         assert any(event.get("event") == "submit_sent" for event in events), events
@@ -395,6 +426,9 @@ def main():
 
     check_connection_fault(binary, "connection_refused")
     check_connection_fault(binary, "no_subscribe_reply")
+    check_connection_fault(binary, "no_authorize_reply")
+    if os.name != "nt":
+        check_connection_fault(binary, "cancel_pending")
     check_connection_fault(binary, "midstream_close")
     check_connection_fault(binary, "truncated_subscribe")
     check_connection_fault(binary, "invalid_subscribe")
@@ -402,6 +436,7 @@ def main():
     check_connection_fault(binary, "invalid_authorize")
     check_submit_without_reply(binary, notify_template, extranonce2)
     check_real_core_timeout(binary, notify_template, extranonce2)
+    check_real_core_timeout(binary, notify_template, extranonce2, drip=True)
     print("PASS: pinned-Core loopback replacement, full digest, mock accounting, stale cancellation, timeout, and bounded connection faults")
 
 

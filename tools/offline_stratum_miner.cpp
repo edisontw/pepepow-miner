@@ -16,6 +16,15 @@ using pepepow::OfflineStratumController;
 using pepepow::SearchStatus;
 using pepepow::socket_io::Socket;
 using pepepow::socket_io::invalid_socket;
+using pepepow::socket_io::Clock;
+using pepepow::socket_io::Deadline;
+using pepepow::socket_io::Readiness;
+using pepepow::socket_io::socket_ready;
+
+volatile std::sig_atomic_t stop_requested = 0;
+void request_stop(int) { stop_requested = 1; }
+
+constexpr auto request_budget = std::chrono::seconds(2);
 
 struct Options {
   unsigned port = 0;
@@ -74,19 +83,6 @@ bool parse_options(int argc, char** argv, Options& options) {
   return true;
 }
 
-bool wait_readable(Socket socket, int timeout_ms) {
-  if (socket == invalid_socket || timeout_ms < 0) return false;
-  fd_set readable;
-  FD_ZERO(&readable);
-  FD_SET(socket, &readable);
-  timeval timeout{timeout_ms / 1000, (timeout_ms % 1000) * 1000};
-#ifdef _WIN32
-  return select(0, &readable, nullptr, nullptr, &timeout) > 0;
-#else
-  return select(socket + 1, &readable, nullptr, nullptr, &timeout) > 0;
-#endif
-}
-
 void event(std::string_view name, std::string_view fields = {}) {
   std::cout << "{\"event\":\"" << name << "\"";
   if (!fields.empty()) std::cout << ',' << fields;
@@ -132,31 +128,53 @@ std::string_view search_status_name(SearchStatus status) {
 
 bool receive_event(Socket socket, OfflineStratumController& controller,
                    std::uint64_t generation,
-                   OfflineStratumController::WorkEvents& received) {
-  auto result = pepepow::socket_io::receive_controller_line(socket, controller, generation);
+                   OfflineStratumController::WorkEvents& received,
+                   Deadline deadline = Deadline::max()) {
+  auto result = pepepow::socket_io::receive_controller_line(
+      socket, controller, generation, deadline, &stop_requested);
   if (!result) return false;
   received = *result;
-  return clean_events(received);
+  if (clean_events(received)) return true;
+  controller.disconnected();
+  return false;
+}
+
+bool wait_handshake_reply(Socket socket, OfflineStratumController& controller,
+                          std::uint64_t generation, Deadline deadline,
+                          std::size_t OfflineStratumController::WorkEvents::* reply) {
+  OfflineStratumController::WorkEvents received;
+  while (receive_event(socket, controller, generation, received, deadline)) {
+    if (received.*reply == 1) return true;
+  }
+  return false;
 }
 
 bool handshake(Socket socket, OfflineStratumController& controller,
                std::uint64_t generation, std::string_view login) {
-  if (!pepepow::socket_io::send_controller_subscribe(socket, controller, generation))
+  using Events = OfflineStratumController::WorkEvents;
+  using namespace pepepow::socket_io;
+  const auto subscribe_deadline = Clock::now() + request_budget;
+  const auto subscribe = controller.make_subscribe_request();
+  if (!subscribe || !send_before(socket, *subscribe, subscribe_deadline, stop_requested) ||
+      !wait_handshake_reply(socket, controller, generation, subscribe_deadline, &Events::subscribed))
     return false;
-  OfflineStratumController::WorkEvents received;
-  if (!receive_event(socket, controller, generation, received) || received.subscribed != 1 ||
-      !pepepow::socket_io::send_controller_authorize(socket, controller, generation, login))
-    return false;
-  if (!receive_event(socket, controller, generation, received) || received.authorized != 1)
+  const auto authorize_deadline = Clock::now() + request_budget;
+  const auto authorize = controller.make_authorize_request(login);
+  if (!authorize || !send_before(socket, *authorize, authorize_deadline, stop_requested) ||
+      !wait_handshake_reply(socket, controller, generation, authorize_deadline, &Events::authorized))
     return false;
   event("authorized", "\"transport\":\"127.0.0.1\"");
   return true;
 }
 
-bool apply_socket_line(Socket socket, OfflineStratumController& controller,
-                       std::uint64_t generation,
-                       OfflineStratumController::WorkEvents& received) {
-  return receive_event(socket, controller, generation, received);
+bool set_nonblocking(Socket socket) {
+#ifdef _WIN32
+  u_long enabled = 1;
+  return ioctlsocket(socket, FIONBIO, &enabled) == 0;
+#else
+  const int flags = fcntl(socket, F_GETFL, 0);
+  return flags >= 0 && fcntl(socket, F_SETFL, flags | O_NONBLOCK) == 0;
+#endif
 }
 
 int run(const Options& options) {
@@ -179,7 +197,7 @@ int run(const Options& options) {
     remote.sin_port = htons(static_cast<std::uint16_t>(options.port));
     remote.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     if (pepepow::cli::connect_local_with_timeout(socket, remote, 2000) &&
-        configure_timeouts(socket, 2000)) {
+        set_nonblocking(socket)) {
       controller.connected();
       connected = true;
       const auto generation = controller.session().session_generation();
@@ -195,7 +213,7 @@ int run(const Options& options) {
           auto job = controller.session().jobs().active();
           if (!job || !controller.session().active_notify()) {
             OfflineStratumController::WorkEvents incoming;
-            if (!apply_socket_line(socket, controller, generation, incoming)) {
+            if (!receive_event(socket, controller, generation, incoming)) {
               failed = true;
               break;
             }
@@ -204,7 +222,7 @@ int run(const Options& options) {
           }
           if (attempted_job_generation == job->generation) {
             OfflineStratumController::WorkEvents incoming;
-            if (!apply_socket_line(socket, controller, generation, incoming)) {
+            if (!receive_event(socket, controller, generation, incoming)) {
               failed = true;
               break;
             }
@@ -224,6 +242,7 @@ int run(const Options& options) {
           std::atomic_bool cancel{false};
           std::atomic_bool finished{false};
           SearchStatus search_status = SearchStatus::Invalid;
+          const auto search_deadline = Clock::now() + std::chrono::milliseconds(options.timeout_ms);
           std::thread worker([&] {
             search_status = work->search(options.start, options.count,
                                         options.timeout_ms, &cancel);
@@ -232,10 +251,17 @@ int run(const Options& options) {
           event("search_started", "\"job_id\":\"" + job->id + "\",\"generation\":" +
                                       std::to_string(job->generation));
 
-          while (!finished.load(std::memory_order_acquire)) {
-            if (!wait_readable(socket, 10)) continue;
+          while (!finished.load(std::memory_order_acquire) &&
+                 !stop_requested && Clock::now() < search_deadline) {
+            const auto ready = socket_ready(socket, 1);
+            if (ready == Readiness::Timeout) continue;
+            if (ready == Readiness::Error) {
+              controller.disconnected();
+              failed = true;
+              break;
+            }
             OfflineStratumController::WorkEvents incoming;
-            if (!apply_socket_line(socket, controller, generation, incoming)) {
+            if (!receive_event(socket, controller, generation, incoming, search_deadline)) {
               cancel.store(true, std::memory_order_release);
               failed = true;
               break;
@@ -247,21 +273,30 @@ int run(const Options& options) {
               break;
             }
           }
+          if (failed || stop_requested) cancel.store(true, std::memory_order_release);
           worker.join();
-          if (failed) break;
+          if (stop_requested) break;
+          if (Clock::now() >= search_deadline &&
+              (failed || search_status == SearchStatus::Timeout)) {
+            event("timeout", "\"job_id\":\"" + job->id + "\"");
+            exit_code = 4;
+            failed = true;
+          }
+          if (failed || stop_requested) break;
 
           // Drain complete frames already queued before registering a submit.
           // The controller still rechecks job generation at request creation.
-          while (wait_readable(socket, 0)) {
+          while (!stop_requested && Clock::now() < search_deadline &&
+                 socket_ready(socket, 0) == Readiness::Ready) {
             OfflineStratumController::WorkEvents incoming;
-            if (!apply_socket_line(socket, controller, generation, incoming)) {
+            if (!receive_event(socket, controller, generation, incoming, search_deadline)) {
               failed = true;
               break;
             }
             if (incoming.applied != 0) event("work_received");
             if (!controller.session().jobs().can_submit(*job)) break;
           }
-          if (failed) break;
+          if (failed || stop_requested) break;
 
           if (!controller.session().jobs().can_submit(*job)) {
             ++stale_candidates;
@@ -317,7 +352,8 @@ int run(const Options& options) {
             failed = true;
             break;
           }
-          if (!send_all(socket, *submit)) {
+          const auto submit_deadline = Clock::now() + request_budget;
+          if (!send_before(socket, *submit, submit_deadline, stop_requested)) {
             controller.disconnected();
             std::cerr << "Local mock submit write failed\n";
             failed = true;
@@ -330,7 +366,7 @@ int run(const Options& options) {
           const auto counters_before = controller.session().share_counters();
           while (controller.pending_status().submit_pending != 0) {
             OfflineStratumController::WorkEvents incoming;
-            if (!apply_socket_line(socket, controller, generation, incoming)) {
+            if (!receive_event(socket, controller, generation, incoming, submit_deadline)) {
               failed = true;
               break;
             }
@@ -368,7 +404,7 @@ int run(const Options& options) {
     } else {
       std::cerr << "Could not connect to the specified 127.0.0.1 port\n";
     }
-    if (connected) controller.disconnected();
+    if (connected && controller.pending_status().connected) controller.disconnected();
     close_socket(socket);
   } else {
     std::cerr << "Could not create local TCP socket\n";
@@ -376,7 +412,7 @@ int run(const Options& options) {
 #ifdef _WIN32
   WSACleanup();
 #endif
-  return exit_code;
+  return stop_requested ? 130 : exit_code;
 }
 }  // namespace
 
@@ -393,5 +429,7 @@ int main(int argc, char** argv) {
     std::cerr << "Invalid arguments; run --help for usage\n";
     return 2;
   }
+  std::signal(SIGINT, request_stop);
+  std::signal(SIGTERM, request_stop);
   return run(options);
 }
