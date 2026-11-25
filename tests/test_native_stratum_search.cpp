@@ -1,4 +1,8 @@
 #include "pepepow/offline_stratum_search.hpp"
+#include "pepepow/cpu_worker_pool.hpp"
+
+#include <barrier>
+#include <cfenv>
 
 #include <atomic>
 #include <iostream>
@@ -53,6 +57,72 @@ bool failure(std::source_location where = std::source_location::current()) {
   return false;
 }
 
+bool workers_match() {
+  using namespace pepepow;
+  constexpr auto first = UINT32_MAX - 31;
+  constexpr std::uint32_t count = 32;
+  Header header{};
+  for (std::size_t i = 0; i < header.size(); ++i) header[i] = static_cast<std::uint8_t>(7 * i);
+  std::array<Digest, count> expected{};
+  for (std::uint32_t i = 0; i < count; ++i) {
+    pepepow_header_set_nonce(header.data(), header.size(), first + i);
+    hoohashv110(header.data(), header.size(), expected[i].data());
+  }
+  const int rounding = std::fegetround();
+  for (const unsigned workers : {1u, 2u, 4u, 8u}) {
+    std::atomic_bool mismatch = false;
+    std::barrier start_line(static_cast<std::ptrdiff_t>(workers));
+    std::vector<std::jthread> threads;
+    std::uint64_t next = first;
+    for (unsigned index = 0; index < workers; ++index) {
+      const auto range = partition_nonce_range(first, count, index, workers);
+      if (range.start != next || !range.count) mismatch = true;
+      next += range.count;
+      threads.emplace_back([&, range, local = header]() mutable {
+        start_line.arrive_and_wait();
+        for (std::uint32_t offset = 0; offset < range.count; ++offset) {
+          const auto nonce = range.start + offset;
+          pepepow_header_set_nonce(local.data(), local.size(), nonce);
+          Digest actual{};
+          hoohashv110(local.data(), local.size(), actual.data());
+          if (actual != expected[nonce - first] || std::fegetround() != rounding) mismatch = true;
+        }
+      });
+    }
+    for (auto& thread : threads) thread.join();
+    if (mismatch || next != std::uint64_t{UINT32_MAX} + 1) return failure();
+    const auto deadline = SearchClock::now() + std::chrono::seconds(5);
+    const auto rejected = search_cpu_workers(header, Digest{}, first, count, workers, deadline);
+    if (rejected.status != SearchStatus::Exhausted || rejected.hashes != count) return failure();
+    const auto exact = search_cpu_workers(header, expected.back(), UINT32_MAX, 1, workers, deadline);
+    if (!exact.candidate || exact.candidate->nonce != UINT32_MAX ||
+        exact.candidate->digest != expected.back() || exact.hashes != 1) return failure();
+    if (search_cpu_workers(header, Digest{}, UINT32_MAX, 2, workers, deadline).status !=
+        SearchStatus::Invalid) return failure();
+    Digest easy;
+    easy.fill(0xff);
+    const auto found = search_cpu_workers(header, easy, first, count, workers, deadline);
+    if (!found.candidate || found.candidate->nonce != first ||
+        found.candidate->digest != expected.front()) return failure();
+  }
+  return true;
+}
+
+int benchmark() {
+  using namespace pepepow;
+  Header header{};
+  for (const unsigned workers : {1u, 2u, 4u, 8u}) {
+    const auto started = SearchClock::now();
+    const auto result = search_cpu_workers(header, Digest{}, 0, 2000, workers,
+                                           started + std::chrono::seconds(20));
+    const auto seconds = std::chrono::duration<double>(SearchClock::now() - started).count();
+    if (result.status != SearchStatus::Exhausted || result.hashes != 2000) return 1;
+    std::cout << workers << ' ' << result.hashes << ' ' << seconds << ' '
+              << result.hashes / seconds << '\n';
+  }
+  return 0;
+}
+
 bool run() {
   using pepepow::OfflineStratumSearch;
   using pepepow::SearchStatus;
@@ -104,8 +174,9 @@ bool run() {
 }
 } // namespace
 
-int main() {
-  if (run()) {
+int main(int argc, char** argv) {
+  if (argc == 2 && std::string_view(argv[1]) == "--benchmark") return benchmark();
+  if (run() && workers_match()) {
     std::cout << "PASS: native Stratum work, frozen header/digest, mock submit and stale rejection\n";
     return 0;
   }

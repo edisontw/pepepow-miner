@@ -30,14 +30,14 @@ def notify_for(template, job_id):
     return (json.dumps(frame, separators=(",", ":")) + "\n").encode("ascii")
 
 
-def check_real_core_timeout(binary, notify_template, extranonce2, drip=False):
+def check_real_core_timeout(binary, notify_template, extranonce2, drip=False, cancel=False):
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.bind(("127.0.0.1", 0))
     listener.listen(1)
     listener.settimeout(5)
     process = subprocess.Popen(
         [binary, str(listener.getsockname()[1]), "mock.worker", "0", "10000",
-         extranonce2, "--max-ms", "180" if drip else "1"],
+         extranonce2, "--max-ms", "10000" if cancel else "180" if drip else "1", "--threads", "4"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -92,13 +92,19 @@ def check_real_core_timeout(binary, notify_template, extranonce2, drip=False):
                         break
                     time.sleep(0.04)
                 assert time.monotonic() - started < 1.1, "drip blocked mining deadline"
-            timeout_event = until(lambda item: item.get("event") == "timeout")
-            assert timeout_event["job_id"] == "timeout-job"
+            if cancel:
+                until(lambda item: item.get("event") == "search_started")
+                process.send_signal(signal.SIGTERM)
+                metrics = until(lambda item: item.get("event") == "search_metrics")
+                assert metrics["reason"] == "shutdown" and metrics["workers"] == 4
+            else:
+                timeout_event = until(lambda item: item.get("event") == "timeout")
+                assert timeout_event["job_id"] == "timeout-job"
             summary = until(lambda item: item.get("event") == "summary")
             assert summary["accepted"] == 0 and summary["rejected"] == 0
         status = process.wait(timeout=5)
         stderr = process.stderr.read() if process.stderr else ""
-        assert status == 4, (status, stderr)
+        assert status == (130 if cancel else 4), (status, stderr)
         assert not stderr, stderr
     finally:
         listener.close()
@@ -376,6 +382,7 @@ def main():
         valid_prefix + ["0", "1"] + valid_suffix +
         ["--max-ms", "10", "--max-ms", "20"],
         valid_prefix + ["0", "1"] + valid_suffix + ["--unknown", "1"],
+        valid_prefix + ["0", "1"] + valid_suffix + ["--threads", "9"],
     ]
     for command in invalid_invocations:
         rejected = subprocess.run(command, capture_output=True, text=True, timeout=2)
@@ -390,7 +397,7 @@ def main():
     port = listener.getsockname()[1]
     process = subprocess.Popen(
         [binary, str(port), "mock.worker", "0", "10000", extranonce2,
-         "--responses", "2", "--max-ms", "10000"],
+         "--responses", "2", "--max-ms", "10000", "--threads", "8"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -539,6 +546,7 @@ def main():
     check_retry_exhaustion(binary)
     if os.name != "nt":
         check_retry_exhaustion(binary, cancel=True)
+        check_real_core_timeout(binary, notify_template, extranonce2, cancel=True)
     print("PASS: pinned-Core loopback replacement, full digest, mock accounting, stale cancellation, timeout, and bounded connection faults")
 
 

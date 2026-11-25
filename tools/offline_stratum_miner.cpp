@@ -1,4 +1,5 @@
 #include "pepepow/local_handshake.hpp"
+#include "pepepow/cpu_worker_pool.hpp"
 #include "pepepow/offline_stratum_search.hpp"
 
 #include <atomic>
@@ -31,6 +32,7 @@ struct Options {
   unsigned port = 0;
   unsigned fallback_port = 0;
   unsigned retries = 0;
+  unsigned workers = 1;
   unsigned backoff_ms = 100;
   std::string_view mode = "POOL";
   std::string login;
@@ -65,6 +67,7 @@ bool parse_options(int argc, char** argv, Options& options) {
   bool saw_retries = false;
   bool saw_backoff = false;
   bool saw_mode = false;
+  bool saw_workers = false;
 
   for (int i = 6; i < argc; ++i) {
     const std::string_view name(argv[i]);
@@ -78,6 +81,10 @@ bool parse_options(int argc, char** argv, Options& options) {
       if (saw_responses || !decimal(value, options.response_goal) || options.response_goal == 0 ||
           options.response_goal > 4096) return false;
       saw_responses = true;
+    } else if (name == "--threads") {
+      if (saw_workers || !decimal(value, options.workers) || !options.workers ||
+          options.workers > pepepow::max_cpu_workers) return false;
+      saw_workers = true;
     } else if (name == "--retries") {
       if (saw_retries || !decimal(value, options.retries) || options.retries > 10) return false;
       saw_retries = true;
@@ -205,6 +212,8 @@ struct Totals {
   std::uint64_t rejected = 0;
   std::uint64_t pool_errors = 0;
   std::uint64_t stale = 0;
+  std::uint64_t hashes = 0;
+  Clock::duration search_elapsed{};
   std::unordered_set<std::string> submitted;
   std::uint64_t responses() const { return accepted + rejected + pool_errors; }
 };
@@ -253,10 +262,13 @@ int mine_session(Socket socket, OfflineStratumController& controller,
     std::atomic_bool cancel{false};
     std::atomic_bool finished{false};
     SearchStatus search_status = SearchStatus::Invalid;
-    const auto search_deadline = Clock::now() + std::chrono::milliseconds(options.timeout_ms);
+    const auto search_started = Clock::now();
+    const auto search_deadline = search_started + std::chrono::milliseconds(options.timeout_ms);
     std::thread worker([&] {
-      search_status = work->search(options.start, options.count,
-                                  options.timeout_ms, &cancel);
+      search_status = work->search_with([&](const auto& header, const auto& target) {
+        return pepepow::search_cpu_workers(header, target, options.start, options.count,
+                                           options.workers, search_deadline, &cancel);
+      });
       finished.store(true, std::memory_order_release);
     });
     event("search_started", "\"job_id\":\"" + job->id + "\",\"generation\":" +
@@ -286,6 +298,23 @@ int mine_session(Socket socket, OfflineStratumController& controller,
     }
     if (failed || stop_requested) cancel.store(true, std::memory_order_release);
     worker.join();
+    const auto elapsed = Clock::now() - search_started;
+    totals.hashes += work->hashes();
+    totals.search_elapsed += elapsed;
+    const auto seconds = std::chrono::duration<double>(elapsed).count();
+    const auto total_seconds = std::chrono::duration<double>(totals.search_elapsed).count();
+    event("search_metrics", "\"workers\":" + std::to_string(std::min(options.workers, options.count)) +
+                            ",\"hashes\":" + std::to_string(work->hashes()) +
+                            ",\"total_hashes\":" + std::to_string(totals.hashes) +
+                            ",\"elapsed_ms\":" + std::to_string(seconds * 1000) +
+                            ",\"local_hashrate\":" + std::to_string(seconds > 0 ? work->hashes() / seconds : 0) +
+                            ",\"average_local_hashrate\":" +
+                            std::to_string(total_seconds > 0 ? totals.hashes / total_seconds : 0) +
+                            ",\"job_generation\":" + std::to_string(job->generation) +
+                            ",\"connection_generation\":" + std::to_string(generation) +
+                            ",\"reason\":\"" + (stop_requested ? "shutdown" : failed ? "transport" :
+                                 !controller.session().jobs().can_submit(*job) ? "job_replaced" :
+                                 std::string(search_status_name(search_status))) + "\"");
     if (stop_requested) break;
     if (Clock::now() >= search_deadline &&
         (failed || search_status == SearchStatus::Timeout)) {
@@ -477,7 +506,7 @@ int main(int argc, char** argv) {
   if (argc == 2 && std::string_view(argv[1]) == "--help") {
     std::cout << "Usage: offline_stratum_miner PORT LOGIN START COUNT EXTRANONCE2 "
                  "[--responses N] [--max-ms N] [--scale N] [--retries N]\n"
-                 "       [--fallback-port PORT] [--backoff-ms N] [--mode POOL|SOLO]\n"
+                 "       [--fallback-port PORT] [--backoff-ms N] [--mode POOL|SOLO] [--threads N]\n"
                  "Connects only to IPv4 127.0.0.1; requires a local mock server.\n"
                  "Search uses pinned Core HooHash; no public pool endpoint is accepted.\n";
     return 0;
