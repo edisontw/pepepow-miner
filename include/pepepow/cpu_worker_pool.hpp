@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <condition_variable>
 #include <mutex>
+#include <new>
 #include <stop_token>
 #include <system_error>
 #include <thread>
@@ -32,11 +33,13 @@ class CpuWorkerPool {
  public:
   explicit CpuWorkerPool(unsigned workers) : workers_(workers) {
     if (workers < 2 || workers > max_cpu_workers) return;
-    threads_.reserve(workers);
     try {
+      threads_.reserve(workers);
       for (unsigned index = 0; index < workers; ++index)
         threads_.emplace_back([this, index](std::stop_token stop) { worker(index, stop); });
     } catch (const std::system_error&) {
+      threads_.clear();
+    } catch (const std::bad_alloc&) {
       threads_.clear();
     }
   }
