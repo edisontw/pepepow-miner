@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-24",
-  "status": "audit-only-not-approved-dependencies",
+  "date": "2026-11-25",
+  "status": "audit-only-conservative-no-package-until-rights-review",
   "checksum_format": "Git blob SHA-1 (hash of blob header plus original file bytes), not plain file SHA-1 or SHA-256",
   "entries": [
     {
@@ -264,9 +264,9 @@
     "commit": "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d",
     "archive_sha256_from_core_recipe": "e328a1d59b94748b111e022bca6a9d2fc0481fb57d23c87d90f394b559d4f062",
     "archive_download_verified": false,
-    "license_review": "per-file candidate inventory recorded; redistribution and legal review pending",
+    "license_review": "Conservative no-package-until-reviewed policy adopted; per-file rights and notice review remain pending.",
     "file_audit": {
-      "scope": "Pinned upstream Windows portable-C translation unit inventory generated from archived Debug and Release compile databases. It records fixed source blobs, raw source SHA-256 values and conservative header signals; it is not an included-header inventory, archive-member/link map, Linux inventory, or legal clearance.",
+      "scope": "Historical Windows Server 2022 portable-C compile inventory. It is not an included-header inventory or link map. The Linux Debug and Release inventories at docs/sources/linux-debug-build-dependency-inventory.json and docs/sources/linux-reference-build-dependency-inventory.json record actual compile inputs, archive members, and linked OpenLibm objects for those Linux builds.",
       "windows_patch": {
         "path": ".github/patches/openlibm-portable-c-windows.patch",
         "sha256_repository_lf": "9f37e2bb0e5c8160353bf7a624829eb2ffd14175495ae2e1a13a0c77739e0bb1",
@@ -458,6 +458,74 @@
   "provenance_assessment_documents": {
     "technical_and_redistribution_review": "docs/sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md",
     "windows_11_owner_acceptance": "docs/G0_WINDOWS11_OWNER_ACCEPTANCE.md",
-    "status": "Technical evidence recorded; all redistribution/legal review remains pending."
+    "status": "Conservative distribution policy recorded; rights-holder/license review and Windows dependency/link evidence remain pending; no legal clearance."
+  },
+  "distribution_handling_decision": {
+    "decision_date": "2026-11-25",
+    "status": "adopted-conservative-policy; legal-clearance-not-established",
+    "policy_document": "THIRD_PARTY_NOTICES.md",
+    "decision": [
+      "The repository declares no project-wide license; keep that status until project authorship, rights, and dependency boundaries are reviewed. Preserve all dependency license/header text.",
+      "Preserve upstream root licenses, per-file headers, notices, attribution, source revisions, and patch provenance.",
+      "Do not distribute source or binaries that include REVIEW_REQUIRED material until rights and obligations are clarified and reviewed.",
+      "Generate the future package notice set and SBOM from the exact release build, including compile/link members and bundled/runtime dependencies.",
+      "Keep pool-derived candidate/test material out of release bundles until permission is documented or fixtures are independently replaced."
+    ],
+    "legal_status": "No legal conclusion or redistribution approval is claimed."
+  },
+  "actual_linux_debug_build_inventory": {
+    "path": "docs/sources/linux-debug-build-dependency-inventory.json",
+    "sha256": "e157cdd320265113fc7751e119637be40a327e0f135006992a26cdb95fb70178",
+    "miner_commit": "7284aa22cafd79e3521291307eca8f5b9a575744",
+    "core_commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
+    "openlibm_commit": "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d",
+    "configuration": "Debug",
+    "machine": "x86_64",
+    "miner_translation_units": 9,
+    "openlibm_translation_units": 256,
+    "unique_compiler_inputs": 802,
+    "offline_stratum_miner_loaded_openlibm_members": [
+      "e_exp.c.o",
+      "e_fmod.S.o",
+      "e_rem_pio2.c.o",
+      "e_sqrt.S.o",
+      "k_cos.c.o",
+      "k_rem_pio2.c.o",
+      "k_sin.c.o",
+      "s_cos.c.o",
+      "s_floor.c.o",
+      "s_scalbn.S.o",
+      "s_sin.c.o"
+    ],
+    "scope": "Linux x86-64 Debug only; technical build evidence and not redistribution clearance."
+  },
+  "actual_linux_release_build_inventory": {
+    "path": "docs/sources/linux-reference-build-dependency-inventory.json",
+    "sha256": "d59d345869ca5890e28546a2834a9e195e39d41937dace70f4a8389b739d8fea",
+    "miner_commit": "7284aa22cafd79e3521291307eca8f5b9a575744",
+    "core_commit": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
+    "openlibm_commit": "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d",
+    "configuration": "Release",
+    "machine": "x86_64",
+    "miner_translation_units": 9,
+    "openlibm_translation_units": 256,
+    "unique_compiler_inputs": 804,
+    "offline_stratum_miner_loaded_openlibm_members": [
+      "e_exp.c.o",
+      "e_fmod.S.o",
+      "e_rem_pio2.c.o",
+      "k_cos.c.o",
+      "k_rem_pio2.c.o",
+      "k_sin.c.o",
+      "s_floor.c.o",
+      "s_scalbn.S.o",
+      "s_sin.c.o",
+      "s_sincos.c.o"
+    ],
+    "scope": "Linux x86-64 Release only; technical build evidence and not redistribution clearance."
+  },
+  "windows_server_dependency_evidence": {
+    "historical_artifact": "Windows Server 2022 run 45181410916 includes compile databases only; it lacks compiler dependency files and final executable link maps.",
+    "current_status": "The updated workflow collects compile dependency output, static archive member lists, final linker maps, imported DLLs, and hashes in Debug and Release. Exact-head artifacts are required before this evidence counts as collected."
   }
 }

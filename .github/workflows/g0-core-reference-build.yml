@@ -19,6 +19,7 @@ on:
       - 'tools/kat.c'
       - 'tools/g0_openlibm_inventory.py'
       - 'tools/test_g0_openlibm_inventory.py'
+      - 'tools/g0_linux_build_dependency_inventory.py'
       - 'tools/g0_v110_independent.py'
       - 'tests/test_g0_v110_independent.py'
       - 'tests/vectors/candidates/**'
@@ -28,7 +29,11 @@ on:
       - 'tests/*export_core_reference_digests.py'
       - 'tests/*compare_digest_parity.py'
       - 'docs/sources/g0-source-manifest.json'
+      - 'docs/sources/linux-debug-build-dependency-inventory.json'
       - 'docs/sources/openlibm-windows-compile-inventory.json'
+      - 'docs/sources/linux-reference-build-dependency-inventory.json'
+      - 'docs/sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md'
+      - 'THIRD_PARTY_NOTICES.md'
   workflow_dispatch:
 
 # Keep PR runs separate from pushes and manual acceptance runs.
@@ -79,6 +84,7 @@ jobs:
         run: |
           test "$(git -C openlibm rev-parse HEAD)" = 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
           cmake -S openlibm -B openlibm-build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/openlibm"
           cmake --build openlibm-build --parallel 2
           test -f openlibm-build/libopenlibm.a
@@ -86,6 +92,8 @@ jobs:
       - name: Configure real Core reference (synthetic disabled)
         run: |
           cmake -S miner -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_EXE_LINKER_FLAGS=-Wl,-Map=dependency-link.map \
             -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
             -DOPENLIBM_INCLUDE_DIR="$GITHUB_WORKSPACE/openlibm/include" \
             -DOPENLIBM_LIBRARY="$GITHUB_WORKSPACE/openlibm-build/libopenlibm.a" \
@@ -265,3 +273,39 @@ jobs:
         run: |
           echo "Real pinned Core reference build/link succeeded."
           echo "No golden vectors, digest parity, GPU, Stratum, or pool submit tested."
+      - name: Capture actual Linux compile dependencies and linker membership
+        shell: bash
+        run: |
+          set -euo pipefail
+          EVIDENCE="$RUNNER_TEMP/linux-reference-dependencies"
+          mkdir -p "$EVIDENCE/link-maps"
+          for target in pepepow-kat pepepow-offline-search offline_stratum_replay test_native_stratum_search offline_stratum_miner; do
+            rm -f "build/$target"
+            cmake --build build --config Release --target "$target" --parallel 2
+            cp build/dependency-link.map "$EVIDENCE/link-maps/$target.map"
+          done
+          python3 miner/tools/g0_linux_build_dependency_inventory.py \
+            --miner-build "$GITHUB_WORKSPACE/build" \
+            --openlibm-build "$GITHUB_WORKSPACE/openlibm-build" \
+            --miner-source "$GITHUB_WORKSPACE/miner" \
+            --core-source "$GITHUB_WORKSPACE/core" \
+            --openlibm-source "$GITHUB_WORKSPACE/openlibm" \
+            --output "$EVIDENCE/linux-reference-build-dependency-inventory.json"
+          cp build/compile_commands.json "$EVIDENCE/miner-compile-commands.json"
+          cp openlibm-build/compile_commands.json "$EVIDENCE/openlibm-compile-commands.json"
+          ar t build/libpepepow_core_reference.a > "$EVIDENCE/core-archive-members.txt"
+          ar t openlibm-build/libopenlibm.a > "$EVIDENCE/openlibm-archive-members.txt"
+          sha256sum build/libpepepow_core_reference.a openlibm-build/libopenlibm.a \
+            | tee "$EVIDENCE/static-archive-checksums.txt"
+          for target in pepepow-kat pepepow-offline-search offline_stratum_replay test_native_stratum_search offline_stratum_miner; do
+            ldd "build/$target" > "$EVIDENCE/$target-ldd.txt"
+            sha256sum "build/$target" >> "$EVIDENCE/executable-checksums.txt"
+          done
+      - name: Upload Linux compiled dependency evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-reference-compiled-dependencies
+          path: ${{ runner.temp }}/linux-reference-dependencies/
+          if-no-files-found: ignore
+          retention-days: 30

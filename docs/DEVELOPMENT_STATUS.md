@@ -1,6 +1,6 @@
 # PEPEPOW Miner — Current development status
 
-**Snapshot: 2026-11-25 (Asia/Taipei).** Current main is `9c6f34f51a9f70d45e454eacbf1fe3388e61cf27`. The public README remains the product-facing overview. This file records implementation and validation status.
+**Snapshot: 2026-11-25 (Asia/Taipei).** The feature implementation baseline is PR #25 merge `9c6f34f51a9f70d45e454eacbf1fe3388e61cf27`; later commits update documentation and audit evidence. The public README remains the product-facing overview.
 
 ## Integrated implementation
 
@@ -32,10 +32,10 @@ Detailed fault coverage and exact-head links are in [G1 transport and reconnect 
 
 ## Formal gates and remaining decisions
 
-**G0 — NOT PASSED.** The pinned source set and technical parity records remain available. The Hoosat MIT root LICENSE versus GPL-3.0-or-later HooHash file headers, OpenLibm/BLAKE3/pool-derived NOTICE and redistribution obligations, actual compiled dependency headers and linked members, and formal Owner sign-off remain unresolved. No legal clearance is claimed.
+**G0 — NOT PASSED.** The Owner adopted a conservative source/notice policy and Linux x86-64 Debug and Release builds now record actual compiler inputs, headers, archive members, and linker maps in the [Debug inventory](sources/linux-debug-build-dependency-inventory.json) and [Release inventory](sources/linux-reference-build-dependency-inventory.json). Rights questions remain for the Hoosat MIT root LICENSE versus GPL-3.0-or-later HooHash headers, OpenLibm per-file notices, BLAKE3 modifications, and pool-derived test material. Exact-head Windows Server include/link artifacts and formal Owner sign-off remain pending. No legal clearance is claimed; see [the handling decision](../THIRD_PARTY_NOTICES.md).
 
 **G1 — OFFLINE PROTOTYPE ONLY; NOT PASSED.** Local mocks now cover deadlines, reconnect, failover, worker ranges, cancellation, stale results, and bounded shutdown. Authorized production-pool interoperability and real accepted shares remain untested. One synchronous Core hash cannot be interrupted after it starts, so cancellation is cooperative between hashes.
 
 **G2–G5 — NOT ACCEPTED.** GUI work and distributable Windows/Linux packages are deferred. No binaries were released.
 
-The Owner decisions from 2026-11-25 defer physical Windows 10/11 acceptance as a blocker to offline development, defer formal G0/G1 sign-off, defer production pool/share testing, and defer Windows/Linux package release. The conservative license-resolution direction still requires a separate decision. The remaining relevant Owner work is license and notice decisions, platform-specific dependency/link evidence, physical Windows 10/11 acceptance when scheduled, and eventual formal sign-off. Keep Issue #1 open until its established closure conditions are met.
+The Owner decisions from 2026-11-25 defer physical Windows 10/11 acceptance as a blocker to offline development, defer formal G0/G1 sign-off, defer production pool/share testing, and defer Windows/Linux package release. The conservative license and NOTICE handling policy is now recorded in [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md); rightsholder clarification and final distribution review remain open. The Linux Debug and Release actual-build inventories are recorded; Windows Server include/link artifacts are being collected by CI. Keep Issue #1 open until its established closure conditions are met.
