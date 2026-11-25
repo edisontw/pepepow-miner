@@ -1,61 +1,62 @@
 # PEPEPOW Miner
 
-## Development status and release policy
+**A native HooHash V110 miner for PEPEPOW, designed for everyday computers.**
 
-**Under development (Pre-release).** This project is still being developed and technically validated. **HooHash V110 consensus parity has not yet passed the G0 acceptance gate.** This repository must not be treated as a working, safe-to-use, or released miner. Do not rely on it for live mining.
+PEPEPOW Miner aims to make mining on Windows and Linux easier to start, understand, and control. The focus is on reliable CPU mining, a straightforward desktop experience, transparent performance reporting, and responsible use of system resources.
 
-**CI resource policy:** Avoid redundant runs for the same changes; use path filters, cancellation of outdated runs for the same pull request, and reasonable per-job timeouts. Run focused checks first, reserving full cross-platform verification for relevant changes and release gates. Standard GitHub-hosted runners may be free for public repositories, but compute resources must still be used responsibly.
+[![Status: In development](https://img.shields.io/badge/status-in%20development-orange)](docs/DEVELOPMENT_STATUS.md)
+![Algorithm: HooHash V110](https://img.shields.io/badge/algorithm-HooHash%20V110-blue)
+![Target: Windows and Linux](https://img.shields.io/badge/target-Windows%20%7C%20Linux-lightgrey)
 
-A PEPEPOW-specific native miner for Windows and Linux, designed to be friendly to everyday computers and to explain mining performance clearly.
+[PEPEPOW website](https://pepepow.net/) · [Development progress](docs/DEVELOPMENT_STATUS.md) · [Report an issue](https://github.com/edisontw/pepepow-miner/issues)
 
-**Current status: offline-only validation prototype.** Pinned-Core CPU nonce search and Stratum replay are in source control following [PR #14](https://github.com/edisontw/pepepow-miner/pull/14); G0/G1 acceptance is still open. No production-ready miner or downloadable release is available.
+> **Pre-release:** This project is currently an offline testing prototype. It is not ready for live mining, and no supported downloadable miner is available yet.
 
-## Product direction
+## What makes it different?
 
-- Native Windows x64 and Linux x64 CPU core, with a headless CLI.
-- Everyday-use mode: initial manual resource profiles and clear start/stop controls; automatic activity detection and adaptive throttling deferred.
-- Health diagnostics: distinguish connection, authorization, job reception, accepted shares, and rejection reasons.
-- Transparent performance metrics: report local hashrate, difficulty-weighted work, pool estimates, and data timestamps separately.
-- Keep POOL and pool-based SOLO modes distinct, with phased integration of block discovery, maturity, and payout tracking.
-- Traditional Chinese and English user interfaces, local settings, and previewable diagnostic exports.
+The following features describe the intended product, not functionality already available.
 
-These features are not claimed to be individually novel. The intended differentiation is PEPEPOW-specific integration, native usability, and verifiable reporting.
+- **Native Windows and Linux support** — run directly on the operating system, without requiring WSL on Windows.
+- **Simple mining controls** — a desktop interface and command-line mode with clear start/stop controls and manual CPU resource profiles.
+- **Useful diagnostics** — distinguish pool connection, authorization, job reception, accepted shares, and rejection reasons.
+- **Transparent statistics** — separate local hashrate from pool estimates and difficulty-weighted accepted work.
+- **Flexible mining modes** — pool mining and pool-based solo mining, with explicit selection and predictable reconnect behavior.
+- **Accessible interface** — English and Traditional Chinese, local settings, and diagnostic reports that users can review before sharing.
 
-## Documentation
+## Development progress
 
-- [Documentation index and next steps](docs/README.md): research document locations, the G0 validation entry point, and current documentation status.
-- [Architecture decisions](docs/ARCHITECTURE.md): core, GUI, GPU, and job-lifecycle choices.
-- [Research verification ledger](docs/RESEARCH_LEDGER.md): pinned source SHAs, confirmed differences, and outstanding questions.
-- [Product development plan (03)](docs/research/03_PRODUCT_DEVELOPMENT_PLAN.md): differentiation, technical assessment, milestones, and acceptance criteria.
-- [AI coding agent instructions](AGENTS.md): required reading, G0 priorities, and evidence standards.
+| Component | Status |
+| --- | --- |
+| HooHash V110 validation | Independent full-digest parity tests on Linux and Windows Server; formal acceptance pending |
+| CPU mining engine | Bounded offline nonce search implemented |
+| Pool connectivity | Offline and local Stratum testing; live mining not validated |
+| Windows 10/11 and Linux desktop miner | Planned; full platform acceptance pending |
+| NVIDIA GPU (CUDA) | Planned |
+| AMD GPU (HIP or OpenCL) | Planned |
 
-## First milestone
+CPU support comes first. GPU acceleration and desktop packaging will follow separate validation stages. See the [roadmap](docs/ROADMAP.md) for the full plan.
 
-Complete [G0 technical validation](docs/G0_TECHNICAL_VALIDATION.md) to confirm that the HooHash V110 implementation matches PEPEPOW consensus before treating the Stratum CPU CLI, desktop UI, and GPU backends as supported.
+## Download and testing
 
-Passing G0 requires full 32-byte digest comparisons, at least 10,000 header/nonce test cases, real on-chain headers, and native Windows/Linux build and execution evidence. A test scaffold or a single passing test case does not satisfy this gate.
+There is no supported public binary release at this stage. The repository currently provides source code and developer tools for offline validation only.
 
-## Architecture decisions
+Developers can find reproducible build and offline test instructions in the [CLI tools guide](tools/README.md). Do not connect these experimental tools to a live pool or use them for production mining.
 
-| Layer | Decision | Status |
-| --- | --- | --- |
-| G0 hash harness | C reference adapter + CMake | Planned approach adopted; licensing and parity still need verification |
-| G1 host / Stratum / scheduling | C++20; immutable job snapshots | Planned approach adopted; not yet accepted as a complete implementation |
-| G2 desktop UI | Qt 6 + C++, sharing a controller; headless core independent of Qt | Conditional first choice; packaging and licensing spike pending |
-| Configuration and events | Versioned JSON / JSONL | Planned approach adopted; schema pending G1 |
-| NVIDIA / AMD | CUDA first; choose HIP or OpenCL for AMD based on actual hardware | Separate G4/G5 gates; not validated |
-| Rust/Tauri, SQLite, service/API | Alternatives or later-stage requirements | Not required for the initial release |
+## User privacy and trust
 
-Follow the [architecture decisions](docs/ARCHITECTURE.md); do not present a technology choice as implemented support. The native Windows target must not depend on WSL.
+The intended miner will require only a public payout address, never a wallet seed phrase or private key. Mining will start only with explicit user action. Background operation and startup settings will be visible and user-controlled, with telemetry and remote control disabled by default.
 
-## Roadmap and evidence
+Zero developer fees are a proposal, not a confirmed release policy. Any future release will disclose miner fees and pool fees separately.
 
-See the [roadmap](docs/ROADMAP.md). Milestone status must be based on actual test evidence, not estimated progress.
+## Contributing and source licensing
 
-## User trust
+Bug reports, reproducible test results, and contributions based on appropriately licensed public sources are welcome. Please use [GitHub Issues](https://github.com/edisontw/pepepow-miner/issues) for feedback.
 
-Only a payout address should be requested; the miner must not handle seed phrases or private keys. Mining must start only after explicit user action. Startup-on-boot and background operation must be visible and user-controllable. Telemetry and remote control are disabled by default in the initial design.
+The project uses PEPEPOW Core as its consensus reference and validates behavior against an independent implementation. Third-party attribution and license requirements must be respected. Source and dependency redistribution review remains in progress; no final repository-wide redistribution license is asserted here. See the [source provenance and license assessment](docs/sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md) for details.
 
-Zero developer fees for the first-party core remain a proposal, not a final decision. A release must disclose miner fees and pool fees separately. Upstream and dependency licenses must be preserved and reviewed file by file before selecting a redistribution license.
+## Developer resources
 
-Planning baseline: feasibility review dated 2026-11-04. External project versions, compatibility, and performance must be rechecked during implementation.
+- [Documentation index](docs/README.md) — technical guides and research
+- [Development status](docs/DEVELOPMENT_STATUS.md) — latest recorded evidence and outstanding work
+- [Architecture](docs/ARCHITECTURE.md) and [roadmap](docs/ROADMAP.md) — implementation and validation plans
+- [Agent and contributor instructions](AGENTS.md) — development workflow, testing, and safety requirements
