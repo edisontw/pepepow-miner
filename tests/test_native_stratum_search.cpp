@@ -91,17 +91,18 @@ bool workers_match() {
     }
     for (auto& thread : threads) thread.join();
     if (mismatch || next != std::uint64_t{UINT32_MAX} + 1) return failure();
+    CpuWorkerPool pool(workers);
     const auto deadline = SearchClock::now() + std::chrono::seconds(5);
-    const auto rejected = search_cpu_workers(header, Digest{}, first, count, workers, deadline);
+    const auto rejected = pool.search(header, Digest{}, first, count, deadline);
     if (rejected.status != SearchStatus::Exhausted || rejected.hashes != count) return failure();
-    const auto exact = search_cpu_workers(header, expected.back(), UINT32_MAX, 1, workers, deadline);
+    const auto exact = pool.search(header, expected.back(), UINT32_MAX, 1, deadline);
     if (!exact.candidate || exact.candidate->nonce != UINT32_MAX ||
         exact.candidate->digest != expected.back() || exact.hashes != 1) return failure();
-    if (search_cpu_workers(header, Digest{}, UINT32_MAX, 2, workers, deadline).status !=
+    if (pool.search(header, Digest{}, UINT32_MAX, 2, deadline).status !=
         SearchStatus::Invalid) return failure();
     Digest easy;
     easy.fill(0xff);
-    const auto found = search_cpu_workers(header, easy, first, count, workers, deadline);
+    const auto found = pool.search(header, easy, first, count, deadline);
     if (!found.candidate || found.candidate->nonce != first ||
         found.candidate->digest != expected.front()) return failure();
   }
@@ -111,14 +112,19 @@ bool workers_match() {
 int benchmark() {
   using namespace pepepow;
   Header header{};
+  constexpr unsigned repetitions = 3;
+  constexpr unsigned count = 10000;
   for (const unsigned workers : {1u, 2u, 4u, 8u}) {
+    CpuWorkerPool pool(workers);
     const auto started = SearchClock::now();
-    const auto result = search_cpu_workers(header, Digest{}, 0, 2000, workers,
-                                           started + std::chrono::seconds(20));
+    for (unsigned repeat = 0; repeat < repetitions; ++repeat) {
+      const auto result = pool.search(header, Digest{}, repeat * count, count,
+                                      started + std::chrono::seconds(20));
+      if (result.status != SearchStatus::Exhausted || result.hashes != count) return 1;
+    }
     const auto seconds = std::chrono::duration<double>(SearchClock::now() - started).count();
-    if (result.status != SearchStatus::Exhausted || result.hashes != 2000) return 1;
-    std::cout << workers << ' ' << result.hashes << ' ' << seconds << ' '
-              << result.hashes / seconds << '\n';
+    std::cout << workers << ' ' << repetitions * count << ' ' << seconds << ' '
+              << repetitions * count / seconds << '\n';
   }
   return 0;
 }

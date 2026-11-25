@@ -221,7 +221,7 @@ struct Totals {
 };
 
 int mine_session(Socket socket, OfflineStratumController& controller,
-                 const Options& options, Totals& totals) {
+                 const Options& options, Totals& totals, pepepow::CpuWorkerPool& cpu) {
   using namespace pepepow::socket_io;
   const auto generation = controller.session().session_generation();
   if (!handshake(socket, controller, generation, options.login)) {
@@ -268,8 +268,7 @@ int mine_session(Socket socket, OfflineStratumController& controller,
     const auto search_deadline = search_started + std::chrono::milliseconds(options.timeout_ms);
     std::thread worker([&] {
       search_status = work->search_with([&](const auto& header, const auto& target) {
-        return pepepow::search_cpu_workers(header, target, options.start, options.count,
-                                           options.workers, search_deadline, &cancel);
+        return cpu.search(header, target, options.start, options.count, search_deadline, &cancel);
       });
       finished.store(true, std::memory_order_release);
     });
@@ -471,6 +470,7 @@ int run(const Options& options) {
   using namespace pepepow::socket_io;
   OfflineStratumController controller;
   Totals totals;
+  pepepow::CpuWorkerPool cpu(options.workers);
   int exit_code = 1;
   auto backoff = std::chrono::milliseconds(options.backoff_ms);
   bool opened_session = false;
@@ -490,7 +490,7 @@ int run(const Options& options) {
                            "\",\"connection_generation\":" +
                            std::to_string(controller.session().session_generation()));
         opened_session = true;
-        exit_code = mine_session(socket, controller, options, totals);
+        exit_code = mine_session(socket, controller, options, totals, cpu);
         if (controller.pending_status().connected) controller.disconnected();
       } else {
         std::cerr << "Could not connect to the specified 127.0.0.1 port\n";
