@@ -30,6 +30,12 @@ $repo = (Get-Location).Path
 & "$repo\tools\windows\Invoke-Windows10-11NativeAcceptance.ps1" -RepositoryPath $repo
 ```
 
+To check PowerShell parsing and the pinned patch checksum without building anything, run:
+
+```powershell
+& "$repo\tools\windows\Invoke-Windows10-11NativeAcceptance.ps1" -SelfTest
+```
+
 The script fetches `origin/main`, records its full SHA, and refuses to continue if the optional `-ExpectedHead` value does not match. To pin a reviewed main SHA explicitly:
 
 ```powershell

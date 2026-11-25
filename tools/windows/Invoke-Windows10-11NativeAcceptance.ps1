@@ -3,7 +3,8 @@ param(
     [string]$RepositoryPath = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
     [string]$Msys2Root = 'C:\msys64',
     [string]$OutputRoot = (Join-Path $env:LOCALAPPDATA 'PEPEPOW Miner\Validation'),
-    [string]$ExpectedHead
+    [string]$ExpectedHead,
+    [switch]$SelfTest
 )
 
 $ErrorActionPreference = 'Stop'
@@ -149,6 +150,39 @@ function Get-RequiredCommandPath {
     param([string]$Name)
     $command = Get-Command $Name -ErrorAction Stop
     return $command.Source
+}
+
+function Get-CanonicalPatchSha256 {
+    param([byte[]]$Bytes)
+    $text = [System.Text.Encoding]::UTF8.GetString($Bytes)
+    $canonicalLf = [System.Text.RegularExpressions.Regex]::Replace($text, "`r?`n", "`n")
+    $canonicalCrlf = $canonicalLf.Replace("`n", "`r`n")
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $canonicalBytes = [System.Text.Encoding]::UTF8.GetBytes($canonicalCrlf)
+        return ([BitConverter]::ToString($sha256.ComputeHash($canonicalBytes))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+    }
+}
+
+if ($SelfTest) {
+    $patchPath = Join-Path $PSScriptRoot '..\..\.github\patches\openlibm-portable-c-windows.patch'
+    $patchBytes = [System.IO.File]::ReadAllBytes((Resolve-Path $patchPath).Path)
+    $patchText = [System.Text.Encoding]::UTF8.GetString($patchBytes)
+    $lfText = [System.Text.RegularExpressions.Regex]::Replace($patchText, "`r?`n", "`n")
+    $variants = @(
+        [System.Text.Encoding]::UTF8.GetBytes($lfText),
+        [System.Text.Encoding]::UTF8.GetBytes($lfText.Replace("`n", "`r`n"))
+    )
+    foreach ($variant in $variants) {
+        if ((Get-CanonicalPatchSha256 -Bytes $variant) -ne 'f780e659c0a94a8a28a942553c2b0bc7da8c4119b2a897842c361ce97f19c5b2') {
+            throw 'Canonical OpenLibm patch checksum self-test failed.'
+        }
+    }
+    Write-Host 'PASS: canonical patch checksum is stable for LF and CRLF inputs.'
+    return
 }
 
 function Invoke-CtestAndRecordCount {
@@ -300,17 +334,7 @@ try {
     }
     $patch = Join-Path $sourceWorktree '.github\patches\openlibm-portable-c-windows.patch'
     $patchBytes = [System.IO.File]::ReadAllBytes($patch)
-    $patchText = [System.Text.Encoding]::UTF8.GetString($patchBytes)
-    $canonicalLf = [System.Text.RegularExpressions.Regex]::Replace($patchText, "`r?`n", "`n")
-    $canonicalCrlf = $canonicalLf.Replace("`n", "`r`n")
-    $sha256 = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        $canonicalBytes = [System.Text.Encoding]::UTF8.GetBytes($canonicalCrlf)
-        $patchHash = ([BitConverter]::ToString($sha256.ComputeHash($canonicalBytes))).Replace('-', '').ToLowerInvariant()
-    }
-    finally {
-        $sha256.Dispose()
-    }
+    $patchHash = Get-CanonicalPatchSha256 -Bytes $patchBytes
     $rawPatchHash = (Get-FileHash -Path $patch -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($patchHash -ne $script:Report.dependencies.openlibm_windows_patch_sha256) {
         throw "OpenLibm Windows patch canonical SHA-256 mismatch: $patchHash"

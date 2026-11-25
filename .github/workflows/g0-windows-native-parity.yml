@@ -109,6 +109,7 @@ jobs:
             throw "PowerShell syntax check failed for $scriptPath"
           }
           Write-Host "PowerShell syntax passed: $scriptPath"
+          & $scriptPath -SelfTest
       - name: Install native Windows x64 UCRT64 toolchain
         uses: msys2/setup-msys2@v2
         with:
