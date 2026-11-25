@@ -25,10 +25,10 @@ def read_line(sock):
 
 
 def assert_peer_closed(peer):
-    # Winsock can reset a closing connection with unread inbound bytes.
+    # Winsock can reset or abort a connection with unread inbound bytes.
     try:
         assert peer.recv(1) == b"", "expected closed loopback connection"
-    except ConnectionResetError:
+    except (ConnectionResetError, ConnectionAbortedError):
         pass
 
 
