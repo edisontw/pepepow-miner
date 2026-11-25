@@ -298,7 +298,8 @@ int mine_session(Socket socket, OfflineStratumController& controller,
         break;
       }
     }
-    if (failed || stop_requested) cancel.store(true, std::memory_order_release);
+    if (failed || stop_requested || Clock::now() >= search_deadline)
+      cancel.store(true, std::memory_order_release);
     worker.join();
     const auto elapsed = Clock::now() - search_started;
     totals.hashes += work->hashes();
