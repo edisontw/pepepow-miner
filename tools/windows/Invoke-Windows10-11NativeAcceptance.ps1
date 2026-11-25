@@ -19,8 +19,8 @@ function Save-RunReport {
         return
     }
 
-    $script:Report.steps = @($script:Steps)
-    $script:Report.test_counts = @($script:TestCounts)
+    $script:Report.steps = $script:Steps.ToArray()
+    $script:Report.test_counts = $script:TestCounts.ToArray()
     $script:Report.updated_at_utc = [DateTime]::UtcNow.ToString('o')
     $reportPath = Join-Path $script:RunDirectory 'acceptance-report.json'
     $script:Report | ConvertTo-Json -Depth 8 | Set-Content -Path $reportPath -Encoding UTF8
@@ -66,7 +66,10 @@ function Invoke-Logged {
     $previousErrorActionPreference = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        & $FilePath @ArgumentList 2>&1 | Tee-Object -FilePath $logPath -Append | ForEach-Object { Write-Host $_ }
+        & $FilePath @ArgumentList 2>&1 | ForEach-Object {
+            Write-Host $_
+            Add-Content -Path $logPath -Value ([string]$_) -Encoding UTF8
+        }
         $exitCode = $LASTEXITCODE
     }
     finally {
@@ -234,6 +237,7 @@ try {
     if (-not (Test-Path (Join-Path $ucrtBin 'gcc.exe'))) {
         throw "Missing MSYS2 UCRT64 GCC at $(Join-Path $ucrtBin 'gcc.exe')"
     }
+    $script:Python = Get-RequiredCommandPath 'python.exe'
     $env:PATH = "$ucrtBin;$env:PATH"
     $script:Gcc = Get-RequiredCommandPath 'gcc.exe'
     $script:Gxx = Get-RequiredCommandPath 'g++.exe'
@@ -243,7 +247,6 @@ try {
     $script:Objdump = Get-RequiredCommandPath 'objdump.exe'
     $script:Cmake = Get-RequiredCommandPath 'cmake.exe'
     $script:Ctest = Get-RequiredCommandPath 'ctest.exe'
-    $script:Python = Get-RequiredCommandPath 'python.exe'
     $openSslRoot = Join-Path $Msys2Root 'ucrt64'
     $openSslImportLibrary = Join-Path $openSslRoot 'lib\libcrypto.dll.a'
     if (-not (Test-Path $openSslImportLibrary)) {
@@ -266,6 +269,9 @@ try {
     $pythonInfo = & $script:Python -c "import platform,sys; print(sys.version); print(sys.platform); print(platform.machine()); print(platform.architecture()[0])"
     if ($LASTEXITCODE -ne 0 -or (($pythonInfo -join "`n") -notmatch 'win32') -or (($pythonInfo -join "`n") -notmatch '(?i)amd64|x86_64')) {
         throw 'Python must be a native Windows x64 interpreter, not MSYS Python or a 32-bit interpreter.'
+    }
+    if (($pythonInfo -join "`n") -notmatch '(?m)^3\.(12|13)\.') {
+        throw "Expected CPython 3.12 or 3.13, got '$($pythonInfo[0])'."
     }
     $targetTriple = (& $script:Gcc -dumpmachine | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or $targetTriple -ne 'x86_64-w64-mingw32') {
