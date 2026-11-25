@@ -26,6 +26,12 @@ def main():
     if invalid.returncode != 2 or "1..256" not in invalid.stderr:
         return fail("invalid thread count did not produce a clear usage error")
 
+    too_long = subprocess.run(
+        [executable, "--seconds", "1801"], capture_output=True, text=True, timeout=5
+    )
+    if too_long.returncode != 2 or "1..1800" not in too_long.stderr:
+        return fail("benchmark duration above the 30-minute resource cap was not rejected")
+
     measured = subprocess.run(
         [executable, "--benchmark", "--threads", "all", "--seconds", "1"],
         capture_output=True,
@@ -90,7 +96,7 @@ def main():
 
     creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
     interrupted_run = subprocess.Popen(
-        [executable, "--threads", "2", "--seconds", "30"],
+        [executable, "--threads", "2", "--seconds", "1800"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

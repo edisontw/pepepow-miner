@@ -152,7 +152,7 @@ logical CPU capacity, current and peak process working set, worker startup,
 cooperative duration-stop latency, fixed 80-byte header, and disjoint nonce
 batch counts. `offline_stratum_miner --benchmark` exposes the same mode. The
 benchmark defaults to one worker and 10 seconds; `--threads all` uses the
-logical CPU count reported by the host, and `--seconds` accepts 1–600.
+logical CPU count reported by the host, and `--seconds` accepts 1–1800.
 
 ```sh
 build/reference/pepepow-cpu-benchmark --threads 1 --seconds 10

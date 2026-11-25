@@ -28,7 +28,7 @@ namespace {
 using Clock = SearchClock;
 
 constexpr unsigned default_duration_seconds = 10;
-constexpr unsigned max_duration_seconds = 600;
+constexpr unsigned max_duration_seconds = 1800;
 constexpr std::uint32_t benchmark_batch_size = 10000;
 
 std::atomic_bool interrupted{false};
@@ -52,7 +52,7 @@ void usage(std::ostream& out) {
          "       offline_stratum_miner --benchmark [--threads N|all] [--seconds N]\n"
          "Offline pinned-Core HooHash V110 benchmark; no network connections.\n"
          "--threads accepts 1..256 (default 1) or 'all' (detected logical CPUs).\n"
-         "--seconds accepts 1..600 (default 10). Ctrl+C stops cooperatively.\n";
+         "--seconds accepts 1..1800 (default 10). Ctrl+C stops cooperatively.\n";
 }
 
 std::optional<Options> parse_options(int argc, char** argv, bool& help, std::string& error) {
