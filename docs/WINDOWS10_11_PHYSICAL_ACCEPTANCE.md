@@ -47,7 +47,7 @@ The run does not change the current checkout or its branch. It adds a detached t
 For each of Debug and Release, the script:
 
 - Builds pinned OpenLibm v0.8.7 with the repository's Windows portable-C patch, then builds the pinned PEPEPOW Core HooHash reference and the complete offline miner/test targets using native UCRT64.
-- Records the compiler target, actual compile commands, floating-point flags, FP environment probe, linker maps, compiler dependency output, archive members, executable imports, and SHA-256 hashes for linked artifacts.
+- Records the compiler target, actual compile commands, floating-point flags, FP environment probe, linker maps, compiler dependency output, archive members, executable imports, and SHA-256 hashes for linked artifacts. The OpenLibm patch checksum is verified after normalizing its line endings and the raw file checksum is recorded.
 - Runs the native miner CTest suite, the independent HooHash V110 Python tests, ten Explorer-derived full-digest vectors, 10,000 complete 32-byte Core/Python comparisons, empty-input rejection, and a negative control that corrupts the final digest byte.
 - Runs the localhost miner end-to-end test, loopback Stratum replay, offline CPU search checks, and the dedicated job-state/socket CTest suite.
 

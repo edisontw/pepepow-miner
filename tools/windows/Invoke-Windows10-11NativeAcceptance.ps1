@@ -299,9 +299,21 @@ try {
         throw 'OpenLibm pin mismatch.'
     }
     $patch = Join-Path $sourceWorktree '.github\patches\openlibm-portable-c-windows.patch'
-    $patchHash = (Get-FileHash -Path $patch -Algorithm SHA256).Hash.ToLowerInvariant()
+    $patchBytes = [System.IO.File]::ReadAllBytes($patch)
+    $patchText = [System.Text.Encoding]::UTF8.GetString($patchBytes)
+    $canonicalLf = [System.Text.RegularExpressions.Regex]::Replace($patchText, "`r?`n", "`n")
+    $canonicalCrlf = $canonicalLf.Replace("`n", "`r`n")
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $canonicalBytes = [System.Text.Encoding]::UTF8.GetBytes($canonicalCrlf)
+        $patchHash = ([BitConverter]::ToString($sha256.ComputeHash($canonicalBytes))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+    }
+    $rawPatchHash = (Get-FileHash -Path $patch -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($patchHash -ne $script:Report.dependencies.openlibm_windows_patch_sha256) {
-        throw "OpenLibm Windows patch SHA-256 mismatch: $patchHash"
+        throw "OpenLibm Windows patch canonical SHA-256 mismatch: $patchHash"
     }
     Invoke-Logged -Name 'check-openlibm-patch' -FilePath $git -ArgumentList @('-C', $openLibm, 'apply', '--check', $patch) -WorkingDirectory $script:RunDirectory -LogName '06-check-openlibm-patch'
     Invoke-Logged -Name 'apply-openlibm-patch' -FilePath $git -ArgumentList @('-C', $openLibm, 'apply', $patch) -WorkingDirectory $script:RunDirectory -LogName '07-apply-openlibm-patch'
@@ -310,6 +322,7 @@ try {
         throw "Unexpected OpenLibm patch paths: $patchPaths"
     }
     $script:Report.dependencies.openlibm_windows_patch_sha256 = $patchHash
+    $script:Report.dependencies.openlibm_windows_patch_raw_sha256 = $rawPatchHash
     Save-RunReport
 
     $evidenceScript = Join-Path $script:RunDirectory 'support'
@@ -358,7 +371,7 @@ int main(void) {
     $fpCheckScript = Join-Path $evidenceScript 'check-fp-flags.py'
     @'
 import json, pathlib, sys
-miner, openlibm = map(pathlib.Path, sys.argv[1:])
+miner, openlibm = map(pathlib.Path, sys.argv[1:3])
 selected = []
 for path in (miner, openlibm):
     entries = json.loads(path.read_text(encoding='utf-8'))
