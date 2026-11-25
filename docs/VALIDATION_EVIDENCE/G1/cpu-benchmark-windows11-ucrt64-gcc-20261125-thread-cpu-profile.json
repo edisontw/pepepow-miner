@@ -1,0 +1,16 @@
+{
+  "sampled_utc": "2026-11-25T16:06:46.0135872Z",
+  "elapsed_wall_seconds": 376.5,
+  "process_cpu_seconds": 4277.0625,
+  "process_threads": 15,
+  "active_worker_threads": 12,
+  "worker_cpu_seconds_sum": 4276.890625,
+  "worker_cpu_seconds_min": 355.5,
+  "worker_cpu_seconds_median": 356.40625,
+  "worker_cpu_seconds_max": 357.203125,
+  "worker_cpu_seconds_mean": 356.4075520833333,
+  "worker_spread_pct": 0.4778588416672451,
+  "non_worker_threads": 3,
+  "non_worker_cpu_seconds_sum": 0.171875,
+  "worker_share_of_process_cpu_pct": 99.99598147092776
+}

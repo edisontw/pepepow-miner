@@ -1,0 +1,7 @@
+Profiler availability record — Windows 11 Pro build 26300
+Date: 2026-11-26 Asia/Taipei
+WPR command: wpr -start CPU -filemode
+Result: failed before recording; Windows returned 0xc5585011, “Failed to enable the policy to profile system performance.”
+WPA and xperf were not installed. No privilege elevation was requested.
+Fallback: a separate GCC -pg Release build was attempted with the pinned Core/OpenLibm and strict FP flags. The 15-second instrumented binary completed, but gprof produced no function samples or call entries; its altered hashrate is excluded from benchmark results.
+Usable profiling evidence is the process thread CPU-time snapshot linked above, together with the repeated Release throughput matrix and source-level worker-pool inspection. Function-level hotspot and lock-wait sampling remains unavailable on this host.
