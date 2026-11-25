@@ -2,6 +2,7 @@
 import json
 import os
 import signal
+import select
 import time
 import queue
 import socket
@@ -254,6 +255,102 @@ def check_submit_without_reply(binary, notify_template, extranonce2):
             process.wait(timeout=5)
 
 
+def check_reconnect(binary, notify_template, extranonce2, failover):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as first, \
+            socket.socket(socket.AF_INET, socket.SOCK_STREAM) as second:
+        for listener in (first, second):
+            listener.bind(("127.0.0.1", 0))
+            listener.listen()
+            listener.settimeout(5)
+        options = ["--retries", "2"]
+        if failover:
+            options += ["--fallback-port", str(second.getsockname()[1]), "--mode", "SOLO"]
+        command = [binary, str(first.getsockname()[1]), "mock.worker", "0", "10", extranonce2]
+        with subprocess.Popen(command + options, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True) as process:
+            def establish(listener, request_id):
+                peer, address = listener.accept()
+                assert address[0] == "127.0.0.1"
+                peer.settimeout(4)
+                try:
+                    assert json.loads(read_line(peer)) == {
+                        "id": request_id, "method": "mining.subscribe", "params": []
+                    }
+                    peer.sendall(json.dumps({
+                        "id": request_id, "result": [[["mining.set_difficulty", "s"],
+                            ["mining.notify", "s"]], "aabbccdd", 4], "error": None,
+                    }).encode() + b"\n")
+                    assert json.loads(read_line(peer)) == {
+                        "id": request_id + 1, "method": "mining.authorize",
+                        "params": ["mock.worker", "x"],
+                    }
+                    peer.sendall(json.dumps({"id": request_id + 1, "result": True,
+                                             "error": None}).encode() + b"\n")
+                    peer.sendall(b'{"id":null,"method":"mining.set_difficulty","params":[98.304]}\n')
+                    return peer
+                except BaseException:
+                    peer.close()
+                    raise
+
+            try:
+                with establish(first, 1) as peer:
+                    peer.sendall(notify_for(notify_template, "interrupted"))
+                    assert json.loads(read_line(peer))["id"] == 3
+                    peer.sendall(b'{"id":3,')
+                with establish(second if failover else first, 4) as peer:
+                    peer.sendall(notify_for(notify_template, "interrupted"))
+                    assert not select.select([peer], [], [], 0.2)[0], "duplicate submit"
+                    peer.sendall(notify_for(notify_template, "recovered"))
+                    assert json.loads(read_line(peer))["params"][1] == "recovered"
+                    # A complete reply carrying the retired session's ID cannot count.
+                    peer.sendall(b'{"id":3,"result":true,"error":null}\n')
+                    assert peer.recv(1) == b""
+                with establish(first, 7) as peer:
+                    peer.sendall(notify_for(notify_template, "third-session"))
+                    submit = json.loads(read_line(peer))
+                    assert submit["id"] == 9 and submit["params"][1] == "third-session", submit
+                    peer.sendall(b'{"id":9,"result":true,"error":null}\n')
+                stdout, stderr = process.communicate(timeout=5)
+                assert process.returncode == 0, (stdout, stderr)
+                events = [json.loads(line) for line in stdout.splitlines()]
+                connected = [event for event in events if event["event"] == "connected"]
+                assert [event["connection_generation"] for event in connected] == [1, 3, 5]
+                assert {event["mode"] for event in connected} == {"SOLO" if failover else "POOL"}
+                assert events[-1]["accepted"] == 1
+                assert any(event["event"] == "duplicate_candidate" for event in events)
+                print(f"PASS: reconnect, stale response and retry recovery (failover={failover})")
+            finally:
+                if process.poll() is None:
+                    process.kill()
+
+
+def check_retry_exhaustion(binary, cancel=False):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        command = [binary, str(reservation.getsockname()[1]), "mock.worker", "0", "1",
+                   "00000000", "--retries", "2", "--backoff-ms", "2000" if cancel else "20"]
+        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              text=True) as process:
+            try:
+                if cancel:
+                    events = queue.Queue()
+                    threading.Thread(target=lambda: events.put(process.stdout.readline()),
+                                     daemon=True).start()
+                    assert json.loads(events.get(timeout=4))["event"] == "retry_wait"
+                    started = time.monotonic()
+                    process.send_signal(signal.SIGTERM)
+                    process.communicate(timeout=1)
+                    assert process.returncode == 130 and time.monotonic() - started < 1
+                else:
+                    stdout, stderr = process.communicate(timeout=4)
+                    assert process.returncode == 1, stderr
+                    assert [json.loads(line)["backoff_ms"] for line in stdout.splitlines()] == [20, 40]
+                print(f"PASS: bounded retry (cancel={cancel})")
+            finally:
+                if process.poll() is None:
+                    process.kill()
+
+
 def main():
     if len(sys.argv) != 2:
         raise SystemExit("usage: test_offline_stratum_miner_e2e.py OFFLINE_MINER")
@@ -437,6 +534,11 @@ def main():
     check_submit_without_reply(binary, notify_template, extranonce2)
     check_real_core_timeout(binary, notify_template, extranonce2)
     check_real_core_timeout(binary, notify_template, extranonce2, drip=True)
+    check_reconnect(binary, notify_template, extranonce2, failover=False)
+    check_reconnect(binary, notify_template, extranonce2, failover=True)
+    check_retry_exhaustion(binary)
+    if os.name != "nt":
+        check_retry_exhaustion(binary, cancel=True)
     print("PASS: pinned-Core loopback replacement, full digest, mock accounting, stale cancellation, timeout, and bounded connection faults")
 
 
