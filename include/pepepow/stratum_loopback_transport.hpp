@@ -9,10 +9,11 @@ namespace pepepow::socket_io {
 // Consume at most one bounded JSONL frame from the current transport generation.
 // A stale caller must not consume bytes from a newly connected socket.
 inline std::optional<OfflineStratumController::WorkEvents> receive_controller_line(
-    Socket socket, OfflineStratumController& controller, std::uint64_t generation) {
+    Socket socket, OfflineStratumController& controller, std::uint64_t generation,
+    Deadline deadline = (Deadline::max)(), const std::atomic_bool* stop = nullptr) {
   if (socket == invalid_socket || generation != controller.session().session_generation()) return std::nullopt;
   std::string line;
-  if (!receive_line(socket, line)) {
+  if (!receive_line(socket, line, deadline, stop)) {
     // A failed read leaves outstanding replies unknowable; retire this session.
     controller.disconnected();
     return std::nullopt;

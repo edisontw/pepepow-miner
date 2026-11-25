@@ -1,4 +1,4 @@
-name: G0 Windows native V110 parity (not acceptance)
+name: G0/G1 Windows native validation (not acceptance)
 
 on:
   pull_request:
@@ -15,6 +15,17 @@ on:
       - 'tests/test_g0_v110_independent.py'
       - 'tests/test_compare_digest_parity.py'
       - 'tests/vectors/candidates/**'
+      - 'include/pepepow/**'
+      - 'tools/offline_stratum_miner.cpp'
+      - 'tools/offline_stratum_replay.cpp'
+      - 'tools/offline_cpu_search.cpp'
+      - 'tests/job_state/**'
+      - 'tests/test_job_state.cpp'
+      - 'tests/test_native_stratum_search.cpp'
+      - 'tests/test_offline_stratum_miner_e2e.py'
+      - 'tests/check_pool_loopback_replay.py'
+      - 'tests/check_offline_cpu_search.py'
+      - 'tests/vectors/stratum/**'
       - 'CMakeLists.txt'
   push:
     branches: [main]
@@ -31,6 +42,17 @@ on:
       - 'tests/test_g0_v110_independent.py'
       - 'tests/test_compare_digest_parity.py'
       - 'tests/vectors/candidates/**'
+      - 'include/pepepow/**'
+      - 'tools/offline_stratum_miner.cpp'
+      - 'tools/offline_stratum_replay.cpp'
+      - 'tools/offline_cpu_search.cpp'
+      - 'tests/job_state/**'
+      - 'tests/test_job_state.cpp'
+      - 'tests/test_native_stratum_search.cpp'
+      - 'tests/test_offline_stratum_miner_e2e.py'
+      - 'tests/check_pool_loopback_replay.py'
+      - 'tests/check_offline_cpu_search.py'
+      - 'tests/vectors/stratum/**'
       - 'CMakeLists.txt'
   workflow_dispatch:
 
@@ -43,7 +65,7 @@ concurrency:
 
 jobs:
   windows-native-parity:
-    name: Windows Server 2022 x64 ${{ matrix.configuration }} native parity
+    name: Windows Server 2022 x64 ${{ matrix.configuration }} native G0/G1 validation
     runs-on: windows-2022
     timeout-minutes: 90
     strategy:
@@ -80,6 +102,7 @@ jobs:
             mingw-w64-ucrt-x86_64-toolchain
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-openssl
             coreutils
             git
       - name: Install native Windows Python
@@ -361,6 +384,66 @@ jobs:
           grep -Fq 'MISMATCH row=10000 case=g0-synthetic-09999' "$TEMP_UNIX-negative.log"
           cat "$TEMP_UNIX-negative.log"
           echo "PASS: last digest byte corruption rejected at row 10000."
+      - name: Build and test native G1 miner and job-state suite
+        shell: msys2 {0}
+        env:
+          PYTHON_EXE: ${{ steps.windows-python.outputs.python-path }}
+        run: |
+          set -euo pipefail
+          PYTHON="$(cygpath -u "$PYTHON_EXE")"
+          WORKSPACE_UNIX="$(cygpath -u "$GITHUB_WORKSPACE")"
+          cd "$WORKSPACE_UNIX"
+          CONFIG="${{ matrix.configuration }}"
+          BUILD="$WORKSPACE_UNIX/build/windows-parity-$CONFIG"
+          CORE_WIN="$(cygpath -w "$WORKSPACE_UNIX/core")"
+          OPENLIBM_INCLUDE_WIN="$(cygpath -w "$WORKSPACE_UNIX/openlibm/include")"
+          OPENLIBM_LIBRARY_WIN="$(cygpath -w "$BUILD/openlibm/libopenlibm.a")"
+          OPENSSL_ROOT_WIN="$(cygpath -w "$MINGW_PREFIX")"
+          OPENSSL_CRYPTO_LIBRARY_WIN="$(cygpath -w "$MINGW_PREFIX/lib/libcrypto.dll.a")"
+          EVIDENCE_UNIX="$(cygpath -u "$RUNNER_TEMP")/g0-windows-$CONFIG"
+          mkdir -p "$EVIDENCE_UNIX/g1"
+          cmake -S miner -B "$BUILD/miner" -G Ninja \
+            -DCMAKE_BUILD_TYPE="$CONFIG" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
+            -DPEPEPOW_NATIVE_STRATUM_SEARCH=ON \
+            -DPEPEPOW_CORE_SOURCE_DIR="$CORE_WIN" \
+            -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
+            -DOPENLIBM_INCLUDE_DIR="$OPENLIBM_INCLUDE_WIN" \
+            -DOPENLIBM_LIBRARY="$OPENLIBM_LIBRARY_WIN" \
+            -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_WIN" \
+            -DOPENSSL_USE_STATIC_LIBS=FALSE \
+            -DOPENSSL_CRYPTO_LIBRARY="$OPENSSL_CRYPTO_LIBRARY_WIN" \
+            -DPython3_EXECUTABLE="$PYTHON_EXE"
+          cmake --build "$BUILD/miner" --parallel 2
+          ctest --test-dir "$BUILD/miner" --output-on-failure \
+            | tee "$EVIDENCE_UNIX/g1/miner-ctest.txt"
+          MINER_WIN="$(cygpath -w "$BUILD/miner/offline_stratum_miner.exe")"
+          REPLAY_WIN="$(cygpath -w "$BUILD/miner/offline_stratum_replay.exe")"
+          SEARCH_WIN="$(cygpath -w "$BUILD/miner/pepepow-offline-search.exe")"
+          KAT_WIN="$(cygpath -w "$BUILD/miner/pepepow-kat.exe")"
+          "$PYTHON" miner/tests/test_offline_stratum_miner_e2e.py "$MINER_WIN" \
+            | tee "$EVIDENCE_UNIX/g1/offline-miner-e2e.txt"
+          "$PYTHON" miner/tests/check_pool_loopback_replay.py "$REPLAY_WIN" "$KAT_WIN" \
+            | tee "$EVIDENCE_UNIX/g1/pool-loopback-replay.txt"
+          "$PYTHON" miner/tests/check_offline_cpu_search.py "$SEARCH_WIN" \
+            | tee "$EVIDENCE_UNIX/g1/offline-cpu-search.txt"
+          STATE_BUILD="$BUILD/job-state"
+          cmake -S miner/tests/job_state -B "$STATE_BUILD" -G Ninja \
+            -DCMAKE_BUILD_TYPE="$CONFIG" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          cmake --build "$STATE_BUILD" --parallel 2
+          ctest --test-dir "$STATE_BUILD" --output-on-failure \
+            | tee "$EVIDENCE_UNIX/g1/job-state-ctest.txt"
+          {
+            echo "Runner: Windows Server 2022 x64, native UCRT64; not Windows 11 device acceptance"
+            echo "Configuration: $CONFIG"
+            echo "Core: bc08108ceccd957c79040dc7fedc1d56d8d47f97"
+            echo "OpenLibm: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d"
+            echo "OpenSSL: $(openssl version)"
+            echo "Compiler: $(g++ --version | head -n 1); target $(g++ -dumpmachine)"
+            echo "CMake: $(cmake --version | head -n 1); Ninja: $(ninja --version)"
+            echo "Python: $($PYTHON -c 'import sys; print(sys.version)')"
+            echo "G1 accepted/rejected results are local mock replies only; no production pool was contacted."
+          } > "$EVIDENCE_UNIX/g1/evidence.txt"
       - name: Upload Windows parity evidence
         if: always()
         uses: actions/upload-artifact@v4
