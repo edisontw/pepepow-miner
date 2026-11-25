@@ -193,7 +193,8 @@ bool handshake(Socket socket, OfflineStratumController& controller,
   const auto authorize_deadline = Clock::now() + request_budget;
   const auto authorize = controller.make_authorize_request(login);
   if (!authorize || !send_before(socket, *authorize, authorize_deadline, stop_requested) ||
-      !wait_handshake_reply(socket, controller, generation, authorize_deadline, &Events::authorized))
+      !wait_handshake_reply(socket, controller, generation, authorize_deadline, &Events::authorized) ||
+      !controller.session().jobs().is_authorized())
     return false;
   event("authorized", "\"transport\":\"127.0.0.1\"");
   return true;

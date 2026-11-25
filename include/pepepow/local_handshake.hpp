@@ -84,7 +84,8 @@ inline bool perform_local_handshake(unsigned port, std::string_view login) {
         if (sub && sub->subscribed == 1 && sub->framing_rejected == 0 &&
             send_controller_authorize(s, controller, generation, login)) {
           const auto auth = receive_controller_line(s, controller, generation);
-          ok = auth && auth->authorized == 1 && auth->framing_rejected == 0;
+          ok = auth && auth->authorized == 1 && auth->framing_rejected == 0 &&
+               controller.session().jobs().is_authorized();
         }
       }
       controller.disconnected();
