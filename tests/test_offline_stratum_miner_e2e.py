@@ -24,6 +24,14 @@ def read_line(sock):
     raise AssertionError("client sent an oversized JSONL frame")
 
 
+def assert_peer_closed(peer):
+    # Winsock can reset a closing connection with unread inbound bytes.
+    try:
+        assert peer.recv(1) == b"", "expected closed loopback connection"
+    except ConnectionResetError:
+        pass
+
+
 def notify_for(template, job_id):
     frame = json.loads(template)
     frame["params"][0] = job_id
@@ -88,7 +96,7 @@ def check_real_core_timeout(binary, notify_template, extranonce2, drip=False):
                 while process.poll() is None and time.monotonic() - started < 1.25:
                     try:
                         peer.sendall(b" ")
-                    except (BrokenPipeError, ConnectionResetError):
+                    except ConnectionError:
                         break
                     time.sleep(0.04)
                 assert time.monotonic() - started < 1.1, "drip blocked mining deadline"
@@ -151,7 +159,7 @@ def check_connection_fault(binary, mode):
                 elif mode == "cancel_pending":
                     peer.sendall(b'{"id":1,')
                     process.send_signal(signal.SIGTERM)
-                    assert peer.recv(1) == b""
+                    assert_peer_closed(peer)
                 elif mode == "midstream_close":
                     peer.shutdown(socket.SHUT_RDWR)
                 elif mode == "truncated_subscribe":
@@ -181,6 +189,9 @@ def check_connection_fault(binary, mode):
 
         assert process.returncode == expected_status, (mode, process.returncode, stdout, stderr)
         assert process.poll() is not None, (mode, "miner process did not exit")
+        if mode == "rejected_authorize":
+            assert "handshake failed" in stderr, (stdout, stderr)
+            assert all(json.loads(line)["event"] != "authorized" for line in stdout.splitlines())
         print(f"PASS: bounded loopback fault {mode} (exit {expected_status}; no child process left running)")
     finally:
         if listener is not None:
@@ -231,7 +242,7 @@ def check_submit_without_reply(binary, notify_template, extranonce2):
         while process.poll() is None and time.monotonic() - started < 3.0:
             try:
                 peer.sendall(b'{"id":null,"method":"mining.set_difficulty","params":[98.304]}\n')
-            except (BrokenPipeError, ConnectionResetError):
+            except ConnectionError:
                 break
             time.sleep(0.08)
         elapsed = time.monotonic() - started
@@ -244,7 +255,7 @@ def check_submit_without_reply(binary, notify_template, extranonce2):
         assert any(event.get("event") == "submit_sent" for event in events), events
         summary = next(event for event in events if event.get("event") == "summary")
         assert summary["accepted"] == 0 and summary["rejected"] == 0, summary
-        assert peer.recv(1) == b"", "miner left the socket open after a missing submit reply"
+        assert_peer_closed(peer)
         print("PASS: missing submit reply times out, accounts no share, and closes the socket")
     finally:
         listener.close()
