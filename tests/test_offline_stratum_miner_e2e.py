@@ -321,7 +321,7 @@ def check_reconnect(binary, notify_template, extranonce2, failover):
                     assert json.loads(read_line(peer))["params"][1] == "recovered"
                     # A complete reply carrying the retired session's ID cannot count.
                     peer.sendall(b'{"id":3,"result":true,"error":null}\n')
-                    assert peer.recv(1) == b""
+                    assert_peer_closed(peer)
                 with establish(first, 7) as peer:
                     peer.sendall(notify_for(notify_template, "third-session"))
                     submit = json.loads(read_line(peer))
