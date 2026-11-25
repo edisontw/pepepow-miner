@@ -69,6 +69,15 @@ class OfflineStratumSearch {
     return result_->status;
   }
 
+  template <typename Search>
+  SearchStatus search_with(Search execute) {
+    if (result_) return SearchStatus::Invalid;
+    result_ = execute(header_, target_);
+    return result_->status;
+  }
+
+  std::uint32_t hashes() const { return result_ ? result_->hashes : 0; }
+
   const CpuCandidate* candidate() const {
     return result_ && result_->candidate ? &*result_->candidate : nullptr;
   }

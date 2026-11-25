@@ -88,7 +88,8 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
   add_executable(test_native_stratum_search tests/test_native_stratum_search.cpp)
   target_compile_features(test_native_stratum_search PRIVATE cxx_std_20)
   target_include_directories(test_native_stratum_search PRIVATE include)
-  target_link_libraries(test_native_stratum_search PRIVATE pepepow_core_reference OpenSSL::Crypto)
+  target_link_libraries(test_native_stratum_search PRIVATE
+    pepepow_core_reference OpenSSL::Crypto Threads::Threads)
   add_test(NAME native_stratum_search COMMAND test_native_stratum_search)
   set_tests_properties(native_stratum_search PROPERTIES TIMEOUT 10)
 
