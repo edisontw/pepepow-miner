@@ -61,7 +61,7 @@ Fresh separate Windows Debug and Release CMake build directories used the real U
 
 - 10,000 independent full 32-byte HooHash V110 parity comparisons and all 10 Explorer vectors.
 - Six independent Python reference tests; empty-input rejection and deliberate final-byte digest mutation rejection.
-- Root CTest: 4/4 in Debug and 4/4 in Release. Job-state CTest: 22/22 in each configuration.
+- Root CTest: 5/5 in Debug and 5/5 in Release, including full, partial, and exhausted-uint32 nonce accounting. Job-state CTest: 22/22 in each configuration.
 - Offline Stratum replay, TCP loopback, transport deadlines, reconnect/backoff, failover, the updated 33-switch test, and child-process cleanup.
 - Worker nonce coverage, disjoint range/duplicate checks, overflow and `UINT32_MAX`; benchmark CLI JSON, argument bounds, and cooperative stop.
 

@@ -1,5 +1,6 @@
 #include "pepepow/cpu_benchmark.hpp"
 #include "pepepow/cpu_worker_pool.hpp"
+#include "cpu_benchmark_accounting.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -29,7 +30,6 @@ using Clock = SearchClock;
 
 constexpr unsigned default_duration_seconds = 10;
 constexpr unsigned max_duration_seconds = 1800;
-constexpr std::uint32_t benchmark_batch_size = 10000;
 
 std::atomic_bool interrupted{false};
 static_assert(std::atomic_bool::is_always_lock_free);
@@ -231,8 +231,6 @@ int run(const Options& options, SearchClock::time_point process_started) {
   const auto deadline = started + std::chrono::seconds(options.seconds);
   std::uint64_t total_hashes = 0;
   std::uint64_t next_nonce = 0;
-  std::uint64_t completed_batches = 0;
-  std::uint32_t final_batch_hashes = 0;
   std::string_view stop_reason = "duration";
 
   while (!interrupted.load(std::memory_order_relaxed) && Clock::now() < deadline) {
@@ -242,7 +240,7 @@ int run(const Options& options, SearchClock::time_point process_started) {
     }
     const auto remaining = std::uint64_t{UINT32_MAX} - next_nonce + 1;
     const auto count = static_cast<std::uint32_t>(std::min<std::uint64_t>(
-        benchmark_batch_size, remaining));
+        cpu_benchmark_batch_size, remaining));
     const auto result = pool.search(header, target, static_cast<std::uint32_t>(next_nonce), count,
                                     deadline, &interrupted);
     total_hashes += result.hashes;
@@ -251,17 +249,18 @@ int run(const Options& options, SearchClock::time_point process_started) {
         std::cerr << "error: worker pool returned an incomplete exhausted range\n";
         return 1;
       }
-      ++completed_batches;
       next_nonce += count;
+      if (next_nonce > UINT32_MAX) {
+        stop_reason = "nonce-space-exhausted";
+        break;
+      }
       continue;
     }
     if (result.status == SearchStatus::Timeout) {
-      final_batch_hashes = result.hashes;
       stop_reason = "duration";
       break;
     }
     if (result.status == SearchStatus::Cancelled) {
-      final_batch_hashes = result.hashes;
       stop_reason = "interrupt";
       break;
     }
@@ -286,6 +285,7 @@ int run(const Options& options, SearchClock::time_point process_started) {
       std::optional<double>(std::chrono::duration<double, std::milli>(stopped - deadline).count()) :
       std::nullopt;
   const double hashrate = elapsed_seconds > 0 ? total_hashes / elapsed_seconds : 0.0;
+  const auto batch_accounting = account_cpu_benchmark_hashes(total_hashes);
 
   std::cout << std::setprecision(10)
             << "{\"status\":\"ok\",\"mode\":\"offline\",\"os\":";
@@ -313,8 +313,8 @@ int run(const Options& options, SearchClock::time_point process_started) {
   std::cout << ",\"stop_latency_ms\":";
   if (stop_latency_ms) std::cout << *stop_latency_ms;
   else std::cout << "null";
-  std::cout << ",\"nonce_batches_complete\":" << completed_batches
-            << ",\"final_batch_hashes\":" << final_batch_hashes
+  std::cout << ",\"nonce_batches_complete\":" << batch_accounting.complete_batches
+            << ",\"final_batch_hashes\":" << batch_accounting.final_batch_hashes
             << ",\"nonce_batches_disjoint\":true,\"header_hex\":\"";
   print_hex(header);
   std::cout << "\"}\n";

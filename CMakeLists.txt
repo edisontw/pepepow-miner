@@ -91,6 +91,11 @@ else()
     target_link_libraries(test_cpu_worker_pool PRIVATE "${PEPEPOW_REFERENCE_LIBRARY}" Threads::Threads)
     add_test(NAME cpu_worker_pool COMMAND test_cpu_worker_pool)
     set_tests_properties(cpu_worker_pool PROPERTIES TIMEOUT 30)
+    add_executable(test_cpu_benchmark_accounting tests/test_cpu_benchmark_accounting.cpp)
+    target_compile_features(test_cpu_benchmark_accounting PRIVATE cxx_std_20)
+    target_include_directories(test_cpu_benchmark_accounting PRIVATE tools)
+    add_test(NAME cpu_benchmark_accounting COMMAND test_cpu_benchmark_accounting)
+    set_tests_properties(cpu_benchmark_accounting PROPERTIES TIMEOUT 5)
     add_test(NAME cpu_benchmark_cli
       COMMAND "${Python3_EXECUTABLE}"
               "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cpu_benchmark_cli.py"
