@@ -278,10 +278,11 @@ jobs:
         run: |
           set -euo pipefail
           EVIDENCE="$RUNNER_TEMP/linux-reference-dependencies"
-          mkdir -p "$EVIDENCE/link-maps"
+          mkdir -p "$EVIDENCE/link-maps" build/link-maps
           for target in pepepow-kat pepepow-offline-search offline_stratum_replay test_native_stratum_search offline_stratum_miner; do
             rm -f "build/$target"
             cmake --build build --config Release --target "$target" --parallel 2
+            cp build/dependency-link.map "build/link-maps/$target.map"
             cp build/dependency-link.map "$EVIDENCE/link-maps/$target.map"
           done
           python3 miner/tools/g0_linux_build_dependency_inventory.py \
