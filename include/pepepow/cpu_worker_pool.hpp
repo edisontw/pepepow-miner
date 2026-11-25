@@ -54,6 +54,7 @@ class CpuWorkerPool {
     std::unique_lock lock(mutex_);
     task_ = {header, target, start, count, active, deadline, cancel};
     remaining_ = active;
+    lowest_found_.store(active, std::memory_order_relaxed);
     ++epoch_;
     work_ready_.notify_all();
     work_done_.wait(lock, [this] { return remaining_ == 0; });
@@ -92,9 +93,17 @@ class CpuWorkerPool {
       lock.unlock();
       const auto range = partition_nonce_range(task.start, task.count, index, task.active);
       auto result = search_cpu_until(task.header, task.target, range.start, range.count, task.deadline,
-                                     [&] { return stop.stop_requested() ||
-                                         (task.cancel && task.cancel->load(std::memory_order_acquire)); });
+                                     [&] {
+                                       return stop.stop_requested() ||
+                                           index > lowest_found_.load(std::memory_order_relaxed) ||
+                                           (task.cancel && task.cancel->load(std::memory_order_acquire));
+                                     });
       lock.lock();
+      // Higher partitions cannot improve a lower candidate. Lower partitions
+      // finish so the coordinator can still select the lowest match.
+      if (result.status == SearchStatus::Found &&
+          index < lowest_found_.load(std::memory_order_relaxed))
+        lowest_found_.store(index, std::memory_order_relaxed);
       results_[index] = std::move(result);
       if (--remaining_ == 0) work_done_.notify_one();
     }
@@ -108,6 +117,7 @@ class CpuWorkerPool {
   std::array<SearchResult, max_cpu_workers> results_{};
   std::uint64_t epoch_ = 0;
   unsigned remaining_ = 0;
+  std::atomic<unsigned> lowest_found_{max_cpu_workers};
   // Stop and join before destroying the state the threads access.
   std::vector<std::jthread> threads_;
 };
