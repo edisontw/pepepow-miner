@@ -458,7 +458,7 @@
   "provenance_assessment_documents": {
     "technical_and_redistribution_review": "docs/sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md",
     "windows_11_owner_acceptance": "docs/G0_WINDOWS11_OWNER_ACCEPTANCE.md",
-    "status": "Conservative distribution policy recorded; rights-holder/license review and Windows dependency/link evidence remain pending; no legal clearance."
+    "status": "Conservative distribution policy recorded; rights-holder/license review and Owner sign-off remain pending; Linux Debug/Release inventories and Windows Server 2022 exact-head dependency/link evidence are recorded; no legal clearance."
   },
   "distribution_handling_decision": {
     "decision_date": "2026-11-25",
@@ -526,6 +526,30 @@
   },
   "windows_server_dependency_evidence": {
     "historical_artifact": "Windows Server 2022 run 45181410916 includes compile databases only; it lacks compiler dependency files and final executable link maps.",
-    "current_status": "The updated workflow collects compile dependency output, static archive member lists, final linker maps, imported DLLs, and hashes in Debug and Release. Exact-head artifacts are required before this evidence counts as collected."
+    "current_status": "PR #27 head 7fc8cfe7775bcc0a31f520b039b0ff45f519dd4c passed Windows Server 2022 UCRT64 Debug and Release. The artifacts contain compile databases, Ninja dependency paths, archive members, per-target linker maps, imported DLL names, and executable hashes. This is hosted Server CI, not physical Windows 10/11 acceptance.",
+    "workflow_run_id": 45600133198,
+    "head_sha": "7fc8cfe7775bcc0a31f520b039b0ff45f519dd4c",
+    "artifacts": [
+      {
+        "configuration": "Debug",
+        "name": "windows-server-2022-ucrt64-Debug-parity-evidence",
+        "artifact_id": 15015372150,
+        "sha256": "8cb94b9f7a1115847b886f9d36dfca1fcdd1e13b5c310ffe7d72114491599842"
+      },
+      {
+        "configuration": "Release",
+        "name": "windows-server-2022-ucrt64-Release-parity-evidence",
+        "artifact_id": 15015885919,
+        "sha256": "b144f88538595884ff195287da9c03ad635285dd55484ef46578c37def9f59ae"
+      }
+    ]
+  },
+  "linux_ci_dependency_artifact": {
+    "workflow_run_id": 45600132394,
+    "head_sha": "7fc8cfe7775bcc0a31f520b039b0ff45f519dd4c",
+    "artifact_id": 15015381301,
+    "name": "linux-reference-compiled-dependencies",
+    "sha256": "664aeba21f57d1f6e485bf3db510b82105cbb0291474c226bdecb869e50d8d12",
+    "note": "Exact-head Ubuntu 24.04 CI artifact; includes generated actual dependency inventory, compile databases, maps, archive member lists/checksums, ldd outputs, and executable checksums."
   }
 }
