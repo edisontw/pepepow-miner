@@ -407,7 +407,7 @@ def main():
         valid_prefix + ["0", "1"] + valid_suffix +
         ["--max-ms", "10", "--max-ms", "20"],
         valid_prefix + ["0", "1"] + valid_suffix + ["--unknown", "1"],
-        valid_prefix + ["0", "1"] + valid_suffix + ["--threads", "9"],
+        valid_prefix + ["0", "1"] + valid_suffix + ["--threads", "257"],
     ]
     for command in invalid_invocations:
         rejected = subprocess.run(command, capture_output=True, text=True, timeout=2)

@@ -137,13 +137,36 @@ offline_stratum_miner PORT LOGIN START COUNT EXTRANONCE2
 ```
 
 `COUNT` is 1–10,000 and the inclusive nonce range must fit uint32. `--max-ms`
-defaults to 30,000 and is capped at 60,000. `--threads` accepts 1–8 and
+defaults to 30,000 and is capped at 60,000. `--threads` accepts 1–256 and
 defaults to one. Workers reuse their threads across jobs, search disjoint nonce
 ranges, and return the lowest candidate whose preceding range was checked.
 The deadline and job replacement
 are cooperative between nonce hashes; neither can interrupt one synchronous
 Core hash call. Subscribe, authorize, and submit each have a two-second
 operation budget across all received frames.
+
+The standalone `pepepow-cpu-benchmark` command measures offline pinned-Core
+HooHash V110 throughput without opening a socket. It emits a single JSON record
+with the measured hash count and H/s, process CPU time and utilization against
+logical CPU capacity, current and peak process working set, worker startup,
+cooperative duration-stop latency, fixed 80-byte header, and disjoint nonce
+batch counts. `offline_stratum_miner --benchmark` exposes the same mode. The
+benchmark defaults to one worker and 10 seconds; `--threads all` uses the
+logical CPU count reported by the host, and `--seconds` accepts 1–600.
+
+```sh
+build/reference/pepepow-cpu-benchmark --threads 1 --seconds 10
+build/reference/pepepow-cpu-benchmark --threads 2 --seconds 10
+build/reference/pepepow-cpu-benchmark --threads 4 --seconds 10
+build/reference/pepepow-cpu-benchmark --threads 8 --seconds 10
+build/reference/pepepow-cpu-benchmark --threads all --seconds 10
+build/reference/offline_stratum_miner --benchmark --threads all --seconds 10
+```
+
+Each run starts from nonce zero against the same deterministic synthetic
+header; fully completed batches advance monotonically, and a final partial
+batch is never retried. This measures local hash throughput only. It is not an
+estimate of production-pool accepted hashrate.
 
 Reconnect defaults to zero retries. `--retries` accepts 0–10. The first retry
 wait defaults to 100 ms and doubles on each retry up to 2,000 ms. If configured,

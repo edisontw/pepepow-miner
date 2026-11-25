@@ -1,6 +1,6 @@
 # PEPEPOW Miner — Current development status
 
-**Snapshot: 2026-11-25 (Asia/Taipei).** Current main is `9c6f34f51a9f70d45e454eacbf1fe3388e61cf27`. The public README remains the product-facing overview. This file records implementation and validation status.
+**Snapshot: 2026-11-25 (Asia/Taipei).** Live `main` is `7284aa22cafd79e3521291307eca8f5b9a575744`. The public README remains the product-facing overview. This file records implementation and validation status.
 
 ## Integrated implementation
 
@@ -11,6 +11,18 @@
 - [Issue #1](https://github.com/edisontw/pepepow-miner/issues/1) remains open as the G0 acceptance tracker.
 
 All socket integration tests use numeric IPv4 loopback endpoints and local mock servers. No production pool was contacted and no real share was submitted.
+
+## Current owner acceptance and open integration
+
+- Physical Windows 11 Pro technical acceptance of live `main` `7284aa22cafd79e3521291307eca8f5b9a575744` passed 84/84 steps. The Owner accepts Windows 10 by equivalence; no separate physical Windows 10 execution was performed. Do not repeat the completed Windows acceptance. This does not grant formal G0/G1 sign-off.
+- PR #27 remains open at `6e1364ecd5c531182611098406989a6a1e2605bf`; PR #28 remains open at `c3c1929aa43ff3d38ad5fb2a0488179ac7a7b5d3`. PR #28's exact-head Windows Server 2022 Debug/Release run [45622757766](https://github.com/edisontw/pepepow-miner/actions/runs/45622757766) passed. Earlier findings on its runner were fixed; manual review of the latest head found no new actionable issue.
+- PR #27 and #28 both modify the Windows workflow, but a synthetic merge retains both sets of changes. Their `docs/README.md` edits do conflict and must be reconciled during authorized integration. Neither PR has been merged; merge order and integration regression await Owner merge authorization.
+
+## Offline CPU benchmark development
+
+The local branch `codex/cpu-benchmark-offline-2026-11-25` is based on live `main` and is not pushed. It adds a standalone deterministic benchmark, supports 1–256 worker threads and `--threads all`, exposes benchmark mode through the offline miner CLI, and adds focused nonce-partition and benchmark CLI tests. The public [README](../README.md) remains unchanged.
+
+On the Windows 11 host, the new benchmark and focused worker tests passed CTest 2/2. A real 10-second offline measurement recorded 34,915.99546 H/s with one worker and 305,931.16 H/s with 12 workers; the complete environment and five-thread-count data are in the [CPU benchmark evidence](VALIDATION_EVIDENCE/G1/cpu-benchmark-windows11-2026-11-25.md). These focused tests are not the full reconnect/failover suite and this branch has no exact-head CI yet. The local full Stratum suite is pending because OpenSSL development headers/libraries are unavailable on this machine.
 
 ## Pinned sources and exact-head validation
 
@@ -38,4 +50,4 @@ Detailed fault coverage and exact-head links are in [G1 transport and reconnect 
 
 **G2–G5 — NOT ACCEPTED.** GUI work and distributable Windows/Linux packages are deferred. No binaries were released.
 
-The Owner decisions from 2026-11-25 defer physical Windows 10/11 acceptance as a blocker to offline development, defer formal G0/G1 sign-off, defer production pool/share testing, and defer Windows/Linux package release. The conservative license-resolution direction still requires a separate decision. The remaining relevant Owner work is license and notice decisions, platform-specific dependency/link evidence, physical Windows 10/11 acceptance when scheduled, and eventual formal sign-off. Keep Issue #1 open until its established closure conditions are met.
+The Owner decisions from 2026-11-25 record Windows 11 physical acceptance as PASS (84/84) and Windows 10 as PASS by Owner equivalence, defer formal G0/G1 sign-off, defer production pool/share testing, and defer Windows/Linux package release. The conservative license-resolution direction still requires a separate decision. The remaining relevant Owner work is license and notice decisions, platform-specific dependency/link evidence, exact-head CI and full offline integration tests, and eventual formal sign-off. Keep Issue #1 open until its established closure conditions are met.

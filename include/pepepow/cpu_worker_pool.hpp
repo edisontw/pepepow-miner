@@ -10,7 +10,7 @@
 #include <vector>
 
 namespace pepepow {
-inline constexpr unsigned max_cpu_workers = 8;
+inline constexpr unsigned max_cpu_workers = 256;
 
 struct NonceRange {
   std::uint32_t start;
