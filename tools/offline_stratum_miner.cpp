@@ -5,6 +5,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstdint>
+#include <csignal>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -21,8 +22,9 @@ using pepepow::socket_io::Deadline;
 using pepepow::socket_io::Readiness;
 using pepepow::socket_io::socket_ready;
 
-volatile std::sig_atomic_t stop_requested = 0;
-void request_stop(int) { stop_requested = 1; }
+std::atomic_bool stop_requested{false};
+static_assert(std::atomic_bool::is_always_lock_free);
+void request_stop(int) { stop_requested.store(true, std::memory_order_relaxed); }
 
 constexpr auto request_budget = std::chrono::seconds(2);
 
@@ -277,7 +279,7 @@ int run(const Options& options) {
           worker.join();
           if (stop_requested) break;
           if (Clock::now() >= search_deadline &&
-              (failed || search_status == SearchStatus::Timeout)) {
+              (failed || controller.session().jobs().can_submit(*job))) {
             event("timeout", "\"job_id\":\"" + job->id + "\"");
             exit_code = 4;
             failed = true;
@@ -286,8 +288,14 @@ int run(const Options& options) {
 
           // Drain complete frames already queued before registering a submit.
           // The controller still rechecks job generation at request creation.
-          while (!stop_requested && Clock::now() < search_deadline &&
-                 socket_ready(socket, 0) == Readiness::Ready) {
+          while (!stop_requested && Clock::now() < search_deadline) {
+            const auto ready = socket_ready(socket, 0);
+            if (ready == Readiness::Timeout) break;
+            if (ready == Readiness::Error) {
+              controller.disconnected();
+              failed = true;
+              break;
+            }
             OfflineStratumController::WorkEvents incoming;
             if (!receive_event(socket, controller, generation, incoming, search_deadline)) {
               failed = true;
@@ -296,7 +304,14 @@ int run(const Options& options) {
             if (incoming.applied != 0) event("work_received");
             if (!controller.session().jobs().can_submit(*job)) break;
           }
-          if (failed || stop_requested) break;
+          if (stop_requested) break;
+          if (Clock::now() >= search_deadline &&
+              (failed || controller.session().jobs().can_submit(*job))) {
+            event("timeout", "\"job_id\":\"" + job->id + "\"");
+            exit_code = 4;
+            failed = true;
+          }
+          if (failed) break;
 
           if (!controller.session().jobs().can_submit(*job)) {
             ++stale_candidates;

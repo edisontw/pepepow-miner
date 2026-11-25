@@ -1,8 +1,8 @@
 #pragma once
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
-#include <csignal>
 #include <cstddef>
 #include <limits>
 #include <string>
@@ -99,7 +99,7 @@ inline bool temporarily_unavailable() {
 }
 
 inline bool send_before(Socket s, std::string_view bytes, Deadline deadline,
-                        const volatile std::sig_atomic_t& stop) {
+                        const std::atomic_bool& stop) {
   if (bytes.empty() || bytes.size() > max_frame_bytes) return false;
   while (!bytes.empty() && !stop && Clock::now() < deadline) {
 #ifdef MSG_NOSIGNAL
@@ -122,7 +122,7 @@ inline bool send_before(Socket s, std::string_view bytes, Deadline deadline,
 // be reused after a failed read. Neither incoming bytes nor interrupted waits
 // can extend the absolute deadline.
 inline bool receive_line(Socket s, std::string& line, Deadline operation_deadline,
-                         const volatile std::sig_atomic_t* stop = nullptr,
+                         const std::atomic_bool* stop = nullptr,
                          Clock::duration budget = frame_budget) {
   line.clear();
   if (s == invalid_socket) return false;
