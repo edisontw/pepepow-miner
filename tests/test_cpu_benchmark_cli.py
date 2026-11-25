@@ -32,6 +32,12 @@ def main():
     if too_long.returncode != 2 or "1..1800" not in too_long.stderr:
         return fail("benchmark duration above the 30-minute resource cap was not rejected")
 
+    invalid_duration = subprocess.run(
+        [executable, "--seconds", "0"], capture_output=True, text=True, timeout=5
+    )
+    if invalid_duration.returncode != 2 or "1..1800" not in invalid_duration.stderr:
+        return fail("invalid benchmark duration did not report the accepted range")
+
     measured = subprocess.run(
         [executable, "--benchmark", "--threads", "all", "--seconds", "1"],
         capture_output=True,

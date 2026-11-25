@@ -101,7 +101,7 @@ std::optional<Options> parse_options(int argc, char** argv, bool& help, std::str
       }
       seconds_seen = true;
       if (!positive_decimal(value, options.seconds) || options.seconds > max_duration_seconds) {
-        error = "--seconds must be an integer in 1..600";
+        error = "--seconds must be an integer in 1..1800";
         return std::nullopt;
       }
     }
