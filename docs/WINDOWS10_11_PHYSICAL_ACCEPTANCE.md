@@ -30,7 +30,7 @@ $repo = (Get-Location).Path
 & "$repo\tools\windows\Invoke-Windows10-11NativeAcceptance.ps1" -RepositoryPath $repo
 ```
 
-To check PowerShell parsing and the pinned patch checksum without building anything, run:
+To check native stderr handling and the pinned patch checksum for both LF and CRLF without building anything, run:
 
 ```powershell
 & "$repo\tools\windows\Invoke-Windows10-11NativeAcceptance.ps1" -SelfTest

@@ -63,11 +63,14 @@ function Invoke-Logged {
     Write-Host "[$Name] $FilePath $argumentText"
 
     Push-Location $WorkingDirectory
+    $previousErrorActionPreference = $ErrorActionPreference
     try {
+        $ErrorActionPreference = 'Continue'
         & $FilePath @ArgumentList 2>&1 | Tee-Object -FilePath $logPath -Append | ForEach-Object { Write-Host $_ }
         $exitCode = $LASTEXITCODE
     }
     finally {
+        $ErrorActionPreference = $previousErrorActionPreference
         Pop-Location
     }
 
@@ -109,11 +112,14 @@ function Invoke-CapturedToFile {
     Write-Host "[$Name] capturing output to $OutputPath"
 
     Push-Location $WorkingDirectory
+    $previousErrorActionPreference = $ErrorActionPreference
     try {
+        $ErrorActionPreference = 'Continue'
         $captured = @(& $FilePath @ArgumentList 2>&1)
         $exitCode = $LASTEXITCODE
     }
     finally {
+        $ErrorActionPreference = $previousErrorActionPreference
         Pop-Location
     }
 
@@ -181,7 +187,27 @@ if ($SelfTest) {
             throw 'Canonical OpenLibm patch checksum self-test failed.'
         }
     }
-    Write-Host 'PASS: canonical patch checksum is stable for LF and CRLF inputs.'
+    $previousRunDirectory = $script:RunDirectory
+    $script:RunDirectory = Join-Path $env:TEMP ('pepepow-powershell-self-test-' + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $script:RunDirectory | Out-Null
+    $cmd = Join-Path $env:SystemRoot 'System32\cmd.exe'
+    try {
+        Invoke-Logged -Name 'native-stderr-exit-code' -FilePath $cmd -ArgumentList @('/c', 'echo native-stderr-diagnostic 1>&2') -WorkingDirectory $script:RunDirectory -LogName 'native-stderr'
+        $stderrLog = Get-Content -Path (Join-Path $script:RunDirectory 'logs\native-stderr.log') -Raw
+        if ($stderrLog -notmatch 'native-stderr-diagnostic') {
+            throw 'Native stderr was not captured by Invoke-Logged.'
+        }
+        $capturedOutput = Join-Path $script:RunDirectory 'captured-stderr.txt'
+        Invoke-CapturedToFile -Name 'captured-native-stderr-exit-code' -FilePath $cmd -ArgumentList @('/c', 'echo captured-native-stderr-diagnostic 1>&2') -WorkingDirectory $script:RunDirectory -OutputPath $capturedOutput -LogName 'captured-native-stderr'
+        if ((Get-Content -Path $capturedOutput -Raw) -notmatch 'captured-native-stderr-diagnostic') {
+            throw 'Native stderr was not captured by Invoke-CapturedToFile.'
+        }
+    }
+    finally {
+        Remove-Item -Path $script:RunDirectory -Recurse -Force -ErrorAction SilentlyContinue
+        $script:RunDirectory = $previousRunDirectory
+    }
+    Write-Host 'PASS: canonical LF/CRLF patch checksum and Windows native-stderr capture.'
     return
 }
 

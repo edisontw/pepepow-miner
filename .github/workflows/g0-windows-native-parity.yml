@@ -98,7 +98,7 @@ jobs:
           path: openlibm
           persist-credentials: false
       - name: Parse local physical-acceptance PowerShell runner
-        shell: pwsh
+        shell: powershell
         run: |
           $tokens = $null
           $errors = $null
