@@ -6,6 +6,7 @@ on:
       - '.github/workflows/g0-core-reference-build.yml'
       - 'CMakeLists.txt'
       - 'include/pepepow/bounded_cpu_search.hpp'
+      - 'include/pepepow/cpu_worker_pool.hpp'
       - 'include/pepepow/offline_stratum_search.hpp'
       - 'include/pepepow/offline_stratum_controller.hpp'
       - 'include/pepepow/stratum_socket_io.hpp'
