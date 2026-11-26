@@ -7,6 +7,8 @@ import os
 import subprocess
 import sys
 
+from cuda_device_policy import should_skip_device_execution
+
 
 EXIT_BY_ERROR = {
     "no_device": 2,
@@ -162,12 +164,19 @@ def main():
         print(f"MOCK: {error_code} JSON and exit {exit_code} PASS")
 
     live = run(arguments.probe, "LIVE CUDA Runtime API probe")
-    if os.environ.get("PEPEPOW_CUDA_REQUIRE_DEVICE") == "1":
-        require(live["status"] == "ok", "GPU-host mode requires a real CUDA device")
     if live["status"] == "ok":
         print(f"LIVE: {len(live['devices'])} CUDA device(s) reported")
     else:
-        print(f"LIVE: {live['error']['code']} reported by the installed runtime/driver")
+        error_code = live["error"]["code"]
+        allow_skip = os.environ.get("PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP") == "1"
+        require_device = os.environ.get("PEPEPOW_CUDA_REQUIRE_DEVICE") == "1"
+        require(should_skip_device_execution(
+            error_code,
+            allow_no_device_skip=allow_skip,
+            require_device=require_device,
+        ), f"live CUDA probe failed with {error_code}; only explicitly enabled "
+           "no-device CI may skip recognized device-unavailability errors")
+        print(f"NO GPU: skipped live device enumeration ({error_code})")
     print("CUDA device probe JSON contract PASS")
     return 0
 

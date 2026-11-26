@@ -6,12 +6,16 @@ on:
       - ".github/workflows/cuda-device-probe-contract.yml"
       - "tools/gpu/**"
       - "tests/test_cuda_device_probe.py"
+      - "tests/cuda_device_policy.py"
+      - "tests/test_cuda_device_execution_policy.py"
   push:
     branches: [main]
     paths:
       - ".github/workflows/cuda-device-probe-contract.yml"
       - "tools/gpu/**"
       - "tests/test_cuda_device_probe.py"
+      - "tests/cuda_device_policy.py"
+      - "tests/test_cuda_device_execution_policy.py"
   workflow_dispatch:
 
 concurrency:
@@ -44,4 +48,6 @@ jobs:
         run: cmake --build build/cuda-device-probe --parallel 2
 
       - name: Check JSON fixtures and no-GPU runtime response
+        env:
+          PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP: "1"
         run: ctest --test-dir build/cuda-device-probe --output-on-failure

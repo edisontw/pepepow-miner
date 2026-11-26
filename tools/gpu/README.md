@@ -58,10 +58,12 @@ ctest --test-dir build/cuda-device-probe -C Release --output-on-failure
 & .\build\cuda-device-probe\Release\pepepow-cuda-device-probe.exe
 ```
 
-To make the contract test require a real CUDA device, set
-`PEPEPOW_CUDA_REQUIRE_DEVICE=1` before running CTest. The regular contract test
-also runs on hosts without a CUDA device and checks both deterministic mock
-errors and the actual Runtime API response.
+Set `PEPEPOW_CUDA_REQUIRE_DEVICE=1` before CTest on physical-GPU acceptance
+hosts. A no-GPU CI job must explicitly set
+`PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1`; only `no_device`, `driver_unavailable`,
+and `initialization_failed` may then skip live enumeration. Generic CUDA/runtime
+errors always fail the contract. The independent skip-policy test covers both
+the accepted and rejected cases.
 
 ## Build and run on Linux or WSL
 
@@ -80,8 +82,10 @@ build/cuda-device-probe/pepepow-cuda-device-probe
 ```
 
 For a real-device contract run, set `PEPEPOW_CUDA_REQUIRE_DEVICE=1` in the
-environment before CTest. The deterministic error-fixture executable is
-test-only and is never named or reported as a live GPU result.
+environment before CTest. Set `PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1` only when
+the test job is intentionally running without a GPU. The deterministic
+error-fixture executable is test-only and is never named or reported as a live
+GPU result.
 
 ## NVIDIA references
 

@@ -65,4 +65,9 @@ if(BUILD_TESTING)
             --probe "$<TARGET_FILE:pepepow-cuda-device-probe>"
             --fixtures "$<TARGET_FILE:cuda-device-probe-error-fixtures>")
   set_tests_properties(cuda_device_probe_json_contract PROPERTIES TIMEOUT 15)
+
+  add_test(NAME cuda_device_execution_skip_policy
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../tests/test_cuda_device_execution_policy.py")
+  set_tests_properties(cuda_device_execution_skip_policy PROPERTIES TIMEOUT 5)
 endif()
