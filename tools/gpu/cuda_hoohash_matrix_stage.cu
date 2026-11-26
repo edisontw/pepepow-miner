@@ -251,6 +251,7 @@ bool writeTranscript(const std::string &path, const std::vector<std::uint8_t> &s
       writeLittleEndian64(output, observation.matrix_bits);
     }
   }
+  output.close();
   return output.good();
 }
 
