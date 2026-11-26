@@ -20,8 +20,12 @@ find_package(CUDAToolkit 13.3 REQUIRED)
 
 option(PEPEPOW_CUDA_CORRECTNESS_TESTS
   "Build the CUDA batch contract and pinned-Core CPU recheck tests" OFF)
+option(PEPEPOW_CUDA_HOOHASH_STAGE_TESTS
+  "Build the first HooHash CUDA stage and pinned-Core BLAKE3 oracle" OFF)
 set(PEPEPOW_CPU_ORACLE "" CACHE FILEPATH
   "Path to pepepow-kat built against the pinned PEPEPOW Core/OpenLibm reference")
+set(PEPEPOW_CORE_SOURCE_DIR "" CACHE PATH
+  "Path to the exact pinned PEPEPOW Core source for stage-level BLAKE3 tests")
 set(PEPEPOW_CUDA_TEST_ARCHITECTURE "75" CACHE STRING
   "CUDA architecture used by the short nonce-coverage test kernel")
 if(BUILD_TESTING)
@@ -89,6 +93,50 @@ if(PEPEPOW_CUDA_CORRECTNESS_TESTS)
             --oracle "${PEPEPOW_CPU_ORACLE}"
             --coverage-probe "$<TARGET_FILE:pepepow-cuda-batch-coverage>")
   set_tests_properties(cuda_correctness_cpu_oracle_and_batch_contract
+    PROPERTIES TIMEOUT 30)
+endif()
+
+if(PEPEPOW_CUDA_HOOHASH_STAGE_TESTS)
+  if(NOT BUILD_TESTING)
+    message(FATAL_ERROR "PEPEPOW_CUDA_HOOHASH_STAGE_TESTS requires BUILD_TESTING=ON")
+  endif()
+  if(NOT CMAKE_C_COMPILER_LOADED)
+    enable_language(C)
+  endif()
+  if(NOT PEPEPOW_CORE_SOURCE_DIR OR
+     NOT EXISTS "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3.c" OR
+     NOT EXISTS "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_dispatch.c" OR
+     NOT EXISTS "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_portable.c")
+    message(FATAL_ERROR
+      "Set PEPEPOW_CORE_SOURCE_DIR to pinned PEPEPOW Core source containing BLAKE3")
+  endif()
+
+  add_library(pepepow-core-blake3-reference STATIC
+    "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3.c"
+    "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_dispatch.c"
+    "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_portable.c")
+  target_include_directories(pepepow-core-blake3-reference PUBLIC
+    "${PEPEPOW_CORE_SOURCE_DIR}/src")
+  set_target_properties(pepepow-core-blake3-reference PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON)
+
+  add_executable(pepepow-hoohash-blake3-cpu-oracle blake3_cpu_oracle.c)
+  target_link_libraries(pepepow-hoohash-blake3-cpu-oracle PRIVATE
+    pepepow-core-blake3-reference)
+
+  add_executable(pepepow-cuda-hoohash-blake3-stage
+    cuda_hoohash_blake3_stage.cu)
+  configure_cuda_probe_target(pepepow-cuda-hoohash-blake3-stage)
+  set_target_properties(pepepow-cuda-hoohash-blake3-stage PROPERTIES
+    CUDA_ARCHITECTURES "${PEPEPOW_CUDA_TEST_ARCHITECTURE}")
+
+  add_test(NAME hoohash_blake3_stage_full_digest_parity
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../tests/test_cuda_blake3_stage.py"
+            --oracle "$<TARGET_FILE:pepepow-hoohash-blake3-cpu-oracle>"
+            --device-stage "$<TARGET_FILE:pepepow-cuda-hoohash-blake3-stage>")
+  set_tests_properties(hoohash_blake3_stage_full_digest_parity
     PROPERTIES TIMEOUT 30)
 endif()
 

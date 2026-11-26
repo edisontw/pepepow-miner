@@ -128,6 +128,36 @@ later hash backend to supply full digests.
 Native RTX 3060 results are recorded in [CUDA correctness harness evidence](../../docs/validation/cuda-correctness-harness-windows-rtx3060-2026-11-26.md)
 and [device-probe evidence](../../docs/validation/cuda-device-probe-windows-rtx3060-2026-11-26.md).
 
+## First HooHash V110 CUDA stage
+
+The first hash-stage executable computes only BLAKE3 over an 80-byte header.
+`--mode header` returns the nonce-dependent first pass. `--mode matrix-seed`
+zeros bytes 76–79 before hashing, matching the nonce-independent seed input in
+the pinned Core implementation. Both modes return the full 32-byte BLAKE3
+digest. The CUDA result is compared byte-for-byte with BLAKE3 compiled from the
+pinned PEPEPOW Core source; nonce 6 and `UINT32_MAX` vectors cover the boundary.
+
+This stage does not generate the HooHash matrix, perform its FP64 transforms,
+or produce a HooHash V110 digest. It has no mining, pool, or benchmarking path.
+
+Build and run the stage contract with CUDA Toolkit 13.3.x and a pinned Core
+checkout:
+
+```powershell
+cmake -S tools/gpu -B build/cuda-blake3-stage `
+  -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON `
+  -DPEPEPOW_CORE_SOURCE_DIR=D:/Dev/pepepow-deps/PePe-core `
+  -DCUDAToolkit_ROOT="$env:CUDA_PATH"
+cmake --build build/cuda-blake3-stage --config Release
+$env:PEPEPOW_CUDA_REQUIRE_DEVICE = "1"
+ctest --test-dir build/cuda-blake3-stage -C Release --output-on-failure
+```
+
+The selected CUDA Toolkit must provide compiler support files. NVIDIA's CUDA
+13.3.1 guide lists MSVC 193x for Visual Studio 2022; local MSVC 19.44 results
+remain local build evidence and are outside that published range. The
+standalone GPU project does not change the default CPU build.
+
 ## NVIDIA references
 
 - [CUDA Runtime API: device properties](https://docs.nvidia.com/cuda/cuda-runtime-api/structcudaDeviceProp.html)
