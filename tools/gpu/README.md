@@ -238,6 +238,62 @@ Passing this stage establishes exact matrix-generation parity for the tested
 seeds only. FP64 nonlinear transforms, full HooHash V110 digest parity, GPU
 candidate CPU recheck, and G4 acceptance remain incomplete.
 
+## FP64 transform diagnostic stage
+
+The opt-in transform diagnostic invokes the unmodified pinned Core functions
+through a test-only C wrapper and links that CPU oracle to the pinned OpenLibm
+static library. A bounded CUDA kernel evaluates the same inputs with CUDA
+device math. It records binary64 inputs and outputs for
+MediumComplexNonLinear, IntermediateComplexNonLinear,
+HighComplexNonLinear, ComplexNonLinear, SafeComplexTransform, and
+TransformFactor, along with both transform factors and the selected branch.
+
+The deterministic input corpus includes Core-generated matrix values used
+with seven nonce/header cases, the singularity and branch boundaries,
+finite extremes, signed zero, subnormals, and NaN/Infinity cases. Non-finite
+values are not passed to SafeComplexTransform; the pinned Core loop has no
+NaN/Infinity escape. Inputs are capped at 32,768 records, the kernel uses one
+bounded launch, and CTest has a 180-second timeout.
+
+The report preserves the Core and CUDA binary64 bit patterns for every
+mismatch and records absolute error, relative error, ULP difference, branch
+selection, and NaN/Infinity classification. Full binary transcripts and the
+input catalog are saved beside the report. The test does not accept numerical
+mismatches using an epsilon: it reports them as diagnostics, and bitwise
+transform parity remains false until every compared output matches. A
+no-GPU CI job may skip only recognized no-device, driver, or initialization
+errors after setting PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1; runtime and kernel
+failures remain failures. Physical acceptance sets
+PEPEPOW_CUDA_REQUIRE_DEVICE=1.
+
+The CUDA target compiles with --fmad=false, --ftz=false, --prec-div=true, and
+--prec-sqrt=true; fast math is not enabled. The CI workflow inspects the
+generated build commands to verify these flags. This is a diagnostic stage,
+not a production hash path. It does not claim full digest parity, GPU mining
+readiness, G4 acceptance, or permission to publish a GPU miner.
+
+Configure the pinned sources and OpenLibm build explicitly:
+
+```powershell
+cmake -S tools/gpu -B build/cuda-hoohash-transform `
+  -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON `
+  -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS=ON `
+  -DPEPEPOW_CORE_SOURCE_DIR=D:/Dev/pepepow-deps/PePe-core `
+  -DPEPEPOW_OPENLIBM_SOURCE_DIR=D:/Dev/pepepow-deps/openlibm `
+  -DPEPEPOW_OPENLIBM_LIBRARY=D:/path/to/libopenlibm.a `
+  -DPEPEPOW_TRANSFORM_ORACLE_COMPILER=D:/Dev/msys64/ucrt64/bin/gcc.exe `
+  -DPEPEPOW_CUDA_TEST_ARCHITECTURE=86
+cmake --build build/cuda-hoohash-transform --config Release
+$env:PEPEPOW_CUDA_REQUIRE_DEVICE = "1"
+ctest --test-dir build/cuda-hoohash-transform -C Release --output-on-failure
+```
+
+See the [Windows RTX 3060 transform diagnostic evidence](../../docs/validation/cuda-hoohash-v110-fp64-transform-windows-rtx3060-2026-11-27.md)
+for the measured OpenLibm/libdevice differences. Any mismatch blocks the
+subsequent full-digest GPU correctness stage.
+
 Build and run the stage contract with CUDA Toolkit 13.3.x and a pinned Core
 checkout:
 

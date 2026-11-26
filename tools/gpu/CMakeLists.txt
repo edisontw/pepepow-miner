@@ -26,10 +26,18 @@ option(PEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS
   "Build the pinned-Core HooHash PRNG and matrix intermediate oracle" OFF)
 option(PEPEPOW_CUDA_MATRIX_STAGE_TESTS
   "Build and compare the CUDA HooHash matrix-generation stage" OFF)
+option(PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS
+  "Build bounded Core/OpenLibm versus CUDA FP64 transform diagnostics" OFF)
 set(PEPEPOW_CPU_ORACLE "" CACHE FILEPATH
   "Path to pepepow-kat built against the pinned PEPEPOW Core/OpenLibm reference")
 set(PEPEPOW_CORE_SOURCE_DIR "" CACHE PATH
   "Path to the exact pinned PEPEPOW Core source for stage-level BLAKE3 tests")
+set(PEPEPOW_OPENLIBM_SOURCE_DIR "" CACHE PATH
+  "Path to the clean, pinned OpenLibm source checkout used by the transform oracle")
+set(PEPEPOW_OPENLIBM_LIBRARY "" CACHE FILEPATH
+  "Path to the static library built from the pinned OpenLibm source")
+set(PEPEPOW_TRANSFORM_ORACLE_COMPILER "" CACHE FILEPATH
+  "GCC/Clang executable used to build a CPU oracle linked to pinned OpenLibm")
 set(PEPEPOW_CORE_EXPECTED_SHA "bc08108ceccd957c79040dc7fedc1d56d8d47f97" CACHE STRING
   "Required pinned PEPEPOW Core source commit for CUDA stage tests")
 set(PEPEPOW_CUDA_TEST_ARCHITECTURE "75" CACHE STRING
@@ -233,6 +241,128 @@ if(PEPEPOW_CUDA_MATRIX_STAGE_TESTS)
             --device-stage "$<TARGET_FILE:pepepow-cuda-hoohash-matrix-stage>")
   set_tests_properties(hoohash_cuda_matrix_full_intermediate_parity
     PROPERTIES TIMEOUT 90)
+endif()
+
+if(PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS)
+  if(NOT BUILD_TESTING OR NOT PEPEPOW_CUDA_HOOHASH_STAGE_TESTS OR
+     NOT PEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS OR
+     NOT PEPEPOW_CUDA_MATRIX_STAGE_TESTS)
+    message(FATAL_ERROR
+      "PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS requires the pinned-Core BLAKE3, matrix oracle, and CUDA matrix stages")
+  endif()
+  if(NOT PEPEPOW_OPENLIBM_SOURCE_DIR OR
+     NOT EXISTS "${PEPEPOW_OPENLIBM_SOURCE_DIR}/include/openlibm_math.h")
+    message(FATAL_ERROR
+      "Set PEPEPOW_OPENLIBM_SOURCE_DIR to the pinned OpenLibm source checkout")
+  endif()
+  if(NOT PEPEPOW_OPENLIBM_LIBRARY OR
+     NOT EXISTS "${PEPEPOW_OPENLIBM_LIBRARY}")
+    message(FATAL_ERROR
+      "Set PEPEPOW_OPENLIBM_LIBRARY to the static library built from pinned OpenLibm")
+  endif()
+
+  set(_pepepow_openlibm_pinned_sha "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d")
+  find_package(Git REQUIRED)
+  execute_process(
+    COMMAND "${GIT_EXECUTABLE}" -C "${PEPEPOW_OPENLIBM_SOURCE_DIR}" rev-parse --verify HEAD
+    RESULT_VARIABLE _pepepow_openlibm_git_result
+    OUTPUT_VARIABLE _pepepow_openlibm_actual_sha
+    ERROR_VARIABLE _pepepow_openlibm_git_error
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(NOT _pepepow_openlibm_git_result EQUAL 0 OR
+     NOT _pepepow_openlibm_actual_sha STREQUAL _pepepow_openlibm_pinned_sha)
+    message(FATAL_ERROR
+      "Transform diagnostics require pinned OpenLibm ${_pepepow_openlibm_pinned_sha}; got '${_pepepow_openlibm_actual_sha}' (${_pepepow_openlibm_git_error})")
+  endif()
+  execute_process(
+    COMMAND "${GIT_EXECUTABLE}" -C "${PEPEPOW_OPENLIBM_SOURCE_DIR}" status --porcelain --untracked-files=all
+    RESULT_VARIABLE _pepepow_openlibm_status_result
+    OUTPUT_VARIABLE _pepepow_openlibm_dirty
+    ERROR_VARIABLE _pepepow_openlibm_status_error
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(NOT _pepepow_openlibm_status_result EQUAL 0 OR
+     NOT _pepepow_openlibm_dirty STREQUAL "")
+    message(FATAL_ERROR
+      "Transform diagnostics require a clean pinned OpenLibm checkout (${_pepepow_openlibm_status_error}): ${_pepepow_openlibm_dirty}")
+  endif()
+
+  set(_pepepow_transform_oracle_compiler
+    "${PEPEPOW_TRANSFORM_ORACLE_COMPILER}")
+  if(NOT _pepepow_transform_oracle_compiler)
+    find_program(_pepepow_transform_oracle_compiler NAMES gcc clang)
+  endif()
+  if(NOT _pepepow_transform_oracle_compiler)
+    message(FATAL_ERROR
+      "Set PEPEPOW_TRANSFORM_ORACLE_COMPILER to GCC or Clang; the pinned OpenLibm oracle must not resolve through the host CRT")
+  endif()
+  get_filename_component(_pepepow_transform_compiler_dir
+    "${_pepepow_transform_oracle_compiler}" DIRECTORY)
+
+  file(TO_CMAKE_PATH
+    "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/hoohash/hoohash.c"
+    _pepepow_core_hoohash_source)
+  set(_pepepow_transform_oracle
+    "${CMAKE_CURRENT_BINARY_DIR}/pepepow-hoohash-transform-core-oracle${CMAKE_EXECUTABLE_SUFFIX}")
+  add_custom_target(pepepow-hoohash-transform-core-oracle-build ALL
+    COMMAND "${CMAKE_COMMAND}" -E env
+      "PATH=${_pepepow_transform_compiler_dir}"
+      "${_pepepow_transform_oracle_compiler}"
+      -std=c11 -O2 -fno-fast-math -ffp-contract=off -frounding-math
+      -fno-builtin -DHAVE_OPENLIBM=1
+      "-DPEPEPOW_CORE_HOOHASH_C_PATH=\"${_pepepow_core_hoohash_source}\""
+      "-I${PEPEPOW_CORE_SOURCE_DIR}/src"
+      "-I${PEPEPOW_OPENLIBM_SOURCE_DIR}/include"
+      "${CMAKE_CURRENT_SOURCE_DIR}/hoohash_transform_core_oracle.c"
+      "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3.c"
+      "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_dispatch.c"
+      "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_portable.c"
+      "${PEPEPOW_OPENLIBM_LIBRARY}"
+      -lm -o "${_pepepow_transform_oracle}"
+    BYPRODUCTS "${_pepepow_transform_oracle}"
+    DEPENDS
+      hoohash_transform_core_oracle.c
+      "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/hoohash/hoohash.c"
+      "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3.c"
+      "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_dispatch.c"
+      "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_portable.c"
+      "${PEPEPOW_OPENLIBM_LIBRARY}"
+    VERBATIM)
+  add_dependencies(pepepow-hoohash-transform-core-oracle-build
+    pepepow-hoohash-blake3-cpu-oracle
+    pepepow-hoohash-matrix-core-oracle)
+
+  add_executable(pepepow-hoohash-transform-core-oracle IMPORTED GLOBAL)
+  set_target_properties(pepepow-hoohash-transform-core-oracle PROPERTIES
+    IMPORTED_LOCATION "${_pepepow_transform_oracle}")
+
+  add_executable(pepepow-cuda-hoohash-transform-stage
+    cuda_hoohash_transform_stage.cu)
+  configure_cuda_probe_target(pepepow-cuda-hoohash-transform-stage)
+  target_compile_options(pepepow-cuda-hoohash-transform-stage PRIVATE
+    "$<$<COMPILE_LANGUAGE:CUDA>:--fmad=false>"
+    "$<$<COMPILE_LANGUAGE:CUDA>:--ftz=false>"
+    "$<$<COMPILE_LANGUAGE:CUDA>:--prec-div=true>"
+    "$<$<COMPILE_LANGUAGE:CUDA>:--prec-sqrt=true>")
+  set_target_properties(pepepow-cuda-hoohash-transform-stage PROPERTIES
+    CUDA_ARCHITECTURES "${PEPEPOW_CUDA_TEST_ARCHITECTURE}")
+
+  add_test(NAME hoohash_cuda_fp64_transform_diagnostics
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../tests/test_cuda_hoohash_transforms.py"
+            --core-oracle "$<TARGET_FILE:pepepow-hoohash-transform-core-oracle>"
+            --matrix-oracle "$<TARGET_FILE:pepepow-hoohash-matrix-core-oracle>"
+            --blake3-oracle "$<TARGET_FILE:pepepow-hoohash-blake3-cpu-oracle>"
+            --device-stage "$<TARGET_FILE:pepepow-cuda-hoohash-transform-stage>"
+            --architecture "${PEPEPOW_CUDA_TEST_ARCHITECTURE}"
+            --oracle-compiler "${_pepepow_transform_oracle_compiler}"
+            --openlibm-library "${PEPEPOW_OPENLIBM_LIBRARY}"
+            --report "${CMAKE_CURRENT_BINARY_DIR}/cuda-transform-diagnostic-report.json"
+            --evidence-dir "${CMAKE_CURRENT_BINARY_DIR}/cuda-transform-evidence")
+  set_tests_properties(hoohash_cuda_fp64_transform_diagnostics
+    PROPERTIES
+      TIMEOUT 180
+      ENVIRONMENT_MODIFICATION
+        "PATH=path_list_prepend:${_pepepow_transform_compiler_dir};PATH=path_list_prepend:${CUDAToolkit_BIN_DIR}")
 endif()
 
 if(BUILD_TESTING)
