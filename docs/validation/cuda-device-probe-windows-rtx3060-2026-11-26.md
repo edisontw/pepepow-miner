@@ -34,6 +34,13 @@ build root reports release `13.3.1`; NVCC itself reports `13.3.73`.
 
 ## Build and test
 
+The GitHub Actions CUDA container uses the NVIDIA Docker Hub image index
+`nvidia/cuda:13.3.1-cudnn-devel-ubuntu24.04@sha256:4d1953dba131182cfd732ced5c1025c770e6e298952e001aff5cadbc082069fc`.
+The index resolves Linux amd64 to manifest
+`sha256:231c92598f64800c97dd935926e50286951d1adb70b854bfc3d74262cf03caa2`.
+The workflow has a 20-minute job timeout and cancels superseded pull-request
+runs while leaving manually dispatched runs uncancelled.
+
 The standalone Visual Studio 2022 x64 project was configured in separate
 build directories for `Release` and `Debug`, then built with the installed MSVC
 compiler and the Toolkit root above. The project propagates the
@@ -49,10 +56,10 @@ cmake -S tools/gpu -B $build -G "Visual Studio 17 2022" -A x64 `
   "-DCUDAToolkit_ROOT=$cudaRoot" `
   "-DCMAKE_CUDA_COMPILER=$cudaRoot\bin\nvcc.exe"
 cmake --build $build --config Release
+$env:PEPEPOW_CUDA_REQUIRE_DEVICE = '1'
 ctest --test-dir $build -C Release --output-on-failure
 cmake --build $build --config Debug
 ctest --test-dir $build -C Debug --output-on-failure
-$env:PEPEPOW_CUDA_REQUIRE_DEVICE = '1'
 & "$build\Release\pepepow-cuda-device-probe.exe"
 & "$build\Debug\pepepow-cuda-device-probe.exe"
 ```
@@ -60,14 +67,20 @@ $env:PEPEPOW_CUDA_REQUIRE_DEVICE = '1'
 Results on this native Windows GPU host:
 
 - Release build: passed.
-- Release CTest: 1/1 passed; mock error cases and invalid-argument JSON passed,
-  then the live Runtime API returned a device.
+- Release CTest: 2/2 passed; mock error cases, invalid-argument JSON, explicit
+  physical-device requirement, and device-skip policy passed.
 - Debug build: passed.
-- Debug CTest: 1/1 passed with the same mock/live separation.
+- Debug CTest: 2/2 passed with the same required live-device and skip-policy
+  checks.
 - Both direct probe invocations returned exit code 0 and schema version 1.
 - `nvidia-smi` before and after the probes reported RTX 3060, driver 610.88,
   compute capability 8.6, 12,288 MiB. The probe launches no kernel and performs
   no mining or sustained GPU load.
+
+The no-GPU CI job explicitly sets `PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1`. That
+setting permits only `no_device`, `driver_unavailable`, or
+`initialization_failed` to skip live enumeration. Generic query/runtime errors
+and every error under `PEPEPOW_CUDA_REQUIRE_DEVICE=1` fail the test.
 
 The Debug and Release JSON outputs were byte-for-byte identical on this host:
 

@@ -69,7 +69,7 @@ bool workers_match() {
     hoohashv110(header.data(), header.size(), expected[i].data());
   }
   const int rounding = std::fegetround();
-  for (const unsigned workers : {1u, 2u, 4u, 8u}) {
+  for (const unsigned workers : {1u, 2u, 4u, 8u, 12u}) {
     std::atomic_bool mismatch = false;
     std::barrier start_line(static_cast<std::ptrdiff_t>(workers));
     std::vector<std::jthread> threads;

@@ -1,0 +1,31 @@
+{
+  "started_utc": "2026-11-25T15:59:26.1968747Z",
+  "finished_utc": "2026-11-25T15:59:28.4497245Z",
+  "requested_threads": 256,
+  "max_process_threads": 260,
+  "max_handles": 851,
+  "process_exited": true,
+  "result": {
+    "status": "ok",
+    "mode": "offline",
+    "os": "Windows",
+    "compiler": "GCC 16.2.0",
+    "threads": 256,
+    "logical_cpus": 12,
+    "requested_seconds": 2,
+    "elapsed_seconds": 2.0014164,
+    "hashes": 673783,
+    "hashrate_hps": 336653.0823,
+    "process_cpu_seconds": 22.3125,
+    "cpu_utilization_pct_of_logical_capacity": 92.90295613,
+    "memory_current_bytes": 20111360,
+    "memory_peak_bytes": 20111360,
+    "startup_ms": 12.6501,
+    "stop_reason": "duration",
+    "stop_latency_ms": 1.4164,
+    "nonce_batches_complete": 67,
+    "final_batch_hashes": 3783,
+    "nonce_batches_disjoint": true,
+    "header_hex": "0b30557a9fc4e90e33587da2c7ec11365b80a5caef14395e83a8cdf2173c6186abd0f51a3f6489aed3f81d42678cb1d6fb20456a8fb4d9fe23486d92b7dc01264b7095badf04294e7398bde2072c5176"
+  }
+}

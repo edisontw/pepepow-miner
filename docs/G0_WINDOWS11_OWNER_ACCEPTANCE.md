@@ -2,7 +2,7 @@
 
 This procedure is for the Owner's native Windows 11 x64 machine at `D:\Dev\pepepow-miner`. It is separate from Windows Server 2022 GitHub Actions evidence. Record the current provenance/legal review status separately; this test does not resolve it. No pool connection or share submission is used.
 
-A native Windows 11 Debug/Release technical run was completed on 2026-11-24 against the PR #22 base. Results and checksums are recorded in [the Windows 11 native evidence report](VALIDATION_EVIDENCE/G0/windows11-native-g0-g1-2026-11-24.md). This report does not record formal G0 acceptance or Owner sign-off.
+A native Windows 11 Debug/Release technical run was completed on 2026-11-24 against the PR #22 base. Results and checksums are recorded in [the Windows 11 native evidence report](VALIDATION_EVIDENCE/G0/windows11-native-g0-g1-2026-11-24.md). The Owner's separate 2026-11-25 physical acceptance of `main` `7284aa22cafd79e3521291307eca8f5b9a575744` passed 84/84 steps; the Owner accepted Windows 10 by equivalence, with no separate physical Windows 10 execution. The 2026-11-25 result is recorded in [PR #28](https://github.com/edisontw/pepepow-miner/pull/28), with the full local report retained in the Owner's evidence folder. Do not rerun the completed Windows acceptance. Neither result completes formal G0/G1 sign-off or the license/provenance review.
 
 Prerequisites: Git for Windows, Python 3.12 x64, CMake, Ninja, and MSYS2 UCRT64 with `gcc`, `g++`, `ar`, `nm`, and `objdump`. No wallet credentials, pool endpoint, or live share is used.
 

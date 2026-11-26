@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "configurations": [
+    {
+      "configuration": "debug",
+      "status": "PASS",
+      "cancel_latency_ms_min": 1.08,
+      "cancel_latency_ms_median": 1.57,
+      "cancel_latency_ms_max": 1.85
+    },
+    {
+      "configuration": "release",
+      "status": "PASS",
+      "cancel_latency_ms_min": 1.04,
+      "cancel_latency_ms_median": 1.4,
+      "cancel_latency_ms_max": 1.46
+    }
+  ],
+  "stale_switches": 33,
+  "worker_pool_size": 8
+}
