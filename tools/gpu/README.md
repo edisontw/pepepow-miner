@@ -81,6 +81,51 @@ For a real-device contract run, set `PEPEPOW_CUDA_REQUIRE_DEVICE=1` in the
 environment before CTest. The deterministic error-fixture executable is
 test-only and is never named or reported as a live GPU result.
 
+## CPU-oracle correctness harness (contract stage)
+
+The opt-in correctness harness is a framework stage, not a HooHash CUDA
+implementation. Its small CUDA kernel writes one nonce per work item so the
+test can verify batch coverage on a real device. The Python contract tests use
+the pinned Core `pepepow-kat` executable as the CPU oracle, check a fixed
+80-byte/full-32-byte vector and a `UINT32_MAX` vector, validate nonce byte
+order, reject duplicate or missing coverage, check target equality boundaries,
+and CPU-recheck every fixture candidate using all 32 digest bytes. The
+last-byte mutation is required to fail.
+
+The JSON response contract uses an 80-byte `header_hex`, little-endian nonce
+bytes at offsets 76–79, a uint32 `nonce_start`, and a bounded `nonce_count`.
+The coverage-only GPU executable reports each nonce it executed and an empty
+candidate list; it does not calculate HooHash. Candidate fixtures are marked
+`MOCK` in test output. Only the `LIVE CUDA DEVICE` records describe real GPU
+coverage. CI runs without a GPU, still builds the CUDA code, executes the
+pinned CPU oracle and mocked negative cases, then accepts a recognized
+no-device Runtime API result. Set `PEPEPOW_CUDA_REQUIRE_DEVICE=1` on a GPU host
+to require live batch coverage.
+
+First build the same pinned Core/OpenLibm oracle used by this repository's
+G0 validation instructions. Then enable this extra test target explicitly:
+
+```sh
+cmake -S tools/gpu -B build/cuda-correctness \
+  -DPEPEPOW_CUDA_CORRECTNESS_TESTS=ON \
+  -DPEPEPOW_CPU_ORACLE=/absolute/path/to/pepepow-kat
+cmake --build build/cuda-correctness --parallel
+ctest --test-dir build/cuda-correctness --output-on-failure
+```
+
+`PEPEPOW_CPU_ORACLE` must be built from the pinned PEPEPOW Core reference and
+OpenLibm; the CI workflow checks both source SHAs and builds that executable
+before configuring the CUDA harness. `PEPEPOW_CUDA_TEST_ARCHITECTURE` defaults
+to 75 for the short coverage kernel and can be set to another architecture
+supported by the installed Toolkit.
+
+This stage does not compare a CUDA HooHash digest with Core and does not claim
+GPU mining correctness. The candidate schema and CPU recheck are ready for a
+later hash backend to supply full digests.
+
+Native RTX 3060 results are recorded in [CUDA correctness harness evidence](../../docs/validation/cuda-correctness-harness-windows-rtx3060-2026-11-26.md)
+and [device-probe evidence](../../docs/validation/cuda-device-probe-windows-rtx3060-2026-11-26.md).
+
 ## NVIDIA references
 
 - [CUDA Runtime API: device properties](https://docs.nvidia.com/cuda/cuda-runtime-api/structcudaDeviceProp.html)

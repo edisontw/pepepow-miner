@@ -1,0 +1,113 @@
+name: CUDA correctness harness contract
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cuda-correctness-contract.yml"
+      - "CMakeLists.txt"
+      - "tools/gpu/**"
+      - "tests/test_cuda_correctness_harness.py"
+      - "tests/test_cuda_target_boundaries.cpp"
+      - "tests/test_cuda_device_probe.py"
+      - "include/pepepow/header_nonce.h"
+      - "include/pepepow/uint256_target.h"
+      - ".github/patches/openlibm-portable-c-windows.patch"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/cuda-correctness-contract.yml"
+      - "CMakeLists.txt"
+      - "tools/gpu/**"
+      - "tests/test_cuda_correctness_harness.py"
+      - "tests/test_cuda_target_boundaries.cpp"
+      - "tests/test_cuda_device_probe.py"
+      - "include/pepepow/header_nonce.h"
+      - "include/pepepow/uint256_target.h"
+      - ".github/patches/openlibm-portable-c-windows.patch"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  correctness-contract:
+    name: CUDA 13.3.1 and pinned-Core CPU oracle (no GPU required)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: nvidia/cuda:13.3.1-cudnn-devel-ubuntu24.04
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake git ninja-build python3
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout exact miner commit
+        uses: actions/checkout@v4
+        with:
+          path: miner
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Checkout pinned PEPEPOW Core
+        uses: actions/checkout@v4
+        with:
+          repository: edisontw/PePe-core
+          ref: bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          path: core
+          persist-credentials: false
+
+      - name: Checkout pinned OpenLibm
+        uses: actions/checkout@v4
+        with:
+          repository: JuliaMath/openlibm
+          ref: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+          path: openlibm
+          persist-credentials: false
+
+      - name: Verify exact source revisions
+        env:
+          EXPECTED_MINER_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git -C miner rev-parse HEAD)" = "$EXPECTED_MINER_SHA"
+          test "$(git -C core rev-parse HEAD)" = bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          test "$(git -C openlibm rev-parse HEAD)" = 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+          test -z "$(git -C core status --porcelain --untracked-files=no)"
+          test -z "$(git -C openlibm status --porcelain --untracked-files=no)"
+
+      - name: Build pinned OpenLibm
+        run: |
+          cmake -S openlibm -B build/openlibm -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+          cmake --build build/openlibm --parallel 2
+          test -f build/openlibm/libopenlibm.a
+          test -f openlibm/include/openlibm_math.h
+
+      - name: Build pinned-Core CPU oracle
+        run: |
+          cmake -S miner -B build/core -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
+            -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
+            -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
+            -DOPENLIBM_INCLUDE_DIR="$GITHUB_WORKSPACE/openlibm/include" \
+            -DOPENLIBM_LIBRARY="$GITHUB_WORKSPACE/build/openlibm/libopenlibm.a"
+          cmake --build build/core --target pepepow-kat --parallel 2
+          test -x build/core/pepepow-kat
+
+      - name: Configure opt-in CUDA correctness harness
+        run: |
+          cmake -S miner/tools/gpu -B build/cuda-correctness -G Ninja \
+            -DPEPEPOW_CUDA_CORRECTNESS_TESTS=ON \
+            -DPEPEPOW_CPU_ORACLE="$GITHUB_WORKSPACE/build/core/pepepow-kat"
+
+      - name: Build CUDA probe, coverage kernel, and CPU boundary test
+        run: cmake --build build/cuda-correctness --parallel 2
+
+      - name: Run mocked contract cases and live CUDA response without requiring a GPU
+        run: ctest --test-dir build/cuda-correctness --output-on-failure
