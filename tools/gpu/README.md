@@ -246,7 +246,8 @@ static library. A bounded CUDA kernel evaluates the same inputs with CUDA
 device math. It records binary64 inputs and outputs for
 MediumComplexNonLinear, IntermediateComplexNonLinear,
 HighComplexNonLinear, ComplexNonLinear, SafeComplexTransform, and
-TransformFactor, along with both transform factors and the selected branch.
+TransformFactor, along with both transform factors, the selected branch,
+the selected branch argument, and the underlying sine, cosine, sum, and square-root intermediates.
 
 The deterministic input corpus includes Core-generated matrix values used
 with seven nonce/header cases, the singularity and branch boundaries,

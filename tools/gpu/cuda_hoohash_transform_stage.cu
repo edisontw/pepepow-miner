@@ -13,14 +13,14 @@ namespace {
 
 constexpr std::uint32_t kMaximumInputs = 32768;
 constexpr std::size_t kInputRecordBytes = 9;
-constexpr std::size_t kOutputRecordBytes = 77;
+constexpr std::size_t kOutputRecordBytes = 133;
 constexpr std::size_t kMaximumSafeIterations = 512;
 constexpr char kInputMagic[8] = {'P', 'P', 'W', 'T', 'R', 'I', 'N', '1'};
 constexpr char kOutputMagic[8] = {'P', 'P', 'W', 'T', 'R', 'O', '1', '\0'};
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kEpsilon = 1e-9;
 constexpr double kComplexTransformMultiplier = 0.000001;
-static_assert(kOutputRecordBytes == 3U * 8U + 4U + 6U * 8U + 1U,
+static_assert(kOutputRecordBytes == 3U * 8U + 4U + 6U * 8U + 1U + 7U * 8U,
               "serialized transform record size changed");
 
 struct InputRecord {
@@ -40,6 +40,13 @@ struct OutputRecord {
   std::uint64_t safe_bits;
   std::uint64_t transform_factor_bits;
   std::uint32_t safe_enabled;
+  std::uint64_t medium_sine_bits;
+  std::uint64_t medium_cosine_bits;
+  std::uint64_t medium_sum_bits;
+  std::uint64_t intermediate_sine_bits;
+  std::uint64_t high_abs_plus_one_bits;
+  std::uint64_t high_sqrt_bits;
+  std::uint64_t complex_argument_bits;
 };
 
 static_assert(offsetof(OutputRecord, medium_bits) == 32,
@@ -82,6 +89,22 @@ __device__ __forceinline__ void complexFactors(double value,
   factor_two = quotient_two - floor(quotient_two);
 }
 
+__device__ __forceinline__ double transformArgument(double value,
+                                                    double factor_two,
+                                                    std::uint32_t operation) {
+  const double adjustment = 1.0 + factor_two;
+  switch (operation) {
+    case 0:
+      return value + adjustment;
+    case 1:
+      return value - adjustment;
+    case 2:
+      return value * adjustment;
+    default:
+      return __ddiv_rn(value, adjustment);
+  }
+}
+
 __device__ __forceinline__ std::uint32_t transformBranch(double factor_one,
                                                          double factor_two) {
   const std::uint32_t family = factor_one < 0.33 ? 0U :
@@ -96,22 +119,7 @@ __device__ __forceinline__ double applyTransform(double value,
                                                  double factor_two,
                                                  std::uint32_t family,
                                                  std::uint32_t operation) {
-  double argument = value;
-  const double adjustment = 1.0 + factor_two;
-  switch (operation) {
-    case 0:
-      argument = value + adjustment;
-      break;
-    case 1:
-      argument = value - adjustment;
-      break;
-    case 2:
-      argument = value * adjustment;
-      break;
-    default:
-      argument = __ddiv_rn(value, adjustment);
-      break;
-  }
+  const double argument = transformArgument(value, factor_two, operation);
   if (family == 0U) return mediumComplexNonLinear(argument);
   if (family == 1U) return intermediateComplexNonLinear(argument);
   return highComplexNonLinear(argument);
@@ -172,6 +180,14 @@ __global__ void evaluateTransforms(const InputRecord *inputs,
   const double safe = input.safe_enabled
                           ? safeComplexTransform(value)
                           : 0.0;
+  const double medium_sine = sin(value);
+  const double medium_cosine = cos(value);
+  const double medium_sum = medium_sine + medium_cosine;
+  const double intermediate_sine = sin(value);
+  const double high_abs_plus_one = fabs(value) + 1.0;
+  const double high_sqrt = sqrt(high_abs_plus_one);
+  const double complex_argument =
+      transformArgument(value, factor_two, branch % 4U);
 
   OutputRecord result{};
   result.input_bits = input.bits;
@@ -185,6 +201,13 @@ __global__ void evaluateTransforms(const InputRecord *inputs,
   result.safe_bits = binary64Bits(safe);
   result.transform_factor_bits = binary64Bits(transformFactor(value));
   result.safe_enabled = input.safe_enabled;
+  result.medium_sine_bits = binary64Bits(medium_sine);
+  result.medium_cosine_bits = binary64Bits(medium_cosine);
+  result.medium_sum_bits = binary64Bits(medium_sum);
+  result.intermediate_sine_bits = binary64Bits(intermediate_sine);
+  result.high_abs_plus_one_bits = binary64Bits(high_abs_plus_one);
+  result.high_sqrt_bits = binary64Bits(high_sqrt);
+  result.complex_argument_bits = binary64Bits(complex_argument);
   outputs[index] = result;
 }
 
@@ -381,6 +404,13 @@ bool writeTranscript(const std::string &path,
     writeLittleEndian64(output, record.safe_bits);
     writeLittleEndian64(output, record.transform_factor_bits);
     output.put(static_cast<char>(record.safe_enabled));
+    writeLittleEndian64(output, record.medium_sine_bits);
+    writeLittleEndian64(output, record.medium_cosine_bits);
+    writeLittleEndian64(output, record.medium_sum_bits);
+    writeLittleEndian64(output, record.intermediate_sine_bits);
+    writeLittleEndian64(output, record.high_abs_plus_one_bits);
+    writeLittleEndian64(output, record.high_sqrt_bits);
+    writeLittleEndian64(output, record.complex_argument_bits);
   }
   return output.good();
 }

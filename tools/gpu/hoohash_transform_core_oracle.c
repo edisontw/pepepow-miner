@@ -16,7 +16,7 @@ enum {
   kInputHeaderBytes = 12,
   kInputRecordBytes = 9,
   kOutputHeaderBytes = 12,
-  kOutputRecordBytes = 77,
+  kOutputRecordBytes = 133,
   kMaximumInputs = 32768
 };
 
@@ -70,6 +70,21 @@ static uint32_t selected_branch(double input) {
                              factor_two < 0.5 ? 1U :
                              factor_two < 0.75 ? 2U : 3U;
   return family * 4U + operation;
+}
+
+static double selected_argument(double input, double factor_two,
+                                uint32_t branch) {
+  const double adjustment = 1.0 + factor_two;
+  switch (branch % 4U) {
+    case 0:
+      return input + adjustment;
+    case 1:
+      return input - adjustment;
+    case 2:
+      return input * adjustment;
+    default:
+      return input / adjustment;
+  }
 }
 
 static int fail(const char *message) {
@@ -145,6 +160,14 @@ static int run(const char *input_path, const char *output_path) {
     const double complex = ComplexNonLinear(value);
     const double safe = safe_enabled ? SafeComplexTransform(value) : 0.0;
     const double transform_factor = TransformFactor(value);
+    const double medium_sine = sin(value);
+    const double medium_cosine = cos(value);
+    const double medium_sum = medium_sine + medium_cosine;
+    const double intermediate_sine = sin(value);
+    const double high_abs_plus_one = fabs(value) + 1.0;
+    const double high_sqrt = sqrt(high_abs_plus_one);
+    const double complex_argument = selected_argument(
+        value, factor_two, selected_branch(value));
 
     uint8_t record[kOutputRecordBytes];
     size_t offset = 0;
@@ -166,6 +189,13 @@ static int run(const char *input_path, const char *output_path) {
     WRITE_BITS(safe);
     WRITE_BITS(transform_factor);
     record[offset++] = safe_enabled;
+    WRITE_BITS(medium_sine);
+    WRITE_BITS(medium_cosine);
+    WRITE_BITS(medium_sum);
+    WRITE_BITS(intermediate_sine);
+    WRITE_BITS(high_abs_plus_one);
+    WRITE_BITS(high_sqrt);
+    WRITE_BITS(complex_argument);
 #undef WRITE_BITS
     if (offset != sizeof(record) ||
         fwrite(record, 1, sizeof(record), output) != sizeof(record)) {
