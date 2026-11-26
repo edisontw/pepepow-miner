@@ -185,3 +185,12 @@ local mock server's reply and is not pool interoperability evidence. Exit 0
 means the requested number of mock share replies arrived; 1 is transport,
 protocol, or exhausted-work failure; 2 is invalid input or work; 4 is the
 search deadline; 5 is local socket initialization failure; and 130 is signal-driven shutdown.
+
+## Opt-in CUDA test tools
+
+The root CPU build remains CUDA-free. The standalone [CUDA tools guide](gpu/README.md)
+covers the offline device inventory probe and a separately enabled correctness
+harness that uses the pinned CPU oracle. The latter currently tests a small
+nonce-coverage kernel only; it does not implement or claim HooHash CUDA parity.
+See the [native Windows RTX 3060 evidence](../docs/validation/cuda-correctness-harness-windows-rtx3060-2026-11-26.md)
+for the Debug/Release build and real-device test results.
