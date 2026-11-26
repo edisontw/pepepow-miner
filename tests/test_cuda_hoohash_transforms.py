@@ -31,7 +31,7 @@ from test_cuda_blake3_stage import run_cpu_oracle
 INPUT_MAGIC = b"PPWTRIN1"
 OUTPUT_MAGIC = b"PPWTRO1\0"
 INPUT_RECORD = struct.Struct("<QB")
-OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQ")
+OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQ")
 MAXIMUM_INPUTS = 32768
 MAXIMUM_REPORTED_MISMATCHES = 32768
 MASK64 = (1 << 64) - 1
@@ -62,6 +62,10 @@ FUNCTIONS = {
     "high_abs_plus_one": 15,
     "high_sqrt": 16,
     "complex_argument": 17,
+    "sincos_sine": 18,
+    "sincos_cosine": 19,
+    "sincos_sine_plus_cosine": 20,
+    "medium_sincos": 21,
 }
 PI = 3.14159265358979323846
 EPSILON = 1e-9

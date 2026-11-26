@@ -13,14 +13,14 @@ namespace {
 
 constexpr std::uint32_t kMaximumInputs = 32768;
 constexpr std::size_t kInputRecordBytes = 9;
-constexpr std::size_t kOutputRecordBytes = 133;
+constexpr std::size_t kOutputRecordBytes = 165;
 constexpr std::size_t kMaximumSafeIterations = 512;
 constexpr char kInputMagic[8] = {'P', 'P', 'W', 'T', 'R', 'I', 'N', '1'};
 constexpr char kOutputMagic[8] = {'P', 'P', 'W', 'T', 'R', 'O', '1', '\0'};
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kEpsilon = 1e-9;
 constexpr double kComplexTransformMultiplier = 0.000001;
-static_assert(kOutputRecordBytes == 3U * 8U + 4U + 6U * 8U + 1U + 7U * 8U,
+static_assert(kOutputRecordBytes == 3U * 8U + 4U + 6U * 8U + 1U + 11U * 8U,
               "serialized transform record size changed");
 
 struct InputRecord {
@@ -47,6 +47,10 @@ struct OutputRecord {
   std::uint64_t high_abs_plus_one_bits;
   std::uint64_t high_sqrt_bits;
   std::uint64_t complex_argument_bits;
+  std::uint64_t sincos_sine_bits;
+  std::uint64_t sincos_cosine_bits;
+  std::uint64_t sincos_sum_bits;
+  std::uint64_t sincos_medium_bits;
 };
 
 static_assert(offsetof(OutputRecord, medium_bits) == 32,
@@ -188,6 +192,11 @@ __global__ void evaluateTransforms(const InputRecord *inputs,
   const double high_sqrt = sqrt(high_abs_plus_one);
   const double complex_argument =
       transformArgument(value, factor_two, branch % 4U);
+  double sincos_sine = 0.0;
+  double sincos_cosine = 0.0;
+  sincos(value, &sincos_sine, &sincos_cosine);
+  const double sincos_sum = sincos_sine + sincos_cosine;
+  const double sincos_medium = exp(sincos_sum);
 
   OutputRecord result{};
   result.input_bits = input.bits;
@@ -208,6 +217,10 @@ __global__ void evaluateTransforms(const InputRecord *inputs,
   result.high_abs_plus_one_bits = binary64Bits(high_abs_plus_one);
   result.high_sqrt_bits = binary64Bits(high_sqrt);
   result.complex_argument_bits = binary64Bits(complex_argument);
+  result.sincos_sine_bits = binary64Bits(sincos_sine);
+  result.sincos_cosine_bits = binary64Bits(sincos_cosine);
+  result.sincos_sum_bits = binary64Bits(sincos_sum);
+  result.sincos_medium_bits = binary64Bits(sincos_medium);
   outputs[index] = result;
 }
 
@@ -411,6 +424,10 @@ bool writeTranscript(const std::string &path,
     writeLittleEndian64(output, record.high_abs_plus_one_bits);
     writeLittleEndian64(output, record.high_sqrt_bits);
     writeLittleEndian64(output, record.complex_argument_bits);
+    writeLittleEndian64(output, record.sincos_sine_bits);
+    writeLittleEndian64(output, record.sincos_cosine_bits);
+    writeLittleEndian64(output, record.sincos_sum_bits);
+    writeLittleEndian64(output, record.sincos_medium_bits);
   }
   return output.good();
 }

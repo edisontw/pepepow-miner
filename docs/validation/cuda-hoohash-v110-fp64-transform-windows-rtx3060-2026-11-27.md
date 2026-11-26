@@ -25,8 +25,8 @@ CTest was run with `PEPEPOW_CUDA_REQUIRE_DEVICE=1`, so an unavailable-device res
 
 | Configuration | Build | CTest |
 | --- | --- | --- |
-| Debug | Passed | 6/6 passed, 3.18 s |
-| Release | Passed | 6/6 passed, 2.96 s |
+| Debug | Passed | 6/6 passed, 3.35 s |
+| Release | Passed | 6/6 passed, 3.12 s |
 
 The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matrix stage, this transform diagnostic, device-probe JSON contract, and no-device skip policy. This establishes that the harness and diagnostic binaries ran successfully; it does not turn numeric mismatches into passes.
 
@@ -39,6 +39,7 @@ The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matri
 - `complex_argument`: zero bitwise mismatches, so the selected branch arithmetic produced the same binary64 argument.
 - Direct `sin(value)`: 4,214 mismatches, at most 1 ULP; direct `cos(value)`: 4,872 mismatches, at most 1 ULP.
 - Direct `sin(value) + cos(value)`: 4,296 mismatches, maximum absolute difference `2.220446049250313e-16`. Its maximum ULP count is 8,192 near cancellation around zero.
+- CUDA `sincos(value, &sin, &cos)` produced the same counts and error bounds as separate CUDA `sin` and `cos`: 4,214 sine mismatches, 4,872 cosine mismatches, and 4,296 sum mismatches. The resulting `exp(sin + cos)` had 5,605 mismatches (up to 2 ULP), equal to the separate-call path; the combined intrinsic did not resolve bitwise parity.
 - Direct intermediate sine: 4,214 mismatches, at most 1 ULP; `fabs(value) + 1` and its square root matched for finite inputs.
 - `medium_complex_nonlinear`: 5,605 bitwise mismatches; maximum finite difference 2 ULP.
 - `intermediate_complex_nonlinear`: 4,214 bitwise mismatches; maximum finite difference 3 ULP.
@@ -46,6 +47,8 @@ The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matri
 - `safe_complex_transform`: 3,091 bitwise mismatches; maximum finite difference 3 ULP.
 - `high_complex_nonlinear`: one bitwise mismatch. Both results are NaNs with identical payload bits and opposite sign bits for the negative-payload-NaN input.
 - The largest finite absolute difference was `1.7763568394002505e-15`; the largest finite relative difference was `6.56561143256613e-16`.
+
+NVIDIA documents finite precision error bounds for CUDA device math, including double-precision trigonometric functions; it does not promise bitwise identity with OpenLibm. The official guide reports up to 2 ULP for double `sin` and `cos` and describes `sincos` as a paired operation. The measurements above therefore remain a correctness failure for this project even when each primitive is within the documented device-math bounds: [CUDA math-function accuracy](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/mathematical-functions.html) and [CUDA 13.3.1 `__nv_sincos`](https://docs.nvidia.com/cuda/archive/13.3.1/libdevice-users-guide/__nv_sincos.html).
 
 The first finite `medium_complex_nonlinear` mismatch is reproducible from this 80-byte header with nonce bytes 76–79 set to little-endian zero:
 
@@ -66,9 +69,9 @@ The observed finite differences are small but still fail the required bitwise co
 - OpenLibm archive SHA-256: `9fb7b4caf1deb2136314508c3116adafd8a192a67d0ca4a95e22744fa0ca5f96`. This was a prebuilt local archive from the earlier validated Windows build, not rebuilt during this diagnostic run.
 - The archive's earlier UCRT64 build flags are recorded in `D:\Dev\pepepow-miner-validation\20261124-windows11\openlibm-flags-release.txt`; they include `-ffp-contract=off`, `-fno-fast-math`, `-fno-rounding-math`, `-fno-math-errno`, `-fno-builtin`, `-m64`, `-msse2`, and `-mfpmath=sse`. The repository's tracked Windows pure-C OpenLibm portability patch SHA-256 is `f780e659c0a94a8a28a942553c2b0bc7da8c4119b2a897842c361ce97f19c5b2`.
 - Debug and Release reports and transcripts are retained locally at `D:\Dev\pepepow-cuda-transform-evidence-20261127\debug` and `D:\Dev\pepepow-cuda-transform-evidence-20261127\release`.
-- The Debug and Release report SHA-256 is `45e11f8c92d7a627e2c25345dee4179eefcfd54e8a5f157725fc32a3a671a751`.
-- Pinned-Core/OpenLibm CPU transcript SHA-256: `bca6080d87b98455c30334fce537c801b9b4c8481f9e690857d0bfb09f0782e6`.
-- CUDA transcript SHA-256: `17d343704ef794a5769595b6e78180c79530d48597caedb40e96ea92ec220d3a`.
+- The Debug and Release report SHA-256 is `e67e1579d98f05a0d3fd5688e5043aaff3f8e8616578a3c94c7e0571b531a9b2`.
+- Pinned-Core/OpenLibm CPU transcript SHA-256: `d4972e19ef6b832ff3708a564e00614ed9e0e69f02069affffd25a86c2ecfb42`.
+- CUDA transcript SHA-256: `39190401076b457c60998a136b144bcd4f2fdfe178b3defcadb288df3f675fa2`.
 - Input binary SHA-256: `fbdbc09d8215338a0acd48acbc492d4c289a319400ea66281246a40ecd250013`.
 - Input catalog SHA-256: `d1de16c97b8091905618e10610c02905f415d4710bc25950f116ab9964e8855b`.
 - Matrix transcript SHA-256 for the 32-seed matrix corpus: `cc127d05b1fddb65b4b5181943c6906bed0a448407d8853bde0d91ed2826dfff`.

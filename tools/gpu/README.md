@@ -247,7 +247,7 @@ device math. It records binary64 inputs and outputs for
 MediumComplexNonLinear, IntermediateComplexNonLinear,
 HighComplexNonLinear, ComplexNonLinear, SafeComplexTransform, and
 TransformFactor, along with both transform factors, the selected branch,
-the selected branch argument, and the underlying sine, cosine, sum, and square-root intermediates.
+the selected branch argument, and the underlying sine, cosine, sum, and square-root intermediates. It also compares CUDA's paired `sincos` operation with separate CUDA calls and repeated pinned-Core/OpenLibm controls.
 
 The deterministic input corpus includes Core-generated matrix values used
 with seven nonce/header cases, the singularity and branch boundaries,
@@ -266,6 +266,11 @@ no-GPU CI job may skip only recognized no-device, driver, or initialization
 errors after setting PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1; runtime and kernel
 failures remain failures. Physical acceptance sets
 PEPEPOW_CUDA_REQUIRE_DEVICE=1.
+
+The Windows RTX 3060 experiment found the same FP64 mismatches from paired
+CUDA `sincos` as from separate CUDA `sin` and `cos` calls. See the dated
+[physical-device evidence](../../docs/validation/cuda-hoohash-v110-fp64-transform-windows-rtx3060-2026-11-27.md)
+for per-function counts, reproducer, compiler caveat, and artifact hashes.
 
 The CUDA target compiles with --fmad=false, --ftz=false, --prec-div=true, and
 --prec-sqrt=true; fast math is not enabled. The CI workflow inspects the

@@ -16,7 +16,7 @@ enum {
   kInputHeaderBytes = 12,
   kInputRecordBytes = 9,
   kOutputHeaderBytes = 12,
-  kOutputRecordBytes = 133,
+  kOutputRecordBytes = 165,
   kMaximumInputs = 32768
 };
 
@@ -196,6 +196,10 @@ static int run(const char *input_path, const char *output_path) {
     WRITE_BITS(high_abs_plus_one);
     WRITE_BITS(high_sqrt);
     WRITE_BITS(complex_argument);
+    WRITE_BITS(medium_sine);
+    WRITE_BITS(medium_cosine);
+    WRITE_BITS(medium_sum);
+    WRITE_BITS(medium);
 #undef WRITE_BITS
     if (offset != sizeof(record) ||
         fwrite(record, 1, sizeof(record), output) != sizeof(record)) {
