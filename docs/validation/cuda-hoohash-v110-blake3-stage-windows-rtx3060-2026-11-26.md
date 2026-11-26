@@ -60,15 +60,26 @@ above, `PEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON`, and Core source path
 the CUDA BLAKE3 stage, the pinned-Core BLAKE3 reference, and CPU oracle.
 
 Both Debug and Release builds succeeded. With
-`PEPEPOW_CUDA_REQUIRE_DEVICE=1`, CTest passed 2/2 in each configuration:
+`PEPEPOW_CUDA_REQUIRE_DEVICE=1` and with no no-device skip override, CTest
+passed 3/3 in each configuration:
 
 - `hoohash_blake3_stage_full_digest_parity`
 - `cuda_device_probe_json_contract`
+- `cuda_device_execution_skip_policy`
 
 The direct Debug and Release runs each reported four `LIVE CUDA` full-digest
 matches: nonce 6/header, nonce 6/matrix-seed, `UINT32_MAX`/header, and
 `UINT32_MAX`/matrix-seed. The device-required setting means no-device fallback
 could not satisfy these runs.
+
+The added skip-policy fixture verifies that `cuda_failure` and all other
+generic runtime errors cannot be skipped, even in the explicitly enabled
+no-GPU CI configuration. The pinned-Core CMake gate checks the exact commit
+and rejects tracked or untracked changes before compiling the BLAKE3 oracle.
+A local configure with an intentionally incorrect expected SHA failed as
+required. A second configure using a pinned Core worktree with a temporary
+untracked file also failed as required; the disposable worktree and sentinel
+were removed afterward.
 
 Build and test logs are outside the repository at
 `D:\Dev\pepepow-cuda-stage-evidence-20261126`:
@@ -76,6 +87,10 @@ Build and test logs are outside the repository at
 - `build-debug-final.log`, `build-release-final.log`
 - `ctest-debug-final.log`, `ctest-release-final.log`
 - `stage-debug-live.log`, `stage-release-live.log`
+- `configure-review-policy.log`, `build-review-policy-debug.log`,
+  `build-review-policy-release.log`
+- `ctest-review-policy-debug.log`, `ctest-review-policy-release.log`
+- `core-wrong-sha-rejection.log`, `core-dirty-rejection.log`
 
 This establishes parity for these BLAKE3 stages only. Full HooHash V110 CUDA
 digest parity remains unimplemented and unverified.

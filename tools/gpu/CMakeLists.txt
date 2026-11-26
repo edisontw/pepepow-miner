@@ -26,6 +26,8 @@ set(PEPEPOW_CPU_ORACLE "" CACHE FILEPATH
   "Path to pepepow-kat built against the pinned PEPEPOW Core/OpenLibm reference")
 set(PEPEPOW_CORE_SOURCE_DIR "" CACHE PATH
   "Path to the exact pinned PEPEPOW Core source for stage-level BLAKE3 tests")
+set(PEPEPOW_CORE_EXPECTED_SHA "bc08108ceccd957c79040dc7fedc1d56d8d47f97" CACHE STRING
+  "Required pinned PEPEPOW Core source commit for CUDA stage tests")
 set(PEPEPOW_CUDA_TEST_ARCHITECTURE "75" CACHE STRING
   "CUDA architecture used by the short nonce-coverage test kernel")
 if(BUILD_TESTING)
@@ -109,6 +111,35 @@ if(PEPEPOW_CUDA_HOOHASH_STAGE_TESTS)
      NOT EXISTS "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_portable.c")
     message(FATAL_ERROR
       "Set PEPEPOW_CORE_SOURCE_DIR to pinned PEPEPOW Core source containing BLAKE3")
+  endif()
+
+  set(_pepepow_cuda_core_pinned_sha "bc08108ceccd957c79040dc7fedc1d56d8d47f97")
+  if(NOT PEPEPOW_CORE_EXPECTED_SHA STREQUAL _pepepow_cuda_core_pinned_sha)
+    message(FATAL_ERROR
+      "CUDA BLAKE3 stage requires PEPEPOW Core ${_pepepow_cuda_core_pinned_sha}")
+  endif()
+  find_package(Git REQUIRED)
+  execute_process(
+    COMMAND "${GIT_EXECUTABLE}" -C "${PEPEPOW_CORE_SOURCE_DIR}" rev-parse --verify HEAD
+    RESULT_VARIABLE _pepepow_core_git_result
+    OUTPUT_VARIABLE _pepepow_core_actual_sha
+    ERROR_VARIABLE _pepepow_core_git_error
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(NOT _pepepow_core_git_result EQUAL 0 OR
+     NOT _pepepow_core_actual_sha STREQUAL _pepepow_cuda_core_pinned_sha)
+    message(FATAL_ERROR
+      "CUDA BLAKE3 stage requires clean pinned Core HEAD ${_pepepow_cuda_core_pinned_sha}; got '${_pepepow_core_actual_sha}' (${_pepepow_core_git_error})")
+  endif()
+  execute_process(
+    COMMAND "${GIT_EXECUTABLE}" -C "${PEPEPOW_CORE_SOURCE_DIR}" status --porcelain --untracked-files=all
+    RESULT_VARIABLE _pepepow_core_status_result
+    OUTPUT_VARIABLE _pepepow_core_dirty
+    ERROR_VARIABLE _pepepow_core_status_error
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(NOT _pepepow_core_status_result EQUAL 0 OR
+     NOT _pepepow_core_dirty STREQUAL "")
+    message(FATAL_ERROR
+      "CUDA BLAKE3 stage requires a clean pinned Core checkout (${_pepepow_core_status_error}): ${_pepepow_core_dirty}")
   endif()
 
   add_library(pepepow-core-blake3-reference STATIC

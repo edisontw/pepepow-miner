@@ -156,11 +156,18 @@ checkout:
 cmake -S tools/gpu -B build/cuda-blake3-stage `
   -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON `
   -DPEPEPOW_CORE_SOURCE_DIR=D:/Dev/pepepow-deps/PePe-core `
+  -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 `
   -DCUDAToolkit_ROOT="$env:CUDA_PATH"
 cmake --build build/cuda-blake3-stage --config Release
 $env:PEPEPOW_CUDA_REQUIRE_DEVICE = "1"
 ctest --test-dir build/cuda-blake3-stage -C Release --output-on-failure
 ```
+
+The standalone stage rejects any other Core commit and any tracked or
+untracked Core checkout changes. A no-GPU CI job explicitly sets
+`PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1`; only recognized unavailable-device
+responses may skip live execution. Generic CUDA/runtime failures always fail,
+and physical-device acceptance sets `PEPEPOW_CUDA_REQUIRE_DEVICE=1`.
 
 The selected CUDA Toolkit must provide compiler support files. NVIDIA's CUDA
 13.3.1 guide lists MSVC 193x for Visual Studio 2022; local MSVC 19.44 results

@@ -8,6 +8,8 @@ import re
 import subprocess
 import sys
 
+from cuda_device_policy import should_skip_device_execution
+
 
 HEADER_NONCE6 = bytes.fromhex(
     "0040002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c"
@@ -143,8 +145,14 @@ def main():
 
         if isinstance(payload, dict) and payload.get("status") == "error":
             error = validate_gpu_error(completed, payload)
-            require(os.environ.get("PEPEPOW_CUDA_REQUIRE_DEVICE") != "1",
-                    f"physical GPU test required but CUDA returned {error['code']}")
+            allow_skip = os.environ.get("PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP") == "1"
+            require_device = os.environ.get("PEPEPOW_CUDA_REQUIRE_DEVICE") == "1"
+            require(should_skip_device_execution(
+                error["code"],
+                allow_no_device_skip=allow_skip,
+                require_device=require_device,
+            ), f"CUDA BLAKE3 stage failed with {error['code']}; only explicitly "
+               "enabled no-device CI may skip recognized device-unavailability errors")
             print(f"NO GPU: device stage execution skipped ({error['code']}); CPU vectors passed")
             return 0
 
