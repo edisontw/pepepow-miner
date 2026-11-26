@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <openlibm_math.h>
 
 #ifndef PEPEPOW_CORE_HOOHASH_C_PATH
 #error "PEPEPOW_CORE_HOOHASH_C_PATH must name the pinned Core source file"
@@ -11,6 +12,10 @@
 /* Include the unmodified pinned Core translation unit so the test-only
  * wrapper invokes its file-local transform functions directly. */
 #include PEPEPOW_CORE_HOOHASH_C_PATH
+
+/* OpenLibm exports this BSD extension, but its feature macro is intentionally
+ * not enabled for the full pinned-Core translation unit. */
+extern void sincos(double, double *, double *);
 
 enum {
   kInputHeaderBytes = 12,
@@ -168,6 +173,12 @@ static int run(const char *input_path, const char *output_path) {
     const double high_sqrt = sqrt(high_abs_plus_one);
     const double complex_argument = selected_argument(
         value, factor_two, selected_branch(value));
+    double openlibm_sincos_sine = 0.0;
+    double openlibm_sincos_cosine = 0.0;
+    sincos(value, &openlibm_sincos_sine, &openlibm_sincos_cosine);
+    const double openlibm_sincos_sum =
+        openlibm_sincos_sine + openlibm_sincos_cosine;
+    const double openlibm_sincos_medium = exp(openlibm_sincos_sum);
 
     uint8_t record[kOutputRecordBytes];
     size_t offset = 0;
@@ -196,10 +207,10 @@ static int run(const char *input_path, const char *output_path) {
     WRITE_BITS(high_abs_plus_one);
     WRITE_BITS(high_sqrt);
     WRITE_BITS(complex_argument);
-    WRITE_BITS(medium_sine);
-    WRITE_BITS(medium_cosine);
-    WRITE_BITS(medium_sum);
-    WRITE_BITS(medium);
+    WRITE_BITS(openlibm_sincos_sine);
+    WRITE_BITS(openlibm_sincos_cosine);
+    WRITE_BITS(openlibm_sincos_sum);
+    WRITE_BITS(openlibm_sincos_medium);
 #undef WRITE_BITS
     if (offset != sizeof(record) ||
         fwrite(record, 1, sizeof(record), output) != sizeof(record)) {

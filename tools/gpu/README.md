@@ -258,8 +258,9 @@ bounded launch, and CTest has a 180-second timeout.
 
 The report preserves the Core and CUDA binary64 bit patterns for every
 mismatch and records absolute error, relative error, ULP difference, branch
-selection, and NaN/Infinity classification. Full binary transcripts and the
-input catalog are saved beside the report. The test does not accept numerical
+selection, NaN/Infinity classification, and paired-versus-separate `sincos`
+path comparisons. Full binary transcripts and the input catalog are saved
+beside the report. The test does not accept numerical
 mismatches using an epsilon: it reports them as diagnostics, and bitwise
 transform parity remains false until every compared output matches. A
 no-GPU CI job may skip only recognized no-device, driver, or initialization
@@ -268,8 +269,8 @@ failures remain failures. Physical acceptance sets
 PEPEPOW_CUDA_REQUIRE_DEVICE=1.
 
 The Windows RTX 3060 experiment found bitwise-identical outputs between paired
-CUDA `sincos` and separate CUDA `sin` and `cos` calls across the full 29,224
-input corpus, with the same remaining mismatch against Core/OpenLibm. See the dated
+`sincos` and separate `sin`/`cos` calls for both OpenLibm and CUDA across the
+full 29,224-input corpus. CUDA still differs from Core/OpenLibm. See the dated
 [physical-device evidence](../../docs/validation/cuda-hoohash-v110-fp64-transform-windows-rtx3060-2026-11-27.md)
 for per-function counts, reproducer, compiler caveat, and artifact hashes.
 

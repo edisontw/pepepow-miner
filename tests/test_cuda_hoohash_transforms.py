@@ -349,6 +349,36 @@ def finite_error(core_bits, cuda_bits):
     return absolute, relative, ulp
 
 
+def summarize_paired_vs_separate(records):
+    fields = {
+        "sine": (18, 11),
+        "cosine": (19, 12),
+        "sine_plus_cosine": (20, 13),
+        "exp_sine_plus_cosine": (21, 4),
+    }
+    result = {}
+    for name, (paired_index, separate_index) in fields.items():
+        first_difference = None
+        mismatch_count = 0
+        for index, record in enumerate(records):
+            paired_bits = record[paired_index]
+            separate_bits = record[separate_index]
+            if paired_bits != separate_bits:
+                mismatch_count += 1
+                if first_difference is None:
+                    first_difference = {
+                        "index": index,
+                        "paired_bits": f"{paired_bits:016x}",
+                        "separate_bits": f"{separate_bits:016x}",
+                    }
+        result[name] = {
+            "cases": len(records),
+            "bitwise_differences": mismatch_count,
+            "first_difference": first_difference,
+        }
+    return result
+
+
 def compare_transcripts(core_data, cuda_data, origins):
     count = len(origins)
     core_records = [
@@ -359,6 +389,10 @@ def compare_transcripts(core_data, cuda_data, origins):
         OUTPUT_RECORD.unpack_from(cuda_data, 12 + index * OUTPUT_RECORD.size)
         for index in range(count)
     ]
+    paired_vs_separate = {
+        "core_openlibm": summarize_paired_vs_separate(core_records),
+        "cuda": summarize_paired_vs_separate(cuda_records),
+    }
     branch_mismatches = []
     for index, (core, cuda) in enumerate(zip(core_records, cuda_records)):
         require(core[0] == cuda[0] and core[10] == cuda[10],
@@ -463,6 +497,7 @@ def compare_transcripts(core_data, cuda_data, origins):
         "core_branch_counts": core_branches,
         "cuda_branch_counts": cuda_branches,
         "functions": summaries,
+        "paired_vs_separate": paired_vs_separate,
         "bitwise_parity_passed": parity_passed,
     }
 
@@ -656,6 +691,9 @@ def main():
             comparison["cuda_branch_counts"] if comparison is not None else None
         ),
         "functions": comparison["functions"] if comparison is not None else None,
+        "paired_vs_separate": (
+            comparison["paired_vs_separate"] if comparison is not None else None
+        ),
     }
     report_path.write_text(
         json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n",
@@ -672,6 +710,10 @@ def main():
     if comparison is not None:
         print(f"BRANCH CONTROL: {comparison['branch_mismatch_count']} "
               "CPU/GPU branch-selection mismatches")
+        print(
+            "PAIRED VS SEPARATE: "
+            + json.dumps(comparison["paired_vs_separate"], sort_keys=True)
+        )
         for function, summary in comparison["functions"].items():
             print(
                 f"{function}: exact={summary['bitwise_equal']}/{summary['cases']}, "
