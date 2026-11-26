@@ -27,11 +27,11 @@ The following features describe the intended product, not functionality already 
 
 | Component | Status |
 | --- | --- |
-| HooHash V110 validation | Independent full-digest parity tests on Linux and Windows Server; formal acceptance pending |
+| HooHash V110 validation | 10,000-case full-digest and native platform evidence recorded; formal G0 is not passed while the source-rights review remains unresolved |
 | CPU mining engine | Bounded offline nonce search implemented |
-| Pool connectivity | Offline and local Stratum testing; live mining not validated |
+| Pool connectivity | Offline and local Stratum testing; authorized live acceptance has not been run |
 | Windows 10/11 and Linux desktop miner | Planned; full platform acceptance pending |
-| NVIDIA GPU (CUDA) | Planned |
+| NVIDIA GPU (CUDA) | Offline device probe and partial correctness stages exist; full HooHash GPU digest parity is not implemented |
 | AMD GPU (HIP or OpenCL) | Planned |
 
 CPU support comes first. GPU acceleration and desktop packaging will follow separate validation stages. See the [roadmap](docs/ROADMAP.md) for the full plan.
