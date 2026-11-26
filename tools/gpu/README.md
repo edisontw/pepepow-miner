@@ -188,6 +188,56 @@ cmake --build build/cuda-hoohash-matrix --config Release
 ctest --test-dir build/cuda-hoohash-matrix -C Release --output-on-failure
 ```
 
+## CUDA matrix-generation stage
+
+The first CUDA matrix stage uses one bounded CUDA block per seed and advances
+the pinned Core PRNG sequentially for each row-major matrix. It emits the same
+little-endian transcript as the pinned-Core wrapper: seed, initial state,
+every PRNG output and next state, lower 32-bit value, and all 4096 binary64
+matrix bit patterns. The Python test compares the complete files byte-for-byte
+and reports the first differing seed, element, and field.
+
+The stage uses the Core operation order for
+`(double)lower / (double)UINT32_MAX * 1000000.0`, forces the division through
+CUDA's round-to-nearest-even `__ddiv_rn`, and compiles with `--fmad=false`. It
+does not enable `--use_fast_math`. The flags are present in the generated
+Visual Studio CUDA project, not inferred from a documentation comment. The
+[CUDA Math API](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-math-api/index.html)
+documents `__ddiv_rn`; the [CUDA 13.3.1 NVCC guide](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-compiler-driver-nvcc/index.html)
+documents `--fmad` and its interaction with fast math.
+
+The physical-device corpus includes the nonce-6 header matrix seed, 31 other
+deterministic header templates, and a synthetic all-`0xff` seed that exercises
+uint64 wraparound. It compares 33 complete transcripts (135,168 PRNG values,
+state transitions, and matrix elements). A negative control flips the last
+matrix element's final bit and confirms that the comparator reports element
+4095. Device memory is bounded by the 64-seed input cap (under 15 MiB for the
+observation buffer); this is a short correctness run, not a load test.
+
+Enable the stage with the pinned-Core and CPU matrix oracles:
+
+```powershell
+cmake -S tools/gpu -B build/cuda-hoohash-matrix `
+  -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON `
+  -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON `
+  -DPEPEPOW_CORE_SOURCE_DIR=D:/Dev/pepepow-deps/PePe-core `
+  -DCUDAToolkit_ROOT="$env:CUDA_PATH"
+cmake --build build/cuda-hoohash-matrix --config Release
+$env:PEPEPOW_CUDA_REQUIRE_DEVICE = "1"
+ctest --test-dir build/cuda-hoohash-matrix -C Release --output-on-failure
+```
+
+The stage has stable error JSON and nonzero exit codes. A no-GPU CI job must
+explicitly set `PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1`; only the recognized
+`no_device`, `driver_unavailable`, and `initialization_failed` errors can
+skip. Generic CUDA execution failures always fail the test. Physical-device
+acceptance sets `PEPEPOW_CUDA_REQUIRE_DEVICE=1` and does not allow a skip.
+
+Passing this stage establishes exact matrix-generation parity for the tested
+seeds only. FP64 nonlinear transforms, full HooHash V110 digest parity, GPU
+candidate CPU recheck, and G4 acceptance remain incomplete.
+
 Build and run the stage contract with CUDA Toolkit 13.3.x and a pinned Core
 checkout:
 

@@ -6,12 +6,14 @@ on:
       - ".github/workflows/cuda-hoohash-prng-matrix-stage.yml"
       - "tools/gpu/**"
       - "tests/test_cuda_core_matrix_oracle.py"
+      - "tests/test_cuda_matrix_stage.py"
   push:
     branches: [main]
     paths:
       - ".github/workflows/cuda-hoohash-prng-matrix-stage.yml"
       - "tools/gpu/**"
       - "tests/test_cuda_core_matrix_oracle.py"
+      - "tests/test_cuda_matrix_stage.py"
   workflow_dispatch:
 
 concurrency:
@@ -63,6 +65,7 @@ jobs:
           cmake -S miner/tools/gpu -B build/cuda-hoohash-prng-matrix -G Ninja \
             -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON \
             -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON \
+            -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON \
             -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core"
 
       - name: Build stage and pinned-Core oracles

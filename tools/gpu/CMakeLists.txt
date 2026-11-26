@@ -24,6 +24,8 @@ option(PEPEPOW_CUDA_HOOHASH_STAGE_TESTS
   "Build the first HooHash CUDA stage and pinned-Core BLAKE3 oracle" OFF)
 option(PEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS
   "Build the pinned-Core HooHash PRNG and matrix intermediate oracle" OFF)
+option(PEPEPOW_CUDA_MATRIX_STAGE_TESTS
+  "Build and compare the CUDA HooHash matrix-generation stage" OFF)
 set(PEPEPOW_CPU_ORACLE "" CACHE FILEPATH
   "Path to pepepow-kat built against the pinned PEPEPOW Core/OpenLibm reference")
 set(PEPEPOW_CORE_SOURCE_DIR "" CACHE PATH
@@ -206,6 +208,30 @@ if(PEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS)
             --oracle "$<TARGET_FILE:pepepow-hoohash-matrix-core-oracle>"
             --blake3-oracle "$<TARGET_FILE:pepepow-hoohash-blake3-cpu-oracle>")
   set_tests_properties(hoohash_pinned_core_matrix_oracle_contract
+    PROPERTIES TIMEOUT 90)
+endif()
+
+if(PEPEPOW_CUDA_MATRIX_STAGE_TESTS)
+  if(NOT BUILD_TESTING OR NOT PEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS)
+    message(FATAL_ERROR
+      "PEPEPOW_CUDA_MATRIX_STAGE_TESTS requires BUILD_TESTING and PEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS")
+  endif()
+
+  add_executable(pepepow-cuda-hoohash-matrix-stage
+    cuda_hoohash_matrix_stage.cu)
+  configure_cuda_probe_target(pepepow-cuda-hoohash-matrix-stage)
+  target_compile_options(pepepow-cuda-hoohash-matrix-stage PRIVATE
+    "$<$<COMPILE_LANGUAGE:CUDA>:--fmad=false>")
+  set_target_properties(pepepow-cuda-hoohash-matrix-stage PROPERTIES
+    CUDA_ARCHITECTURES "${PEPEPOW_CUDA_TEST_ARCHITECTURE}")
+
+  add_test(NAME hoohash_cuda_matrix_full_intermediate_parity
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../tests/test_cuda_matrix_stage.py"
+            --oracle "$<TARGET_FILE:pepepow-hoohash-matrix-core-oracle>"
+            --blake3-oracle "$<TARGET_FILE:pepepow-hoohash-blake3-cpu-oracle>"
+            --device-stage "$<TARGET_FILE:pepepow-cuda-hoohash-matrix-stage>")
+  set_tests_properties(hoohash_cuda_matrix_full_intermediate_parity
     PROPERTIES TIMEOUT 90)
 endif()
 
