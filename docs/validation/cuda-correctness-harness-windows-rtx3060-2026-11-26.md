@@ -11,6 +11,11 @@ Date: 2026-11-26 (Asia/Taipei)
 - CMake 4.5.1, Ninja 1.13.2, x64 CPython 3.13.17.
 - CPU oracle: `pepepow-kat` linked against PEPEPOW Core `bc08108ceccd957c79040dc7fedc1d56d8d47f97` and OpenLibm v0.8.7 `9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`; native UCRT64 GCC 16.2.0 build.
 
+NVIDIA's [CUDA 13.3.1 Windows installation guide](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-installation-guide-microsoft-windows/index.html)
+lists MSVC 193x for Visual Studio 2022. The installed MSVC 19.44 is outside
+that published range. The CUDA build and device tests passed locally, but this
+is local evidence and does not qualify MSVC 19.44 as officially supported.
+
 The Core executable is invoked as a separate process, avoiding cross-linking a
 MinGW CPU library into the MSVC/NVCC test executable. Core source and OpenLibm
 source remain external pinned dependencies; this change does not vendor them
