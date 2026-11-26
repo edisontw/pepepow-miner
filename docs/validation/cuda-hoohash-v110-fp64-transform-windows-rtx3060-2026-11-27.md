@@ -43,6 +43,14 @@ The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matri
 - `high_complex_nonlinear`: one bitwise mismatch. Both results are NaNs with identical payload bits and opposite sign bits for the negative-payload-NaN input.
 - The largest finite absolute difference was `1.7763568394002505e-15`; the largest finite relative difference was `6.56561143256613e-16`.
 
+The first finite `medium_complex_nonlinear` mismatch is reproducible from this 80-byte header with nonce bytes 76–79 set to little-endian zero:
+
+```text
+0040002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5b5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d00000000
+```
+
+The pinned Core matrix value at row 0, column 6 is `43129660f32cd3f0` (binary64 bits). At that input both implementations select branch 4, but Core/OpenLibm returns `400a32257b456036` while CUDA returns `400a32257b456038`, a 2-ULP difference. This stage produces no full HooHash digest; no CPU/GPU digest mismatch is claimed.
+
 The observed finite differences are small but still fail the required bitwise comparison. They must not be accepted with an epsilon. Full HooHash V110 digest parity, the 10,000-case GPU digest suite, candidate CPU recheck, hashrate measurements, and G4 acceptance remain untested and blocked on resolving this transform mismatch.
 
 ## Provenance and retained artifacts
