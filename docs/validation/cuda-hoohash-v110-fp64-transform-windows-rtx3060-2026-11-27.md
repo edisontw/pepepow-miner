@@ -39,7 +39,7 @@ The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matri
 - `complex_argument`: zero bitwise mismatches, so the selected branch arithmetic produced the same binary64 argument.
 - Direct `sin(value)`: 4,214 mismatches, at most 1 ULP; direct `cos(value)`: 4,872 mismatches, at most 1 ULP.
 - Direct `sin(value) + cos(value)`: 4,296 mismatches, maximum absolute difference `2.220446049250313e-16`. Its maximum ULP count is 8,192 near cancellation around zero.
-- CUDA `sincos(value, &sin, &cos)` produced the same counts and error bounds as separate CUDA `sin` and `cos`: 4,214 sine mismatches, 4,872 cosine mismatches, and 4,296 sum mismatches. The resulting `exp(sin + cos)` had 5,605 mismatches (up to 2 ULP), equal to the separate-call path; the combined intrinsic did not resolve bitwise parity.
+- CUDA `sincos(value, &sin, &cos)` produced bitwise-identical sine, cosine, sum, and `exp(sin + cos)` outputs to the separate CUDA calls for all 29,224 inputs. Against Core/OpenLibm, these had 4,214 sine mismatches, 4,872 cosine mismatches, 4,296 sum mismatches, and 5,605 `exp(sin + cos)` mismatches (up to 2 ULP). The combined intrinsic did not resolve bitwise parity.
 - Direct intermediate sine: 4,214 mismatches, at most 1 ULP; `fabs(value) + 1` and its square root matched for finite inputs.
 - `medium_complex_nonlinear`: 5,605 bitwise mismatches; maximum finite difference 2 ULP.
 - `intermediate_complex_nonlinear`: 4,214 bitwise mismatches; maximum finite difference 3 ULP.

@@ -267,8 +267,9 @@ errors after setting PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1; runtime and kernel
 failures remain failures. Physical acceptance sets
 PEPEPOW_CUDA_REQUIRE_DEVICE=1.
 
-The Windows RTX 3060 experiment found the same FP64 mismatches from paired
-CUDA `sincos` as from separate CUDA `sin` and `cos` calls. See the dated
+The Windows RTX 3060 experiment found bitwise-identical outputs between paired
+CUDA `sincos` and separate CUDA `sin` and `cos` calls across the full 29,224
+input corpus, with the same remaining mismatch against Core/OpenLibm. See the dated
 [physical-device evidence](../../docs/validation/cuda-hoohash-v110-fp64-transform-windows-rtx3060-2026-11-27.md)
 for per-function counts, reproducer, compiler caveat, and artifact hashes.
 
