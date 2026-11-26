@@ -34,6 +34,13 @@ build root reports release `13.3.1`; NVCC itself reports `13.3.73`.
 
 ## Build and test
 
+The GitHub Actions CUDA container uses the NVIDIA Docker Hub image index
+`nvidia/cuda:13.3.1-cudnn-devel-ubuntu24.04@sha256:4d1953dba131182cfd732ced5c1025c770e6e298952e001aff5cadbc082069fc`.
+The index resolves Linux amd64 to manifest
+`sha256:231c92598f64800c97dd935926e50286951d1adb70b854bfc3d74262cf03caa2`.
+The workflow has a 20-minute job timeout and cancels superseded pull-request
+runs while leaving manually dispatched runs uncancelled.
+
 The standalone Visual Studio 2022 x64 project was configured in separate
 build directories for `Release` and `Debug`, then built with the installed MSVC
 compiler and the Toolkit root above. The project propagates the
