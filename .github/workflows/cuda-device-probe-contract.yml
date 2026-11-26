@@ -1,0 +1,42 @@
+name: CUDA device probe contract
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cuda-device-probe-contract.yml"
+      - "tools/gpu/**"
+      - "tests/test_cuda_device_probe.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/cuda-device-probe-contract.yml"
+      - "tools/gpu/**"
+      - "tests/test_cuda_device_probe.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cuda-probe-contract:
+    name: CUDA 13.3.1 compile and no-GPU contract
+    runs-on: ubuntu-24.04
+    container: nvidia/cuda:13.3.1-cudnn-devel-ubuntu24.04
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            cmake ninja-build python3
+          rm -rf /var/lib/apt/lists/*
+
+      - uses: actions/checkout@v4
+
+      - name: Configure standalone opt-in project
+        run: cmake -S tools/gpu -B build/cuda-device-probe -G Ninja
+
+      - name: Build probe and test fixture
+        run: cmake --build build/cuda-device-probe --parallel 2
+
+      - name: Check JSON fixtures and no-GPU runtime response
+        run: ctest --test-dir build/cuda-device-probe --output-on-failure
