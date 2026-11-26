@@ -3,6 +3,7 @@ import json
 import os
 import signal
 import select
+import statistics
 import time
 import queue
 import socket
@@ -407,7 +408,7 @@ def main():
         valid_prefix + ["0", "1"] + valid_suffix +
         ["--max-ms", "10", "--max-ms", "20"],
         valid_prefix + ["0", "1"] + valid_suffix + ["--unknown", "1"],
-        valid_prefix + ["0", "1"] + valid_suffix + ["--threads", "9"],
+        valid_prefix + ["0", "1"] + valid_suffix + ["--threads", "257"],
     ]
     for command in invalid_invocations:
         rejected = subprocess.run(command, capture_output=True, text=True, timeout=2)
@@ -479,25 +480,55 @@ def main():
 
             # This first job is intentionally too hard for the 10,000 nonce
             # window, keeping the real Core worker active until job replacement.
+            current_job = "stale-job-000"
             peer.sendall(
                 b'{"id":null,"method":"mining.set_difficulty","params":[1e15]}\n'
-                + notify_for(notify_template, "stale-job")
+                + notify_for(notify_template, current_job)
             )
-            until(lambda item: item.get("event") == "search_started" and
-                 item.get("job_id") == "stale-job")
+            current_search = until(lambda item: item.get("event") == "search_started" and
+                                   item.get("job_id") == current_job)
+            stale_switch_latencies_ms = []
+
+            # Repeatedly replace an active high-difficulty job. This exercises
+            # cancellation and re-use of the same worker pool across generations.
+            for replacement_index in range(1, 33):
+                replacement_job = f"stale-job-{replacement_index:03d}"
+                switch_started = time.perf_counter()
+                peer.sendall(notify_for(notify_template, replacement_job))
+                until(lambda item: item.get("event") == "search_cancel_requested" and
+                     item.get("job_id") == current_job)
+                metrics = until(lambda item: item.get("event") == "search_metrics" and
+                                item.get("job_generation") == current_search["generation"])
+                stale = until(lambda item: item.get("event") == "stale_candidate" and
+                              item.get("job_id") == current_job)
+                assert metrics["reason"] == "job_replaced", metrics
+                assert metrics["workers"] == 8, metrics
+                assert stale["search_status"] == "cancelled", stale
+                stale_switch_latencies_ms.append((time.perf_counter() - switch_started) * 1000)
+                current_job = replacement_job
+                current_search = until(lambda item: item.get("event") == "search_started" and
+                                       item.get("job_id") == current_job)
 
             # set_difficulty applies to the following notify. The replacement
             # uses the frozen pool fixture, whose nonce 2 digest is independently
             # recorded in pool-loopback-expected.json.
+            switch_started = time.perf_counter()
             peer.sendall(
                 b'{"id":null,"method":"mining.set_difficulty","params":[98.304]}\n'
                 + notify_for(notify_template, "accepted-job")
             )
             until(lambda item: item.get("event") == "search_cancel_requested" and
-                 item.get("job_id") == "stale-job")
+                 item.get("job_id") == current_job)
+            metrics = until(lambda item: item.get("event") == "search_metrics" and
+                            item.get("job_generation") == current_search["generation"])
             stale = until(lambda item: item.get("event") == "stale_candidate" and
-                          item.get("job_id") == "stale-job")
+                          item.get("job_id") == current_job)
+            assert metrics["reason"] == "job_replaced", metrics
+            assert metrics["workers"] == 8, metrics
             assert stale["search_status"] == "cancelled", stale
+            stale_switch_latencies_ms.append((time.perf_counter() - switch_started) * 1000)
+            assert len(stale_switch_latencies_ms) == 33
+            assert max(stale_switch_latencies_ms) < 2000, stale_switch_latencies_ms
             accepted_candidate = until(lambda item: item.get("event") == "candidate" and
                                        item.get("job_id") == "accepted-job")
             assert accepted_candidate["nonce"] == f'{expected["expected_nonce"]:08x}'
@@ -535,8 +566,14 @@ def main():
                 "accepted": 1,
                 "rejected": 1,
                 "pool_errors": 0,
-                "stale_candidates": 1,
+                "stale_candidates": 33,
             }, summary
+            print(
+                "PASS: 33 consecutive stale-job replacements; cancellation latency ms "
+                f"min/median/max={min(stale_switch_latencies_ms):.2f}/"
+                f"{statistics.median(stale_switch_latencies_ms):.2f}/"
+                f"{max(stale_switch_latencies_ms):.2f}; 8-worker pool reused"
+            )
         status = process.wait(timeout=5)
         stderr = process.stderr.read() if process.stderr else ""
         assert status == 0, (status, stderr)

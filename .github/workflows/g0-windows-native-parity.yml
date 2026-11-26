@@ -17,15 +17,23 @@ on:
       - 'tests/vectors/candidates/**'
       - 'include/pepepow/**'
       - 'tools/offline_stratum_miner.cpp'
+      - 'tools/cpu_benchmark.cpp'
+      - 'tools/cpu_benchmark_accounting.hpp'
+      - 'tools/cpu_benchmark_main.cpp'
       - 'tools/offline_stratum_replay.cpp'
       - 'tools/offline_cpu_search.cpp'
       - 'tests/job_state/**'
       - 'tests/test_job_state.cpp'
       - 'tests/test_native_stratum_search.cpp'
+      - 'tests/test_cpu_worker_pool.cpp'
+      - 'tests/test_cpu_benchmark_accounting.cpp'
+      - 'tests/test_cpu_benchmark_cli.py'
       - 'tests/test_offline_stratum_miner_e2e.py'
       - 'tests/check_pool_loopback_replay.py'
       - 'tests/check_offline_cpu_search.py'
       - 'tests/vectors/stratum/**'
+      - 'tools/windows/Invoke-Windows10-11NativeAcceptance.ps1'
+      - 'docs/WINDOWS10_11_PHYSICAL_ACCEPTANCE.md'
       - 'CMakeLists.txt'
   push:
     branches: [main]
@@ -44,15 +52,23 @@ on:
       - 'tests/vectors/candidates/**'
       - 'include/pepepow/**'
       - 'tools/offline_stratum_miner.cpp'
+      - 'tools/cpu_benchmark.cpp'
+      - 'tools/cpu_benchmark_accounting.hpp'
+      - 'tools/cpu_benchmark_main.cpp'
       - 'tools/offline_stratum_replay.cpp'
       - 'tools/offline_cpu_search.cpp'
       - 'tests/job_state/**'
       - 'tests/test_job_state.cpp'
       - 'tests/test_native_stratum_search.cpp'
+      - 'tests/test_cpu_worker_pool.cpp'
+      - 'tests/test_cpu_benchmark_accounting.cpp'
+      - 'tests/test_cpu_benchmark_cli.py'
       - 'tests/test_offline_stratum_miner_e2e.py'
       - 'tests/check_pool_loopback_replay.py'
       - 'tests/check_offline_cpu_search.py'
       - 'tests/vectors/stratum/**'
+      - 'tools/windows/Invoke-Windows10-11NativeAcceptance.ps1'
+      - 'docs/WINDOWS10_11_PHYSICAL_ACCEPTANCE.md'
       - 'CMakeLists.txt'
   workflow_dispatch:
 
@@ -93,6 +109,19 @@ jobs:
           ref: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
           path: openlibm
           persist-credentials: false
+      - name: Parse local physical-acceptance PowerShell runner
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          $scriptPath = Join-Path $env:GITHUB_WORKSPACE 'miner/tools/windows/Invoke-Windows10-11NativeAcceptance.ps1'
+          [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw "PowerShell syntax check failed for $scriptPath"
+          }
+          Write-Host "PowerShell syntax passed: $scriptPath"
+          & $scriptPath -SelfTest
       - name: Install native Windows x64 UCRT64 toolchain
         uses: msys2/setup-msys2@v2
         with:
@@ -183,6 +212,7 @@ jobs:
           test -f "$BUILD/openlibm/libopenlibm.a"
           cmake -S miner -B "$BUILD/miner" -G Ninja \
             -DCMAKE_BUILD_TYPE="$CONFIG" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_EXE_LINKER_FLAGS=-Wl,-Map=dependency-link.map \
             -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
             -DOPENLIBM_INCLUDE_DIR="$OPENLIBM_INCLUDE_WIN" \
             -DOPENLIBM_LIBRARY="$OPENLIBM_LIBRARY_WIN" \
@@ -404,6 +434,7 @@ jobs:
           mkdir -p "$EVIDENCE_UNIX/g1"
           cmake -S miner -B "$BUILD/miner" -G Ninja \
             -DCMAKE_BUILD_TYPE="$CONFIG" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_EXE_LINKER_FLAGS=-Wl,-Map=dependency-link.map \
             -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
             -DPEPEPOW_NATIVE_STRATUM_SEARCH=ON \
             -DPEPEPOW_CORE_SOURCE_DIR="$CORE_WIN" \
@@ -417,6 +448,38 @@ jobs:
           cmake --build "$BUILD/miner" --parallel 2
           ctest --test-dir "$BUILD/miner" --output-on-failure \
             | tee "$EVIDENCE_UNIX/g1/miner-ctest.txt"
+          DEPENDENCY_EVIDENCE="$EVIDENCE_UNIX/dependencies"
+          mkdir -p "$DEPENDENCY_EVIDENCE/link-maps"
+          cp "$BUILD/miner/compile_commands.json" "$DEPENDENCY_EVIDENCE/miner-compile-commands.json"
+          cp "$BUILD/openlibm/compile_commands.json" "$DEPENDENCY_EVIDENCE/openlibm-compile-commands.json"
+          ninja -C "$BUILD/miner" -t deps > "$DEPENDENCY_EVIDENCE/miner-ninja-deps.txt"
+          ninja -C "$BUILD/openlibm" -t deps > "$DEPENDENCY_EVIDENCE/openlibm-ninja-deps.txt"
+          ar t "$BUILD/miner/libpepepow_core_reference.a" > "$DEPENDENCY_EVIDENCE/core-archive-members.txt"
+          ar t "$BUILD/openlibm/libopenlibm.a" > "$DEPENDENCY_EVIDENCE/openlibm-archive-members.txt"
+          sha256sum "$BUILD/miner/libpepepow_core_reference.a" "$BUILD/openlibm/libopenlibm.a" \
+            | tee "$DEPENDENCY_EVIDENCE/static-archive-checksums.txt"
+          for target in pepepow-kat pepepow-offline-search offline_stratum_replay test_native_stratum_search offline_stratum_miner; do
+            rm -f "$BUILD/miner/$target.exe"
+            cmake --build "$BUILD/miner" --target "$target" --parallel 2
+            cp "$BUILD/miner/dependency-link.map" "$DEPENDENCY_EVIDENCE/link-maps/$target.map"
+            objdump -p "$BUILD/miner/$target.exe" \
+              | grep -E 'DLL Name:' > "$DEPENDENCY_EVIDENCE/$target-imported-dlls.txt"
+            sha256sum "$BUILD/miner/$target.exe" >> "$DEPENDENCY_EVIDENCE/executable-checksums.txt"
+          done
+          pacman -Qi mingw-w64-ucrt-x86_64-openssl > "$DEPENDENCY_EVIDENCE/openssl-package.txt"
+          {
+            echo "OpenSSL runtime: $(openssl version)"
+            crypto_dll_count=0
+            for dll in "$MINGW_PREFIX"/bin/libcrypto*.dll; do
+              if test -f "$dll"; then
+                sha256sum "$dll"
+                crypto_dll_count=$((crypto_dll_count + 1))
+              fi
+            done
+            test "$crypto_dll_count" -gt 0
+            sha256sum "$MINGW_PREFIX/lib/libcrypto.dll.a"
+            find "$MINGW_PREFIX/share/licenses" -iname '*openssl*' -type f -print 2>/dev/null || true
+          } > "$DEPENDENCY_EVIDENCE/openssl-runtime-files.txt"
           MINER_WIN="$(cygpath -w "$BUILD/miner/offline_stratum_miner.exe")"
           REPLAY_WIN="$(cygpath -w "$BUILD/miner/offline_stratum_replay.exe")"
           SEARCH_WIN="$(cygpath -w "$BUILD/miner/pepepow-offline-search.exe")"

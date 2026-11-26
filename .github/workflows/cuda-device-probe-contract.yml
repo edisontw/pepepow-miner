@@ -6,13 +6,21 @@ on:
       - ".github/workflows/cuda-device-probe-contract.yml"
       - "tools/gpu/**"
       - "tests/test_cuda_device_probe.py"
+      - "tests/cuda_device_policy.py"
+      - "tests/test_cuda_device_execution_policy.py"
   push:
     branches: [main]
     paths:
       - ".github/workflows/cuda-device-probe-contract.yml"
       - "tools/gpu/**"
       - "tests/test_cuda_device_probe.py"
+      - "tests/cuda_device_policy.py"
+      - "tests/test_cuda_device_execution_policy.py"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -21,7 +29,8 @@ jobs:
   cuda-probe-contract:
     name: CUDA 13.3.1 compile and no-GPU contract
     runs-on: ubuntu-24.04
-    container: nvidia/cuda:13.3.1-cudnn-devel-ubuntu24.04
+    timeout-minutes: 20
+    container: nvidia/cuda:13.3.1-cudnn-devel-ubuntu24.04@sha256:4d1953dba131182cfd732ced5c1025c770e6e298952e001aff5cadbc082069fc
     steps:
       - name: Install build tools
         run: |
@@ -39,4 +48,6 @@ jobs:
         run: cmake --build build/cuda-device-probe --parallel 2
 
       - name: Check JSON fixtures and no-GPU runtime response
+        env:
+          PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP: "1"
         run: ctest --test-dir build/cuda-device-probe --output-on-failure
