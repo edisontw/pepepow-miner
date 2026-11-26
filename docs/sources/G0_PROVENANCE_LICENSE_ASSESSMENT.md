@@ -1,8 +1,23 @@
 # G0 source provenance and notice assessment
 
-Date: 2026-11-24. Status: technical inventory recorded; redistribution review pending.
+Date: 2026-11-25. Status: conservative handling policy adopted; rights and redistribution review remain pending.
 
 This document separates reproducible build provenance from legal conclusions. A matching digest, a successful build, or a license keyword does not establish permission to redistribute a source file or binary.
+
+## Owner's conservative handling decision
+
+The Owner has chosen the following distribution policy. It preserves the existing source evidence and does not resolve the legal questions described below:
+
+- The repository currently declares no project-wide license. Keep that status; do not add an umbrella license until project authorship, rights, and dependency boundaries have been reviewed.
+- Preserve all upstream root licenses, file headers, attribution, copyright, and patch/source provenance. A root license is not treated as overriding a conflicting file header or a dependency's own notices.
+- For HooHash release gating, treat the GPL-3.0-or-later source headers as applicable until the relevant rightsholders provide written clarification about the MIT root-license change.
+- Do not distribute source bundles or binaries containing components still marked `REVIEW_REQUIRED`. Resolve the rights questions first or remove/replace the component with independently created material.
+- For future packages, create a notice set and SBOM from each exact release build. Include all relevant license texts and notices for compiled sources, selected linked archive members, bundled libraries, and runtime files. Record versions, source commits, hashes, changes, and build configuration. For an explicitly multi-license upstream dependency, preserve its license-choice text and all available license texts until package treatment is reviewed.
+- Keep pool-derived candidate/test material out of release packages and source bundles until its redistribution permission is established or the fixture has been replaced with independently created material.
+
+The adopted policy is recorded in [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md). It is a conservative project decision, not legal clearance or a conclusion that any specific license is compatible with another.
+
+Actual Linux x86-64 Debug and Release compile/include/link inventories are [`linux-debug-build-dependency-inventory.json`](linux-debug-build-dependency-inventory.json) and [`linux-reference-build-dependency-inventory.json`](linux-reference-build-dependency-inventory.json). They record pinned inputs, compiler dependency paths and hashes, static archive members, per-executable linker maps, selected members, and dynamic runtime libraries. The updated Windows Server workflow passed in both configurations on PR #27 head `7fc8cfe7775bcc0a31f520b039b0ff45f519dd4c`; its [Debug](https://github.com/edisontw/pepepow-miner/actions/runs/45600133198/artifacts/15015372150) and [Release](https://github.com/edisontw/pepepow-miner/actions/runs/45600133198/artifacts/15015885919) artifacts contain compiler dependency paths, archive members, per-executable linker maps, imported DLLs, and executable hashes. These are Windows Server CI records, not physical Windows 10/11 tests. None of these records establishes redistribution permission.
 
 ## OpenLibm Windows portable-C build
 
@@ -82,4 +97,4 @@ The run verified the full 32-byte reversed display/raw mapping and rejected dire
 
 ## Redistribution review status
 
-The source manifest and file inventory are technical provenance records. Redistribution review remains pending for OpenLibm per-file notices, Hoohash lineage, BLAKE3 attribution and modifications, pool-derived test material, platform-specific linked members, and the final product notice set. Do not treat a green CI run as legal clearance. No third-party source was copied into this assessment, and no release binary was produced or published.
+The source manifest and file inventory are technical provenance records. The conservative notice and release-gating policy is now adopted, while redistribution review remains pending for OpenLibm per-file notices, HooHash lineage, BLAKE3 attribution and modifications, pool-derived test material, the final product notice set, and Owner sign-off. Windows Server compile/link evidence has been collected, but its artifact records do not resolve source redistribution rights. Linux Debug and Release dependency inventories are available; they cover one platform and are not an all-platform package manifest. Do not treat a green CI run as legal clearance. No third-party source was copied into this assessment, and no release binary was produced or published.

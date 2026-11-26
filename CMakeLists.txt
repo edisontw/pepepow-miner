@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 project(pepepow_kat C)
+include(CTest)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
@@ -72,43 +73,75 @@ else()
   target_compile_features(pepepow-offline-search PRIVATE cxx_std_17)
   target_include_directories(pepepow-offline-search PRIVATE include)
   target_link_libraries(pepepow-offline-search PRIVATE "${PEPEPOW_REFERENCE_LIBRARY}")
+
+  find_package(Threads REQUIRED)
+  add_executable(pepepow-cpu-benchmark tools/cpu_benchmark_main.cpp tools/cpu_benchmark.cpp)
+  target_compile_features(pepepow-cpu-benchmark PRIVATE cxx_std_20)
+  target_include_directories(pepepow-cpu-benchmark PRIVATE include)
+  target_link_libraries(pepepow-cpu-benchmark PRIVATE "${PEPEPOW_REFERENCE_LIBRARY}" Threads::Threads)
+  if(WIN32)
+    target_link_libraries(pepepow-cpu-benchmark PRIVATE psapi)
+  endif()
+
+  if(BUILD_TESTING)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_executable(test_cpu_worker_pool tests/test_cpu_worker_pool.cpp)
+    target_compile_features(test_cpu_worker_pool PRIVATE cxx_std_20)
+    target_include_directories(test_cpu_worker_pool PRIVATE include)
+    target_link_libraries(test_cpu_worker_pool PRIVATE "${PEPEPOW_REFERENCE_LIBRARY}" Threads::Threads)
+    add_test(NAME cpu_worker_pool COMMAND test_cpu_worker_pool)
+    set_tests_properties(cpu_worker_pool PROPERTIES TIMEOUT 30)
+    add_executable(test_cpu_benchmark_accounting tests/test_cpu_benchmark_accounting.cpp)
+    target_compile_features(test_cpu_benchmark_accounting PRIVATE cxx_std_20)
+    target_include_directories(test_cpu_benchmark_accounting PRIVATE tools)
+    add_test(NAME cpu_benchmark_accounting COMMAND test_cpu_benchmark_accounting)
+    set_tests_properties(cpu_benchmark_accounting PROPERTIES TIMEOUT 5)
+    add_test(NAME cpu_benchmark_cli
+      COMMAND "${Python3_EXECUTABLE}"
+              "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_cpu_benchmark_cli.py"
+              "$<TARGET_FILE:pepepow-cpu-benchmark>")
+    set_tests_properties(cpu_benchmark_cli PROPERTIES TIMEOUT 15)
+  endif()
 endif()
 
 if(PEPEPOW_NATIVE_STRATUM_SEARCH)
   find_package(OpenSSL REQUIRED COMPONENTS Crypto)
   find_package(Threads REQUIRED)
-  find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_executable(offline_stratum_replay tools/offline_stratum_replay.cpp)
   target_compile_features(offline_stratum_replay PRIVATE cxx_std_20)
   target_compile_definitions(offline_stratum_replay PRIVATE PEPEPOW_NATIVE_STRATUM_SEARCH)
   target_include_directories(offline_stratum_replay PRIVATE include)
   target_link_libraries(offline_stratum_replay PRIVATE pepepow_core_reference OpenSSL::Crypto)
 
-  enable_testing()
-  add_executable(test_native_stratum_search tests/test_native_stratum_search.cpp)
-  target_compile_features(test_native_stratum_search PRIVATE cxx_std_20)
-  target_include_directories(test_native_stratum_search PRIVATE include)
-  target_link_libraries(test_native_stratum_search PRIVATE
-    pepepow_core_reference OpenSSL::Crypto Threads::Threads)
-  add_test(NAME native_stratum_search COMMAND test_native_stratum_search)
-  set_tests_properties(native_stratum_search PROPERTIES TIMEOUT 10)
-
-  add_executable(offline_stratum_miner tools/offline_stratum_miner.cpp)
+  add_executable(offline_stratum_miner tools/offline_stratum_miner.cpp tools/cpu_benchmark.cpp)
   target_compile_features(offline_stratum_miner PRIVATE cxx_std_20)
   target_include_directories(offline_stratum_miner PRIVATE include)
   target_link_libraries(offline_stratum_miner PRIVATE
     pepepow_core_reference OpenSSL::Crypto Threads::Threads)
   if(WIN32)
-    target_link_libraries(offline_stratum_miner PRIVATE ws2_32)
+    target_link_libraries(offline_stratum_miner PRIVATE ws2_32 psapi)
   endif()
   if(MSVC)
     target_compile_options(offline_stratum_miner PRIVATE /W4 /WX)
   else()
     target_compile_options(offline_stratum_miner PRIVATE -Wall -Wextra -Werror -pedantic)
   endif()
-  add_test(NAME offline_stratum_miner_loopback
-    COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_offline_stratum_miner_e2e.py"
-            "$<TARGET_FILE:offline_stratum_miner>")
-  set_tests_properties(offline_stratum_miner_loopback PROPERTIES TIMEOUT 30)
+
+  if(BUILD_TESTING)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    add_executable(test_native_stratum_search tests/test_native_stratum_search.cpp)
+    target_compile_features(test_native_stratum_search PRIVATE cxx_std_20)
+    target_include_directories(test_native_stratum_search PRIVATE include)
+    target_link_libraries(test_native_stratum_search PRIVATE
+      pepepow_core_reference OpenSSL::Crypto Threads::Threads)
+    add_test(NAME native_stratum_search COMMAND test_native_stratum_search)
+    set_tests_properties(native_stratum_search PROPERTIES TIMEOUT 10)
+
+    add_test(NAME offline_stratum_miner_loopback
+      COMMAND "${Python3_EXECUTABLE}"
+              "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_offline_stratum_miner_e2e.py"
+              "$<TARGET_FILE:offline_stratum_miner>")
+    set_tests_properties(offline_stratum_miner_loopback PROPERTIES TIMEOUT 30)
+  endif()
+
 endif()

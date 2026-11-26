@@ -1,91 +1,88 @@
-# G0：原生 CPU 技術驗證
+# G0 Native CPU Technical Validation
 
-更新：2026-11-04（台灣）  
-狀態：待執行。此文件是驗收計畫，沒有代表任何測試已通過。
+Updated 2026-11-25 (Taipei time).
 
-## 目標與範圍
+**Status: G0 is NOT PASSED.** Technical evidence is recorded, and the Owner's physical Windows 11 acceptance of live `main` `7284aa22cafd79e3521291307eca8f5b9a575744` passed 84/84 steps. Windows 10 is PASS by Owner equivalence; no separate physical Windows 10 execution was performed. Do not repeat this completed Windows acceptance. Neither platform decision resolves provenance, licensing, redistribution, or formal G0 sign-off. This document retains the acceptance criteria and outstanding evidence; it is not a request to rerun accepted Windows tests.
 
-建立可重現的 Windows／Linux 原生 CPU hash harness，證明 HooHash V110 PEPEPOW variant 與現行 Core 完整一致。G0 先使用離線向量及有來源的鏈上 headers，不需要錢包私鑰或連入礦池。
+## Goal and scope
 
-第一版驗收目標為 Windows 11 x64、Ubuntu 22.04／24.04 x64。Windows 10、ARM64 及 GPU 待各自取得證據後列入支援。
+Build a reproducible native Windows/Linux CPU hash harness to establish that the HooHash V110 PEPEPOW variant matches current Core completely. G0 uses offline vectors and sourced on-chain headers; it requires no wallet credentials and no pool connection.
 
-## 下一個最小交付
+The original native target matrix was Windows 11 x64 and Ubuntu 22.04/24.04 x64. The Owner now accepts Windows 10 by equivalence to the completed Windows 11 result. No separate physical Windows 10 run is recorded, and this equivalence decision does not claim Windows 10 device evidence or support. ARM64 and GPU remain outside this gate.
 
-1. 重新讀取 Core 與 pool 的最新分支 SHA。
-2. 逐檔檢查 hash、BLAKE3、openlibm 與測試工具的來源、授權、依賴及編譯選項。
-3. 固定採用 SHA，建立來源清單及第一組具有獨立 expected digest 的完整 32-byte KAT。
-4. 建立可在 Windows／Linux 原生執行、任何 mismatch 回傳非零狀態的 CLI harness。
-5. 再擴充測例與 CI，輸出 parity 報告。
+## Remaining G0 work
 
-先完成第一組完整 KAT 只代表初步驗證，不得將 G0 標為完成。
+1. Resolve the source license and notice questions conservatively. Preserve upstream LICENSE, NOTICE, provenance, and source identifiers; do not infer project-wide licensing or redistribution permission.
+2. Review the actual compiled dependency headers and linked members against pinned PEPEPOW Core and OpenLibm evidence. PR #27 records compiled-dependency inventories, but the formal review and Owner decision remain open.
+3. Reconcile native Linux evidence against the Ubuntu 22.04 and Ubuntu 24.04 acceptance criteria. Do not infer one distribution's native execution from another distribution or from cross-compilation.
+4. Record the final commands, source pins, input/output byte order, raw evidence, unresolved gaps, and formal Owner sign-off against this checklist.
 
-## 來源鎖定
+The first full 32-byte KAT, a scaffold, or a green CI result without the required platform and provenance evidence cannot mark G0 passed.
 
-2026-11-04 已重新讀取 Core master 與 pool main，與下列歷史 SHA 相同。它們是本次靜態查核快照，**不是本 repo 已採用或完成授權審查的依賴**。來源定位與差異見 [研究查核表](RESEARCH_LEDGER.md)。
+## Historical source snapshot
 
-| 專案 | 本次查核 SHA | 用途 |
+On 2026-11-04, Core `master` and pool `main` were re-read and matched the historical SHAs below. This is a static research snapshot; it is **not** the set of dependencies adopted by the miner and does not complete license review. See the [research ledger](RESEARCH_LEDGER.md) for source locations and differences.
+
+| Project | SHA in the 2026-11-04 snapshot | Purpose |
 | --- | --- | --- |
-| MattF42/PePe-core | 38e801428688dfd0aee272b4a91819ac1a13ab4e | 共識參考及 HooHash 規格 |
-| edisontw/pool-pepepow | c1298d7b40e5e9fd39f76af179c6e10a1c313147 | Stratum、序列化及向量參考 |
+| MattF42/PePe-core | `38e801428688dfd0aee272b4a91819ac1a13ab4e` | Consensus reference and HooHash specification |
+| edisontw/pool-pepepow | `c1298d7b40e5e9fd39f76af179c6e10a1c313147` | Stratum, serialization, and vector reference |
 
-參考入口：
+References: [PePe-core](https://github.com/MattF42/PePe-core), [pool-pepepow](https://github.com/edisontw/pool-pepepow).
 
-- https://github.com/MattF42/PePe-core
-- https://github.com/edisontw/pool-pepepow
+For every file actually introduced, record repository, commit, path, checksum, license/notice, patches, and build dependencies. Preserve original license markings. Do not claim redistribution readiness before the review is complete.
 
-每個實際引入的檔案須記錄 repository、commit、path、檔案 checksum、license／notice、patch、建置相依；保留原始授權標示。未完成查核前不宣稱可直接重新散布。
+## Harness and test corpus
 
-## Harness 與測例
+Each vector records:
 
-每個向量需記錄：
+- Stable case ID and exactly 80 bytes of header hex.
+- Reference source and commit, how the expected digest was produced, and the complete 32-byte digest.
+- Raw digest byte order, separately from any RPC/display hash conversion.
+- For a real chain case, block height, block hash, header source, and retrieval time.
+- Synthetic inputs are labeled synthetic and are not presented as valid proof-of-work blocks.
 
-- 穩定 case ID、恰好 80 bytes 的 header hex。
-- 參考來源、commit，以及 expected digest 的產生方式與完整 32 bytes。
-- digest 的 raw-byte 順序，另行標明 RPC／display hash 的轉換方式。
-- 真實鏈上案例的高度、block hash、header 來源與取得時間。
-- 若為合成 header，標為合成資料，不冒充符合 PoW 的真實區塊。
+The parity corpus must contain at least 10,000 hashable header/nonce inputs, including real chain headers, nonce boundaries, and field variations. A synthetic input need not satisfy the network target to test hash correctness.
 
-驗收至少 10,000 組可供 hash 輸入的 header／nonce，包含真實鏈上 headers、nonce 邊界與欄位變動。hash 正確性不要求每個合成 header 都滿足 network target。
+Expected digests must not be generated by the implementation under test at test time. Keep fixed known answers separate from an independently built Core reference so the corpus supplies both base KATs and differential checks.
 
-Expected digest 不可由待測實作在測試當下自行生成。固定已知答案與獨立建置的 Core reference，分別提供基礎 KAT 及差異比對。
-
-| 檢查 | 必要證據 |
+| Check | Required evidence |
 | --- | --- |
-| 全長比對 | 每例比對全部 32 bytes；不只前綴 |
-| 失敗行為 | 故意改壞末端 digest byte 後，程序與 CI 必須失敗 |
-| 輸入格式 | 長度錯誤、非法 hex、截斷輸入均被拒絕 |
-| nonce | offset 76–79 的 little-endian，涵蓋 0、1、最大值 |
-| seed／cache | nonce 及其餘 header 欄位變動，對照 Core 的 seed 與失效規則 |
-| 多執行緒 | 每個 worker 結果一致；獨立記錄可重現輸入 |
-| 浮點 | 記錄 FP64、rounding、FMA／fast-math 與數學函式庫設定 |
-| 可攜性 | 各 OS 原生執行，完整輸出工具鏈與平台識別 |
+| Full digest | Compare all 32 bytes for every case, not only a prefix |
+| Failure behavior | Corrupt the final digest byte deliberately; the program and CI must fail |
+| Input format | Reject wrong lengths, invalid hex, and truncated input |
+| Nonce | Verify little-endian bytes at offsets 76–79, including 0, 1, and the maximum |
+| Seed/cache | Vary nonce and other header fields and check seed/cache invalidation against Core |
+| Multiple threads | Compare each worker result and retain reproducible inputs |
+| Floating point | Record FP64, rounding, FMA/fast-math, and math-library settings |
+| Portability | Execute natively per OS and record full toolchain and platform identity |
 
-本次已確認固定 pool SHA 的 verify_known_vector.c 仍只比前 8 bytes、失敗仍 return 0（見查核表 R05）。不能直接把該工具的成功退出當成完整 parity 證據。
+The 2026-11-04 static check found that the then-pinned pool `verify_known_vector.c` compared only the first 8 bytes and returned success on failure (research ledger R05). That tool's success status alone is not complete parity evidence.
 
-## 補充的來源與 coverage 驗收
+## Additional source and coverage checks
 
-- Core 的 dev_vectors.cpp 只生成 100 組合成輸入並呼叫 hash；可作 corpus 起點，不能代替獨立 expected digest、10,000 組或真實鏈上資料。
-- 除 nonce 0、1、最大值，加入 255、256，並覆蓋 nonce 低 8 bits 全部 256 種值。每個 header 欄位獨立變動，驗證 seed/cache 失效；中間值至少覆蓋 firstPass、matrixSeed、選定 matrix cells 與 final output。
-- Nonlinear branch／NaN/Inf 路徑以可重現向量或 instrumented reference 檢查；未能觸發的路徑明列 coverage 缺口，不能虛稱覆蓋。
-- 明確分開 matrix multiplication output、hoohashv110 output 與 RPC/display encoding；後者函式已做 reverse，adapter 不可再次反轉。
-- Windows Server CI 或交叉編譯不能冒充 Windows 11 原生驗收。三個目標 OS 分別提交 debug/release 結果與實際環境，缺平台保持 pending。
+- Core `dev_vectors.cpp` generates 100 synthetic inputs and invokes the hash. It can seed a corpus but cannot replace independent expected digests, 10,000 cases, or real chain data.
+- In addition to nonce 0, 1, and maximum, include 255 and 256 and cover all 256 values of the nonce's low eight bits. Vary each header field independently to check seed/cache invalidation. Cover intermediate `firstPass`, `matrixSeed`, selected matrix cells, and final output.
+- Check nonlinear branch and NaN/Inf paths with reproducible vectors or an instrumented reference. List paths that cannot be triggered as coverage gaps; do not claim them covered.
+- Keep matrix multiplication output, `hoohashv110` output, and RPC/display encoding separate. The latter reverses bytes; an adapter must not reverse a second time.
+- Windows Server CI or cross-compilation does not replace physical Windows 11 evidence. Report native platform results independently and leave missing platforms pending.
 
-## 浮點與建置
+## Floating point and builds
 
-以 Core 現行參考的數學函式及編譯語義為依據。openlibm 不得未經驗證即以 Windows 系統 libm 取代。最佳化、FMA 或 fast-math 的變更，每次都必須重新通過完整 parity。
+Follow the math functions and compiler semantics used by the current Core reference. Do not silently replace OpenLibm with Windows system libm. Any optimization, FMA, or fast-math change requires a fresh full parity run.
 
-記錄 OS、架構、CPU、compiler／版本、CMake、flags、相依版本及 build log。Windows 交叉編譯成功不等於 Windows 原生執行通過。CI 未執行或缺少設備時標記 pending。
+Record OS, architecture, CPU, compiler/version, CMake, flags, dependency versions, and build logs. A successful Windows cross-build is not a native Windows execution. Mark CI that did not run and hardware that is unavailable as pending.
 
-## G0 完成定義
+## G0 completion checklist
 
-- [ ] 採用來源與依賴已固定 SHA，授權／notices 已整理。
-- [ ] Harness 比對完整 32 bytes，錯誤與 mismatch 回傳非零。
-- [ ] 故意破壞最後一個 digest byte 可使測試失敗。
-- [ ] 至少 10,000 組測例全數對上獨立 reference，含鏈上案例。
-- [ ] Windows 11 x64 原生 build／run 證據完整。
-- [ ] Ubuntu 22.04 x64 原生 build／run 證據完整。
-- [ ] Ubuntu 24.04 x64 原生 build／run 證據完整。
-- [ ] 重現指令、測例來源、環境及結果報告已提交。
-- [ ] 初步效能、相依問題、維護成本與 G1 backlog 已整理。
+- [ ] Adopted source and dependencies have fixed SHAs and completed license/notice review.
+- [x] Harness compares all 32 bytes and returns nonzero for invalid input or mismatch.
+- [x] Deliberately corrupting the final digest byte causes the test to fail.
+- [x] At least 10,000 cases match an independent reference, including chain cases, in recorded feature-head CI evidence.
+- [x] Physical Windows 11 technical acceptance of `main` passed 84/84 on 2026-11-25; Windows 10 is accepted by Owner equivalence, with no separate physical run. Do not repeat the completed Windows acceptance.
+- [ ] Ubuntu 22.04 x64 native build/run acceptance evidence is complete.
+- [ ] Ubuntu 24.04 x64 native build/run acceptance evidence is complete.
+- [x] Reproduction instructions, corpus sources, environment, and technical results are recorded.
+- [x] Initial performance, dependency issues, maintenance cost, and G1 backlog are documented.
 
-任何已知 mismatch 都阻止 G0 通過。未解決時記錄最小重現案例，沿序列化、BLAKE3、matrix／seed、浮點與編譯設定定位，不用顯示算力或成功連線替代證明。
+Any known mismatch blocks G0. Record a minimal reproducer and investigate serialization, BLAKE3, matrix/seed, floating point, and compiler settings. Displayed hashrate or a successful connection is not correctness evidence. Formal Owner acceptance and license clearance remain open until their explicit criteria are met.

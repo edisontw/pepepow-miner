@@ -1,0 +1,17 @@
+{
+  "method": "Windows process thread CPU-time snapshot",
+  "sampled_utc": "2026-11-25T16:06:46.0135872Z",
+  "sample_elapsed_wall_seconds": 376.5,
+  "active_hash_workers": 12,
+  "worker_cpu_seconds_sum": 4276.890625,
+  "worker_cpu_seconds_min": 355.5,
+  "worker_cpu_seconds_median": 356.40625,
+  "worker_cpu_seconds_max": 357.203125,
+  "worker_cpu_time_spread_pct": 0.4778588416672451,
+  "worker_share_of_process_cpu_pct": 99.99598147092776,
+  "limitations": [
+    "One process snapshot; not a call-stack or lock-wait profile.",
+    "WPR CPU sampling was blocked by Windows policy 0xc5585011.",
+    "The separate GNU gprof -pg attempt produced no function samples/call entries and is not used for conclusions."
+  ]
+}
