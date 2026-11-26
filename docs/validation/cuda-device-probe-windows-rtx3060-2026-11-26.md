@@ -11,6 +11,12 @@ Date: 2026-11-26 (Asia/Taipei)
 - CUDA Toolkit release 13.3.1; NVCC component build 13.3.73.
 - CMake 4.5.1, Ninja 1.13.2, x64 CPython 3.13.17.
 
+NVIDIA's [CUDA 13.3.1 Windows installation guide](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-installation-guide-microsoft-windows/index.html)
+lists MSVC 193x for Visual Studio 2022. The installed MSVC 19.44 is outside
+that published range. Its CUDA 13.3.73 host compiler headers accepted 19.44,
+and both configurations compiled locally, but this does not qualify 19.44 as
+officially supported.
+
 The NVIDIA Toolkit installer completed with its selected compiler, runtime,
 and Visual Studio integration components. That selected installation did not
 include all compiler support files required for native compilation. The probe
