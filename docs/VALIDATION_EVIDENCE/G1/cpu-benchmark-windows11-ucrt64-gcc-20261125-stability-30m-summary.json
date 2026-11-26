@@ -1,0 +1,49 @@
+{
+  "started_utc": "2026-11-25T16:00:29.5196377Z",
+  "finished_utc": "2026-11-25T16:30:29.9704897Z",
+  "monitor_elapsed_seconds": 1800.479,
+  "process_exit_code": 0,
+  "child_process_absent_after_exit": true,
+  "samples": 60,
+  "monitor_file": "cpu-benchmark-windows11-ucrt64-gcc-20261125-stability-30m-monitor.jsonl",
+  "result": {
+    "status": "ok",
+    "mode": "offline",
+    "os": "Windows",
+    "compiler": "GCC 16.2.0",
+    "threads": 12,
+    "logical_cpus": 12,
+    "requested_seconds": 1800,
+    "elapsed_seconds": 1800.000039,
+    "hashes": 568154427,
+    "hashrate_hps": 315641.3415,
+    "process_cpu_seconds": 18885.01562,
+    "cpu_utilization_pct_of_logical_capacity": 87.43062601,
+    "memory_current_bytes": 6397952,
+    "memory_peak_bytes": 6397952,
+    "startup_ms": 0.6653,
+    "stop_reason": "duration",
+    "stop_latency_ms": 0.0388,
+    "nonce_batches_complete": 56815,
+    "final_batch_hashes": 4427,
+    "nonce_batches_disjoint": true,
+    "header_hex": "0b30557a9fc4e90e33587da2c7ec11365b80a5caef14395e83a8cdf2173c6186abd0f51a3f6489aed3f81d42678cb1d6fb20456a8fb4d9fe23486d92b7dc01264b7095badf04294e7398bde2072c5176"
+  },
+  "resource_trend": {
+    "steady_state_samples": 57,
+    "stable_thread_counts": [
+      13,
+      14,
+      15
+    ],
+    "threads_constant_after_startup": false,
+    "handles_first5_median": 119.0,
+    "handles_last5_median": 119.0,
+    "working_set_first5_median_bytes": 6176768.0,
+    "working_set_last5_median_bytes": 6275072.0,
+    "working_set_change_bytes": 98304.0,
+    "private_bytes_first5_median": 1826816.0,
+    "private_bytes_last5_median": 1835008.0,
+    "private_bytes_change": 8192.0
+  }
+}
