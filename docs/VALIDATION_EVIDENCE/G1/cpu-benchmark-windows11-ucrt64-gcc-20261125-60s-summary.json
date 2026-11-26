@@ -1,0 +1,295 @@
+{
+  "environment_file": "cpu-benchmark-windows11-ucrt64-gcc-20261125-environment.json",
+  "raw_jsonl": "cpu-benchmark-windows11-ucrt64-gcc-20261125-60s.jsonl",
+  "annotated_jsonl": "cpu-benchmark-windows11-ucrt64-gcc-20261125-60s-run-details.jsonl",
+  "generated_utc": "2026-11-25T15:51:06.0145507Z",
+  "runs": [
+    {
+      "threads": 1,
+      "repetitions": 3,
+      "metrics": {
+        "hashrate_hps": {
+          "median": 38771.16434,
+          "min": 38675.62057,
+          "max": 38829.03512
+        },
+        "cpu_utilization_pct_of_logical_capacity": {
+          "median": 8.320309754,
+          "min": 8.318141862,
+          "max": 8.328989863
+        },
+        "memory_current_bytes": {
+          "median": 5566464.0,
+          "min": 5562368.0,
+          "max": 5574656.0
+        },
+        "memory_peak_bytes": {
+          "median": 5566464.0,
+          "min": 5562368.0,
+          "max": 5574656.0
+        },
+        "startup_ms": {
+          "median": 0.0253,
+          "min": 0.0238,
+          "max": 0.027
+        },
+        "stop_latency_ms": {
+          "median": 0.0198,
+          "min": 0.0036,
+          "max": 0.023
+        },
+        "elapsed_seconds": {
+          "median": 60.0000198,
+          "min": 60.0000036,
+          "max": 60.000023
+        }
+      }
+    },
+    {
+      "threads": 2,
+      "repetitions": 3,
+      "metrics": {
+        "hashrate_hps": {
+          "median": 72643.58204,
+          "min": 71449.36451,
+          "max": 72795.60511
+        },
+        "cpu_utilization_pct_of_logical_capacity": {
+          "median": 16.59721199,
+          "min": 16.56683205,
+          "max": 16.61240528
+        },
+        "memory_current_bytes": {
+          "median": 5758976.0,
+          "min": 5754880.0,
+          "max": 5767168.0
+        },
+        "memory_peak_bytes": {
+          "median": 5758976.0,
+          "min": 5754880.0,
+          "max": 5767168.0
+        },
+        "startup_ms": {
+          "median": 0.1882,
+          "min": 0.1555,
+          "max": 0.1912
+        },
+        "stop_latency_ms": {
+          "median": 0.0298,
+          "min": 0.0286,
+          "max": 0.037
+        },
+        "elapsed_seconds": {
+          "median": 60.0000298,
+          "min": 60.0000286,
+          "max": 60.000037
+        }
+      }
+    },
+    {
+      "threads": 4,
+      "repetitions": 3,
+      "metrics": {
+        "hashrate_hps": {
+          "median": 123952.4001,
+          "min": 123911.1421,
+          "max": 124272.4152
+        },
+        "cpu_utilization_pct_of_logical_capacity": {
+          "median": 31.32810615,
+          "min": 31.18487489,
+          "max": 31.39756065
+        },
+        "memory_current_bytes": {
+          "median": 5865472.0,
+          "min": 5865472.0,
+          "max": 5865472.0
+        },
+        "memory_peak_bytes": {
+          "median": 5865472.0,
+          "min": 5865472.0,
+          "max": 5865472.0
+        },
+        "startup_ms": {
+          "median": 0.2746,
+          "min": 0.2553,
+          "max": 0.2917
+        },
+        "stop_latency_ms": {
+          "median": 0.0361,
+          "min": 0.0168,
+          "max": 0.0403
+        },
+        "elapsed_seconds": {
+          "median": 60.0000361,
+          "min": 60.0000168,
+          "max": 60.0000403
+        }
+      }
+    },
+    {
+      "threads": 6,
+      "repetitions": 3,
+      "metrics": {
+        "hashrate_hps": {
+          "median": 182924.8891,
+          "min": 182179.8034,
+          "max": 183561.5915
+        },
+        "cpu_utilization_pct_of_logical_capacity": {
+          "median": 48.05335266,
+          "min": 48.01212805,
+          "max": 48.96481331
+        },
+        "memory_current_bytes": {
+          "median": 5980160.0,
+          "min": 5976064.0,
+          "max": 5980160.0
+        },
+        "memory_peak_bytes": {
+          "median": 5980160.0,
+          "min": 5976064.0,
+          "max": 5980160.0
+        },
+        "startup_ms": {
+          "median": 0.3983,
+          "min": 0.1374,
+          "max": 0.4122
+        },
+        "stop_latency_ms": {
+          "median": 0.0373,
+          "min": 0.0309,
+          "max": 0.0409
+        },
+        "elapsed_seconds": {
+          "median": 60.0000373,
+          "min": 60.0000309,
+          "max": 60.0000409
+        }
+      }
+    },
+    {
+      "threads": 8,
+      "repetitions": 3,
+      "metrics": {
+        "hashrate_hps": {
+          "median": 241120.0975,
+          "min": 240914.8508,
+          "max": 241540.2626
+        },
+        "cpu_utilization_pct_of_logical_capacity": {
+          "median": 63.61974788,
+          "min": 63.48737743,
+          "max": 65.28199533
+        },
+        "memory_current_bytes": {
+          "median": 6082560.0,
+          "min": 6074368.0,
+          "max": 6090752.0
+        },
+        "memory_peak_bytes": {
+          "median": 6082560.0,
+          "min": 6074368.0,
+          "max": 6090752.0
+        },
+        "startup_ms": {
+          "median": 0.4629,
+          "min": 0.4581,
+          "max": 0.5227
+        },
+        "stop_latency_ms": {
+          "median": 0.0413,
+          "min": 0.0338,
+          "max": 0.1128
+        },
+        "elapsed_seconds": {
+          "median": 60.0000413,
+          "min": 60.0000338,
+          "max": 60.0001128
+        }
+      }
+    },
+    {
+      "threads": 10,
+      "repetitions": 3,
+      "metrics": {
+        "hashrate_hps": {
+          "median": 298152.5619,
+          "min": 293247.8187,
+          "max": 298265.6129
+        },
+        "cpu_utilization_pct_of_logical_capacity": {
+          "median": 79.80029269,
+          "min": 78.05767743,
+          "max": 79.82628498
+        },
+        "memory_current_bytes": {
+          "median": 6201344.0,
+          "min": 6197248.0,
+          "max": 6201344.0
+        },
+        "memory_peak_bytes": {
+          "median": 6201344.0,
+          "min": 6197248.0,
+          "max": 6201344.0
+        },
+        "startup_ms": {
+          "median": 0.5286,
+          "min": 0.3581,
+          "max": 0.6845
+        },
+        "stop_latency_ms": {
+          "median": 0.041,
+          "min": 0.0371,
+          "max": 0.0781
+        },
+        "elapsed_seconds": {
+          "median": 60.000041,
+          "min": 60.0000371,
+          "max": 60.0000781
+        }
+      }
+    },
+    {
+      "threads": 12,
+      "repetitions": 3,
+      "metrics": {
+        "hashrate_hps": {
+          "median": 340326.8421,
+          "min": 330655.9461,
+          "max": 343247.4288
+        },
+        "cpu_utilization_pct_of_logical_capacity": {
+          "median": 94.13614885,
+          "min": 91.20003057,
+          "max": 95.42310631
+        },
+        "memory_current_bytes": {
+          "median": 6316032.0,
+          "min": 6307840.0,
+          "max": 6328320.0
+        },
+        "memory_peak_bytes": {
+          "median": 6316032.0,
+          "min": 6307840.0,
+          "max": 6328320.0
+        },
+        "startup_ms": {
+          "median": 0.6698,
+          "min": 0.2284,
+          "max": 0.7043
+        },
+        "stop_latency_ms": {
+          "median": 0.0445,
+          "min": 0.037,
+          "max": 0.0866
+        },
+        "elapsed_seconds": {
+          "median": 60.0000445,
+          "min": 60.000037,
+          "max": 60.0000866
+        }
+      }
+    }
+  ]
+}

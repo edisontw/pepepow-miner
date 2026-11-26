@@ -1,4 +1,5 @@
 #include "pepepow/local_handshake.hpp"
+#include "pepepow/cpu_benchmark.hpp"
 #include "pepepow/cpu_worker_pool.hpp"
 #include "pepepow/offline_stratum_search.hpp"
 
@@ -520,10 +521,16 @@ int run(const Options& options) {
 }  // namespace
 
 int main(int argc, char** argv) {
+  const auto process_started = pepepow::SearchClock::now();
+  if (argc >= 2 && std::string_view(argv[1]) == "--benchmark")
+    return pepepow::run_cpu_benchmark(argc - 1, argv + 1, process_started);
   if (argc == 2 && std::string_view(argv[1]) == "--help") {
     std::cout << "Usage: offline_stratum_miner PORT LOGIN START COUNT EXTRANONCE2 "
                  "[--responses N] [--max-ms N] [--scale N] [--retries N]\n"
                  "       [--fallback-port PORT] [--backoff-ms N] [--mode POOL|SOLO] [--threads N]\n"
+                 "       offline_stratum_miner --benchmark [--threads N|all] [--seconds N]\n"
+                 "--threads accepts 1..256 (default 1); all is available in benchmark mode.\n"
+                 "Benchmark mode is offline and never opens a pool connection. Ctrl+C stops cooperatively.\n"
                  "Connects only to IPv4 127.0.0.1; requires a local mock server.\n"
                  "Search uses pinned Core HooHash; no public pool endpoint is accepted.\n";
     return 0;
