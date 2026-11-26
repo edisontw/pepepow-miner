@@ -1,0 +1,77 @@
+name: CUDA HooHash BLAKE3 stage
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cuda-hoohash-blake3-stage.yml"
+      - "tools/gpu/**"
+      - "tests/test_cuda_blake3_stage.py"
+      - "tests/cuda_device_policy.py"
+      - "tests/test_cuda_device_execution_policy.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/cuda-hoohash-blake3-stage.yml"
+      - "tools/gpu/**"
+      - "tests/test_cuda_blake3_stage.py"
+      - "tests/cuda_device_policy.py"
+      - "tests/test_cuda_device_execution_policy.py"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  blake3-stage:
+    name: CUDA BLAKE3 stage and pinned-Core full-digest vectors
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: nvidia/cuda:13.3.1-cudnn-devel-ubuntu24.04@sha256:4d1953dba131182cfd732ced5c1025c770e6e298952e001aff5cadbc082069fc
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake git ninja-build python3
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout exact miner commit
+        uses: actions/checkout@v4
+        with:
+          path: miner
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Checkout pinned PEPEPOW Core
+        uses: actions/checkout@v4
+        with:
+          repository: edisontw/PePe-core
+          ref: bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          path: core
+          persist-credentials: false
+
+      - name: Verify exact source revisions
+        env:
+          EXPECTED_MINER_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git -C miner rev-parse HEAD)" = "$EXPECTED_MINER_SHA"
+          test "$(git -C core rev-parse HEAD)" = bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          test -z "$(git -C core status --porcelain --untracked-files=all)"
+
+      - name: Configure stage and pinned-Core BLAKE3 oracle
+        run: |
+          cmake -S miner/tools/gpu -B build/cuda-blake3-stage -G Ninja \
+            -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON \
+            -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core"
+
+      - name: Build device stage and pinned-Core oracle
+        run: cmake --build build/cuda-blake3-stage --parallel 2
+
+      - name: Run fixed full-digest stage contract
+        env:
+          PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP: "1"
+        run: ctest --test-dir build/cuda-blake3-stage --output-on-failure
