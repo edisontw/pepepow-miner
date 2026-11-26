@@ -38,9 +38,11 @@ or another GPU architecture. This probe does not establish mining readiness.
 ## Build and run on Windows
 
 Install a CUDA Toolkit version supported by the installed NVIDIA driver and a
-host compiler listed in NVIDIA's Windows installation guide. For the current
-RTX 3060 host, CUDA Toolkit 13.3.1 with Visual Studio 2022 MSVC v143 is the
-selected toolchain; the existing display driver is kept separate.
+host compiler listed in NVIDIA's Windows installation guide. CUDA 13.3.1's
+Windows support table lists MSVC 193x for Visual Studio 2022. This RTX 3060
+host has MSVC 19.44: the probe built and ran here, but 19.44 is outside that
+published compiler range, so this is local build evidence rather than an
+officially listed toolchain qualification. Keep the display driver separate.
 
 From an x64 Visual Studio 2022 Developer PowerShell:
 
