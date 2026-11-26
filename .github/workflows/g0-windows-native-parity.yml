@@ -26,6 +26,8 @@ on:
       - 'tests/check_pool_loopback_replay.py'
       - 'tests/check_offline_cpu_search.py'
       - 'tests/vectors/stratum/**'
+      - 'tools/windows/Invoke-Windows10-11NativeAcceptance.ps1'
+      - 'docs/WINDOWS10_11_PHYSICAL_ACCEPTANCE.md'
       - 'CMakeLists.txt'
   push:
     branches: [main]
@@ -53,6 +55,8 @@ on:
       - 'tests/check_pool_loopback_replay.py'
       - 'tests/check_offline_cpu_search.py'
       - 'tests/vectors/stratum/**'
+      - 'tools/windows/Invoke-Windows10-11NativeAcceptance.ps1'
+      - 'docs/WINDOWS10_11_PHYSICAL_ACCEPTANCE.md'
       - 'CMakeLists.txt'
   workflow_dispatch:
 
@@ -93,6 +97,19 @@ jobs:
           ref: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
           path: openlibm
           persist-credentials: false
+      - name: Parse local physical-acceptance PowerShell runner
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          $scriptPath = Join-Path $env:GITHUB_WORKSPACE 'miner/tools/windows/Invoke-Windows10-11NativeAcceptance.ps1'
+          [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw "PowerShell syntax check failed for $scriptPath"
+          }
+          Write-Host "PowerShell syntax passed: $scriptPath"
+          & $scriptPath -SelfTest
       - name: Install native Windows x64 UCRT64 toolchain
         uses: msys2/setup-msys2@v2
         with:

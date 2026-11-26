@@ -1,6 +1,6 @@
 # PEPEPOW Miner documentation index
 
-**Updated 2026-11-25.** This index reflects main `9c6f34f51a9f70d45e454eacbf1fe3388e61cf27`, including merged PRs #22, #24, and #25. This remains a pre-release offline validation prototype, not a supported miner.
+**Updated 2026-11-25.** This index is based on main `7284aa22cafd79e3521291307eca8f5b9a575744`, including merged PRs #22, #24, and #25. This remains a pre-release offline validation prototype, not a supported miner.
 
 ## Canonical reading order
 
@@ -18,6 +18,7 @@
 | [OpenLibm Windows compile inventory](sources/openlibm-windows-compile-inventory.json) | Full pinned Windows portable-C translation-unit and header-signal records |
 | [Provenance and license assessment](sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md) | Technical source evidence separated from unresolved redistribution review |
 | [Windows 11 owner acceptance](G0_WINDOWS11_OWNER_ACCEPTANCE.md) | Native Debug/Release full-parity procedure for the Owner host |
+| [Windows 10/11 physical acceptance runbook](WINDOWS10_11_PHYSICAL_ACCEPTANCE.md) | Codex Local PowerShell runner for exact-main native G0/G1 technical evidence |
 | [Windows 11 native G0/G1 evidence](VALIDATION_EVIDENCE/G0/windows11-native-g0-g1-2026-11-24.md) | Native Windows 11 Debug/Release parity and offline G1 test record |
 | [G1 transport, reconnect, and worker evidence](VALIDATION_EVIDENCE/G1/transport-reconnect-cpu-workers-2026-11-25.md) | Exact-head Linux/Windows Server CI and local regression record for PRs #22, #24, and #25 |
 | [HooHash worker audit](VALIDATION_EVIDENCE/G1/hoohash-v110-worker-audit-2026-11-25.md) | Pinned-source concurrency inspection, targeted digest parity, TSan scope, and local benchmark |
