@@ -69,8 +69,8 @@ ctest --test-dir $build -C Debug --output-on-failure
 
 Results on the native Windows GPU host:
 
-- Release build passed; Release CTest passed 3/3.
-- Debug build passed; Debug CTest passed 3/3.
+- Release build passed; Release CTest passed 4/4.
+- Debug build passed; Debug CTest passed 4/4.
 - Both direct harness runs passed the pinned Core nonce-6 vector and
   `UINT32_MAX` vector, full-digest candidate recheck, last-byte negative case,
   duplicate/missing nonce rejection, little-endian header validation, and
@@ -83,11 +83,14 @@ Results on the native Windows GPU host:
   and 12,288 MiB.
 
 In test output, `MOCK` identifies the candidate/negative fixtures and
-`LIVE CUDA DEVICE` identifies actual device coverage. The GitHub Actions
-workflow builds the same pinned Core CPU oracle and CUDA harness on a runner
-without requiring a GPU; it tests contract fixtures and accepts a recognized
-no-device Runtime API result. The workflow run for the posted feature branch
-is recorded separately after CI completes.
+`LIVE CUDA DEVICE` identifies actual device coverage. The added skip-policy
+test confirms that generic CUDA/runtime errors can never be skipped, a
+recognized unavailable-device response skips only when
+`PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1`, and
+`PEPEPOW_CUDA_REQUIRE_DEVICE=1` always requires live hardware. The physical
+Windows run set `PEPEPOW_CUDA_REQUIRE_DEVICE=1` and left the no-device skip
+unset. The GitHub Actions workflow explicitly opts into only the recognized
+no-GPU skip cases.
 
 This harness does not implement HooHash V110 on CUDA. It establishes fixed
 I/O, CPU-oracle, batch-coverage, candidate-recheck, and target-boundary tests;

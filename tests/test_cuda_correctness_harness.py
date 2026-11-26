@@ -8,6 +8,8 @@ import re
 import subprocess
 import sys
 
+from cuda_device_policy import should_skip_device_execution
+
 
 HEADER_NONCE6 = bytes.fromhex(
     "0040002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c"
@@ -325,9 +327,15 @@ def test_live_cuda_coverage(executable):
         error = validate_error_response(payload, request, NO_DEVICE_CODES)
         require(completed.returncode == error.get("exit_code"),
                 "CUDA coverage process exit must match JSON error")
-        require(os.environ.get("PEPEPOW_CUDA_REQUIRE_DEVICE") != "1",
-                "GPU-host mode requires real CUDA batch coverage")
-        print(f"LIVE DEVICE TEST: skipped ({error['code']}); no GPU-host claim")
+        allow_skip = os.environ.get("PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP") == "1"
+        require_device = os.environ.get("PEPEPOW_CUDA_REQUIRE_DEVICE") == "1"
+        require(should_skip_device_execution(
+            error["code"],
+            allow_no_device_skip=allow_skip,
+            require_device=require_device,
+        ), f"live CUDA batch failed with {error['code']}; only explicitly enabled "
+           "no-device CI may skip recognized device-unavailability errors")
+        print(f"NO GPU: skipped live batch coverage ({error['code']})")
         return
 
     require(completed.returncode == 0, "successful GPU coverage must exit 0")

@@ -129,6 +129,11 @@ This stage does not compare a CUDA HooHash digest with Core and does not claim
 GPU mining correctness. The candidate schema and CPU recheck are ready for a
 later hash backend to supply full digests.
 
+A no-GPU CI job must explicitly set `PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1`; only
+recognized device-unavailable errors may then skip live coverage. Generic
+CUDA/runtime errors fail the test. Set `PEPEPOW_CUDA_REQUIRE_DEVICE=1` on
+physical-device hosts to reject every skip and require live batch coverage.
+
 Native RTX 3060 results are recorded in [CUDA correctness harness evidence](../../docs/validation/cuda-correctness-harness-windows-rtx3060-2026-11-26.md)
 and [device-probe evidence](../../docs/validation/cuda-device-probe-windows-rtx3060-2026-11-26.md).
 

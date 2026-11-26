@@ -9,6 +9,8 @@ on:
       - "tests/test_cuda_correctness_harness.py"
       - "tests/test_cuda_target_boundaries.cpp"
       - "tests/test_cuda_device_probe.py"
+      - "tests/cuda_device_policy.py"
+      - "tests/test_cuda_device_execution_policy.py"
       - "include/pepepow/header_nonce.h"
       - "include/pepepow/uint256_target.h"
       - ".github/patches/openlibm-portable-c-windows.patch"
@@ -21,6 +23,8 @@ on:
       - "tests/test_cuda_correctness_harness.py"
       - "tests/test_cuda_target_boundaries.cpp"
       - "tests/test_cuda_device_probe.py"
+      - "tests/cuda_device_policy.py"
+      - "tests/test_cuda_device_execution_policy.py"
       - "include/pepepow/header_nonce.h"
       - "include/pepepow/uint256_target.h"
       - ".github/patches/openlibm-portable-c-windows.patch"
@@ -38,7 +42,7 @@ jobs:
     name: CUDA 13.3.1 and pinned-Core CPU oracle (no GPU required)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    container: nvidia/cuda:13.3.1-cudnn-devel-ubuntu24.04
+    container: nvidia/cuda:13.3.1-cudnn-devel-ubuntu24.04@sha256:4d1953dba131182cfd732ced5c1025c770e6e298952e001aff5cadbc082069fc
     steps:
       - name: Install build tools
         run: |
@@ -110,4 +114,6 @@ jobs:
         run: cmake --build build/cuda-correctness --parallel 2
 
       - name: Run mocked contract cases and live CUDA response without requiring a GPU
+        env:
+          PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP: "1"
         run: ctest --test-dir build/cuda-correctness --output-on-failure
