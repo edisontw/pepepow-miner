@@ -10,8 +10,11 @@ not connect to a pool, search for shares, or benchmark mining throughput.
 
 This is correctness evidence for this source revision and test corpus. It does
 not qualify a production GPU miner, G4 acceptance, a supported Windows CUDA
-compiler combination, or binary redistribution. G0 remains blocked by the
-separate upstream source-rights review.
+compiler combination, or binary distribution. The Owner-authorized CPU G0
+Technical Validation is recorded as PASS in the [formal G0 sign-off on draft
+PR #39](https://github.com/edisontw/pepepow-miner/blob/0bc41c096a7c0a69556e49c7c0e31dab2ba28fe3/docs/VALIDATION_EVIDENCE/G0/formal-g0-technical-validation-2026-11-27.md).
+That technical gate is separate from exact-package Distribution License
+Compliance, which remains pending before a release.
 
 A later supplemental corpus distributed 10,000 nonces across four distinct
 80-byte header templates. Release and Debug RTX 3060 runs matched every full

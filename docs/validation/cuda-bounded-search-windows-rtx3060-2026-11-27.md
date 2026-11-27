@@ -100,3 +100,105 @@ rechecked by the pinned CPU Core executable before being reported. No
 Stratum/session lifecycle, reconnect/failover, pool job replacement, accepted
 share, CLI product flow, or GUI is implemented by this experiment. G0, G1, G4,
 and distribution compliance remain separate gates.
+
+## Full-digest regression on the bounded-search head
+
+The bounded-search change also modifies the CUDA digest-stage translation
+unit. Re-run the four-template 10,000-nonce full-digest corpus on the exact
+bounded-search head to check that path after the search additions:
+
+- Repository head: `7064a0a053c570e46fb5e4ff08268b0562754c81` (draft PR #38),
+  based on PR #37 head `38873a5606f9cf722c28e5871ab1659521f48cba`.
+- Core oracle source: PEPEPOW Core
+  `bc08108ceccd957c79040dc7fedc1d56d8d47f97`; OpenLibm
+  `9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`.
+- Windows 11 Pro build 26300 x64; RTX 3060, sm_86, 12 GiB, driver 610.88;
+  CUDA Toolkit 13.3.1 / NVCC 13.3.73; CMake 4.5.1; MSVC 19.44.35230; native
+  CPython 3.13.17 and MSYS2 UCRT64 GCC 16.2.0.
+- `PEPEPOW_CUDA_REQUIRE_DEVICE=1` was set for both CTest runs. Missing GPU,
+  driver, initialization, and generic Runtime/kernel errors therefore could
+  not be accepted as no-device skips.
+- Debug CTest passed `1/1` in `1.59 s`; Release CTest passed `1/1` in
+  `1.66 s`. Both ran
+  `hoohash_cuda_full_digest_10000_nonce_parity` and reported a live RTX 3060.
+- Each configuration compared 10,005 full 32-byte digests: 10,000 nonces
+  across four header templates, plus nonce 0, Explorer nonces 6–8, and
+  `UINT32_MAX`. There were zero mismatches in either configuration.
+- The four templates each covered all 256 low nonce-byte values. Per-template
+  transcript SHA-256 matched between CPU/Core and CUDA; the matching hashes
+  were identical between Debug and Release as well.
+- Generated Visual Studio projects were inspected: both configurations target
+  `compute_86`/`sm_86` with `--fmad=false`, `--ftz=false`, `--prec-div=true`,
+  and `--prec-sqrt=true`; `--use_fast_math` was absent.
+
+The separate build directory was configured with the following command; the
+Core and OpenLibm checkouts were clean at their pinned SHAs:
+
+```powershell
+& 'D:\Dev\msys64\ucrt64\bin\cmake.exe' `
+  -S 'D:\Dev\pepepow-cuda-bounded-search-20261127\tools\gpu' `
+  -B 'D:\Dev\pepepow-cuda-full-digest-10k-20261127' `
+  -G 'Visual Studio 17 2022' -A x64 `
+  -DCMAKE_GENERATOR_INSTANCE='D:/Dev/vs2022-build-tools' `
+  -DCMAKE_CUDA_COMPILER='C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.3/bin/nvcc.exe' `
+  -DCUDAToolkit_ROOT='D:/Dev/pepepow-cuda-toolkit-13.3.1-overlay' `
+  -DPEPEPOW_CORE_SOURCE_DIR='D:/Dev/pepepow-deps/PePe-core' `
+  -DPEPEPOW_OPENLIBM_SOURCE_DIR='D:/Dev/pepepow-deps/openlibm' `
+  -DPEPEPOW_OPENLIBM_LIBRARY='D:/Dev/pepepow-miner-validation/20261124-windows11/build/openlibm-release/libopenlibm.a' `
+  -DPEPEPOW_TRANSFORM_ORACLE_COMPILER='D:/Dev/msys64/ucrt64/bin/gcc.exe' `
+  -DPEPEPOW_CUDA_TEST_ARCHITECTURE=86 `
+  -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON `
+  -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS=ON `
+  -DPEPEPOW_CUDA_FULL_DIGEST_TESTS=ON `
+  -DPEPEPOW_CUDA_FULL_DIGEST_10000_TESTS=ON `
+  -DPEPEPOW_CUDA_BOUNDED_SEARCH_TESTS=ON `
+  -DBUILD_TESTING=ON
+
+& 'D:\Dev\msys64\ucrt64\bin\cmake.exe' --build `
+  'D:\Dev\pepepow-cuda-full-digest-10k-20261127' --config Release --parallel 8
+$env:PEPEPOW_CUDA_REQUIRE_DEVICE = '1'
+& 'D:\Dev\msys64\ucrt64\bin\ctest.exe' `
+  --test-dir 'D:\Dev\pepepow-cuda-full-digest-10k-20261127' `
+  -C Release -R '^hoohash_cuda_full_digest_10000_nonce_parity$' `
+  --output-on-failure --verbose
+
+& 'D:\Dev\msys64\ucrt64\bin\cmake.exe' --build `
+  'D:\Dev\pepepow-cuda-full-digest-10k-20261127' --config Debug --parallel 8
+& 'D:\Dev\msys64\ucrt64\bin\ctest.exe' `
+  --test-dir 'D:\Dev\pepepow-cuda-full-digest-10k-20261127' `
+  -C Debug -R '^hoohash_cuda_full_digest_10000_nonce_parity$' `
+  --output-on-failure --verbose
+```
+
+| Transcript | Cases | Matching CPU/GPU SHA-256 |
+| --- | ---: | --- |
+| Base header, nonces 0–2,499 | 2,500 | `ac329e151d1d6d480a66ff5aad07c6b3f5569956400b527cf7ef8575b901ce1e` |
+| Version byte offset 0 XOR 1 | 2,500 | `1f14ec32a5c907d4517c11092a0aaf547613474e7d42f236c3f5c57a576eeb90` |
+| Previous-hash byte offset 4 XOR 1 | 2,500 | `b63cf04d5b7be3d7e1d2f78b32e0ae0d9f3effa366f54e86a5ccfb3897d6bc80` |
+| Merkle-root byte offset 36 XOR 1 | 2,500 | `a9c0b3b71a69dd86537f3d5580bbcd8a068c340ce90afda653e43ee2a5e2a6f6` |
+| Fixed nonce 0 | 1 | `4bdb5faad086781ff7f92308f381e2cb060f48acd91572eb45d8d13af62fdff4` |
+| Fixed Explorer nonces 6–8 | 3 | `a75609d933bfc5cdae4fe05fb612f88db482b54f72431a21cc9ca381a6062622` |
+| Fixed `UINT32_MAX` | 1 | `dedcebdf8fa47e4ab8ed7cb517c27e839e5bf82c19dc776cef38251a0315f337` |
+
+The JSON run reports are checked in as
+[`Debug`](cuda-full-digest-10000-debug-windows-rtx3060-2026-11-27.json) and
+[`Release`](cuda-full-digest-10000-release-windows-rtx3060-2026-11-27.json).
+Their SHA-256 values are respectively
+`519ec30f36c165e03e57b9b075d20cd5a5590ab44c96e07fa2f3dd5d7e91d878` and
+`5737cff4a8892040dedf654fd541b36b17d002996de3a06de108f01003dec299`.
+The complete CPU and GPU binary transcripts and JSON report are retained in
+both local configuration directories:
+`D:\Dev\pepepow-cuda-full-digest-10k-20261127\cuda-full-digest-10000-debug\`
+and `D:\Dev\pepepow-cuda-full-digest-10k-20261127\cuda-full-digest-10000-release\`.
+The direct Release run log is in the Release directory; both verbose CTest
+results are captured above. Debug and Release digest-stage executable SHA-256 values are
+`409c26404a28f64554bac0a8ff91d31159f8f65feca369a6fa0c656f2a2d6c0a` and
+`a2d1ea7c35512ac3f466276e65d4797cdcd7696db293ac6c0f7fc34dc8b07493`.
+
+This is a bounded regression corpus for the offline diagnostic digest stage.
+It is not an exhaustive all-input proof, a Stratum-integrated GPU miner, G4
+acceptance, or a mining hashrate measurement. The CUDA 13.3.1 installation
+guide lists VS 2022 MSVC 193x; MSVC 19.44 is outside that published range, so
+these remain local experimental compatibility results.

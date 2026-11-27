@@ -443,7 +443,10 @@ This executable handles one job template per invocation and has no Stratum,
 pool, share submission, automatic startup, or background-mining path. It is a
 bounded offline search experiment, not an accepted GPU miner; tested digest
 parity remains corpus-scoped, and G4 remains NOT PASSED. The default CPU build
-does not configure or require CUDA.
+does not configure or require CUDA. The bounded-search source head was
+rechecked on the Windows RTX 3060 against 10,000 nonces across four header
+templates in both Debug and Release; see the [bounded-search evidence
+report](../../docs/validation/cuda-bounded-search-windows-rtx3060-2026-11-27.md).
 
 Enable the search contract in the full-digest configuration:
 
