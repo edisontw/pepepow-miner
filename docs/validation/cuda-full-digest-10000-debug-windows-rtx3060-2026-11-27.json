@@ -1,0 +1,458 @@
+{
+  "build_policy": {
+    "cuda_compile_flags_required": [
+      "--fmad=false",
+      "--ftz=false",
+      "--prec-div=true",
+      "--prec-sqrt=true"
+    ],
+    "cuda_fast_math": false
+  },
+  "cases": [
+    {
+      "case_id": "fixed-0",
+      "complete_digests_compared": 1,
+      "cpu_transcript": "cpu-fixed-0-0-1.bin",
+      "cpu_transcript_sha256": "4bdb5faad086781ff7f92308f381e2cb060f48acd91572eb45d8d13af62fdff4",
+      "device_error": null,
+      "gpu_pipeline_digests_per_second": 318.72143759242175,
+      "gpu_pipeline_ms": 3.13753604888916,
+      "gpu_transcript": "gpu-fixed-0-0-1.bin",
+      "gpu_transcript_sha256": "4bdb5faad086781ff7f92308f381e2cb060f48acd91572eb45d8d13af62fdff4",
+      "header_template_hex": "0040002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5b5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000",
+      "header_template_sha256": "ef8192435c5b9c64ff9e10dcb3c4b91035abcfd79837e2b86d0725c4180f87c7",
+      "kernel_event_intervals_ms": {
+        "digest_calculation": 1.4950400590896606,
+        "matrix_generation": 1.1868159770965576,
+        "prepare_hash_inputs": 0.4556800127029419
+      },
+      "kernel_resources": {
+        "calculateDigests": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 688,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 80,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 24,
+          "theoretical_max_active_blocks_per_sm": 6,
+          "theoretical_warp_occupancy_percent": 50,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        },
+        "generateMatrix": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 0,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 38,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 16,
+          "theoretical_max_active_blocks_per_sm": 16,
+          "theoretical_warp_occupancy_percent": 33.333333333333336,
+          "threads_per_block": 1,
+          "warps_per_block": 1
+        },
+        "prepareHashInputs": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 64,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 72,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 28,
+          "theoretical_max_active_blocks_per_sm": 7,
+          "theoretical_warp_occupancy_percent": 58.333333333333336,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        }
+      },
+      "nonce_count": 1,
+      "nonce_low_byte_values_covered": 1,
+      "nonce_start": 0,
+      "status": "live",
+      "warp_size": 32
+    },
+    {
+      "case_id": "fixed-1",
+      "complete_digests_compared": 3,
+      "cpu_transcript": "cpu-fixed-1-6-3.bin",
+      "cpu_transcript_sha256": "a75609d933bfc5cdae4fe05fb612f88db482b54f72431a21cc9ca381a6062622",
+      "device_error": null,
+      "gpu_pipeline_digests_per_second": 665.6867429697952,
+      "gpu_pipeline_ms": 4.506624221801758,
+      "gpu_transcript": "gpu-fixed-1-6-3.bin",
+      "gpu_transcript_sha256": "a75609d933bfc5cdae4fe05fb612f88db482b54f72431a21cc9ca381a6062622",
+      "header_template_hex": "0040002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5b5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000",
+      "header_template_sha256": "ef8192435c5b9c64ff9e10dcb3c4b91035abcfd79837e2b86d0725c4180f87c7",
+      "kernel_event_intervals_ms": {
+        "digest_calculation": 2.787328004837036,
+        "matrix_generation": 1.1868159770965576,
+        "prepare_hash_inputs": 0.532480001449585
+      },
+      "kernel_resources": {
+        "calculateDigests": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 688,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 80,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 24,
+          "theoretical_max_active_blocks_per_sm": 6,
+          "theoretical_warp_occupancy_percent": 50,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        },
+        "generateMatrix": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 0,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 38,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 16,
+          "theoretical_max_active_blocks_per_sm": 16,
+          "theoretical_warp_occupancy_percent": 33.333333333333336,
+          "threads_per_block": 1,
+          "warps_per_block": 1
+        },
+        "prepareHashInputs": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 64,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 72,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 28,
+          "theoretical_max_active_blocks_per_sm": 7,
+          "theoretical_warp_occupancy_percent": 58.333333333333336,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        }
+      },
+      "nonce_count": 3,
+      "nonce_low_byte_values_covered": 3,
+      "nonce_start": 6,
+      "status": "live",
+      "warp_size": 32
+    },
+    {
+      "case_id": "fixed-2",
+      "complete_digests_compared": 1,
+      "cpu_transcript": "cpu-fixed-2-4294967295-1.bin",
+      "cpu_transcript_sha256": "dedcebdf8fa47e4ab8ed7cb517c27e839e5bf82c19dc776cef38251a0315f337",
+      "device_error": null,
+      "gpu_pipeline_digests_per_second": 273.930582374439,
+      "gpu_pipeline_ms": 3.650559902191162,
+      "gpu_transcript": "gpu-fixed-2-4294967295-1.bin",
+      "gpu_transcript_sha256": "dedcebdf8fa47e4ab8ed7cb517c27e839e5bf82c19dc776cef38251a0315f337",
+      "header_template_hex": "0040002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5b5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000",
+      "header_template_sha256": "ef8192435c5b9c64ff9e10dcb3c4b91035abcfd79837e2b86d0725c4180f87c7",
+      "kernel_event_intervals_ms": {
+        "digest_calculation": 1.8360320329666138,
+        "matrix_generation": 1.1745280027389526,
+        "prepare_hash_inputs": 0.6399999856948853
+      },
+      "kernel_resources": {
+        "calculateDigests": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 688,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 80,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 24,
+          "theoretical_max_active_blocks_per_sm": 6,
+          "theoretical_warp_occupancy_percent": 50,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        },
+        "generateMatrix": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 0,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 38,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 16,
+          "theoretical_max_active_blocks_per_sm": 16,
+          "theoretical_warp_occupancy_percent": 33.333333333333336,
+          "threads_per_block": 1,
+          "warps_per_block": 1
+        },
+        "prepareHashInputs": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 64,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 72,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 28,
+          "theoretical_max_active_blocks_per_sm": 7,
+          "theoretical_warp_occupancy_percent": 58.333333333333336,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        }
+      },
+      "nonce_count": 1,
+      "nonce_low_byte_values_covered": 1,
+      "nonce_start": 4294967295,
+      "status": "live",
+      "warp_size": 32
+    },
+    {
+      "case_id": "batch-template-0",
+      "complete_digests_compared": 2500,
+      "cpu_transcript": "cpu-batch-template-0-0-2500.bin",
+      "cpu_transcript_sha256": "ac329e151d1d6d480a66ff5aad07c6b3f5569956400b527cf7ef8575b901ce1e",
+      "device_error": null,
+      "gpu_pipeline_digests_per_second": 81053.29208193709,
+      "gpu_pipeline_ms": 30.843904495239258,
+      "gpu_transcript": "gpu-batch-template-0-0-2500.bin",
+      "gpu_transcript_sha256": "ac329e151d1d6d480a66ff5aad07c6b3f5569956400b527cf7ef8575b901ce1e",
+      "header_template_hex": "0040002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5b5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000",
+      "header_template_sha256": "ef8192435c5b9c64ff9e10dcb3c4b91035abcfd79837e2b86d0725c4180f87c7",
+      "kernel_event_intervals_ms": {
+        "digest_calculation": 29.17171287536621,
+        "matrix_generation": 1.1786240339279175,
+        "prepare_hash_inputs": 0.4935680031776428
+      },
+      "kernel_resources": {
+        "calculateDigests": {
+          "grid_blocks": 20,
+          "local_memory_bytes_per_thread": 688,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 80,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 24,
+          "theoretical_max_active_blocks_per_sm": 6,
+          "theoretical_warp_occupancy_percent": 50,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        },
+        "generateMatrix": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 0,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 38,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 16,
+          "theoretical_max_active_blocks_per_sm": 16,
+          "theoretical_warp_occupancy_percent": 33.333333333333336,
+          "threads_per_block": 1,
+          "warps_per_block": 1
+        },
+        "prepareHashInputs": {
+          "grid_blocks": 20,
+          "local_memory_bytes_per_thread": 64,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 72,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 28,
+          "theoretical_max_active_blocks_per_sm": 7,
+          "theoretical_warp_occupancy_percent": 58.333333333333336,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        }
+      },
+      "nonce_count": 2500,
+      "nonce_low_byte_values_covered": 256,
+      "nonce_start": 0,
+      "status": "live",
+      "warp_size": 32
+    },
+    {
+      "case_id": "batch-template-1",
+      "complete_digests_compared": 2500,
+      "cpu_transcript": "cpu-batch-template-1-0-2500.bin",
+      "cpu_transcript_sha256": "1f14ec32a5c907d4517c11092a0aaf547613474e7d42f236c3f5c57a576eeb90",
+      "device_error": null,
+      "gpu_pipeline_digests_per_second": 79214.99602148194,
+      "gpu_pipeline_ms": 31.559680938720703,
+      "gpu_transcript": "gpu-batch-template-1-0-2500.bin",
+      "gpu_transcript_sha256": "1f14ec32a5c907d4517c11092a0aaf547613474e7d42f236c3f5c57a576eeb90",
+      "header_template_hex": "0140002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5b5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000",
+      "header_template_sha256": "abd97ec2ee76545589df79b45456174b5be38e6bf3e5cdd9d13df65f7e43a4f3",
+      "kernel_event_intervals_ms": {
+        "digest_calculation": 29.96531105041504,
+        "matrix_generation": 1.1755520105361938,
+        "prepare_hash_inputs": 0.4188160002231598
+      },
+      "kernel_resources": {
+        "calculateDigests": {
+          "grid_blocks": 20,
+          "local_memory_bytes_per_thread": 688,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 80,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 24,
+          "theoretical_max_active_blocks_per_sm": 6,
+          "theoretical_warp_occupancy_percent": 50,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        },
+        "generateMatrix": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 0,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 38,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 16,
+          "theoretical_max_active_blocks_per_sm": 16,
+          "theoretical_warp_occupancy_percent": 33.333333333333336,
+          "threads_per_block": 1,
+          "warps_per_block": 1
+        },
+        "prepareHashInputs": {
+          "grid_blocks": 20,
+          "local_memory_bytes_per_thread": 64,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 72,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 28,
+          "theoretical_max_active_blocks_per_sm": 7,
+          "theoretical_warp_occupancy_percent": 58.333333333333336,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        }
+      },
+      "nonce_count": 2500,
+      "nonce_low_byte_values_covered": 256,
+      "nonce_start": 0,
+      "status": "live",
+      "warp_size": 32
+    },
+    {
+      "case_id": "batch-template-2",
+      "complete_digests_compared": 2500,
+      "cpu_transcript": "cpu-batch-template-2-0-2500.bin",
+      "cpu_transcript_sha256": "b63cf04d5b7be3d7e1d2f78b32e0ae0d9f3effa366f54e86a5ccfb3897d6bc80",
+      "device_error": null,
+      "gpu_pipeline_digests_per_second": 81789.15269116027,
+      "gpu_pipeline_ms": 30.5664005279541,
+      "gpu_transcript": "gpu-batch-template-2-0-2500.bin",
+      "gpu_transcript_sha256": "b63cf04d5b7be3d7e1d2f78b32e0ae0d9f3effa366f54e86a5ccfb3897d6bc80",
+      "header_template_hex": "0040002002020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5b5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000",
+      "header_template_sha256": "dada1d7d91436060045c6138256f6e8322109a3f4e299bf8a3de9700fb7c233a",
+      "kernel_event_intervals_ms": {
+        "digest_calculation": 28.94745635986328,
+        "matrix_generation": 1.1704319715499878,
+        "prepare_hash_inputs": 0.4485119879245758
+      },
+      "kernel_resources": {
+        "calculateDigests": {
+          "grid_blocks": 20,
+          "local_memory_bytes_per_thread": 688,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 80,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 24,
+          "theoretical_max_active_blocks_per_sm": 6,
+          "theoretical_warp_occupancy_percent": 50,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        },
+        "generateMatrix": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 0,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 38,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 16,
+          "theoretical_max_active_blocks_per_sm": 16,
+          "theoretical_warp_occupancy_percent": 33.333333333333336,
+          "threads_per_block": 1,
+          "warps_per_block": 1
+        },
+        "prepareHashInputs": {
+          "grid_blocks": 20,
+          "local_memory_bytes_per_thread": 64,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 72,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 28,
+          "theoretical_max_active_blocks_per_sm": 7,
+          "theoretical_warp_occupancy_percent": 58.333333333333336,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        }
+      },
+      "nonce_count": 2500,
+      "nonce_low_byte_values_covered": 256,
+      "nonce_start": 0,
+      "status": "live",
+      "warp_size": 32
+    },
+    {
+      "case_id": "batch-template-3",
+      "complete_digests_compared": 2500,
+      "cpu_transcript": "cpu-batch-template-3-0-2500.bin",
+      "cpu_transcript_sha256": "a9c0b3b71a69dd86537f3d5580bbcd8a068c340ce90afda653e43ee2a5e2a6f6",
+      "device_error": null,
+      "gpu_pipeline_digests_per_second": 79802.77259107922,
+      "gpu_pipeline_ms": 31.327232360839844,
+      "gpu_transcript": "gpu-batch-template-3-0-2500.bin",
+      "gpu_transcript_sha256": "a9c0b3b71a69dd86537f3d5580bbcd8a068c340ce90afda653e43ee2a5e2a6f6",
+      "header_template_hex": "0040002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5a5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000",
+      "header_template_sha256": "bec755c8fbae873cadafd5e79f028904d9a3168b1f37d51852ba16b103464683",
+      "kernel_event_intervals_ms": {
+        "digest_calculation": 29.8024959564209,
+        "matrix_generation": 1.1704319715499878,
+        "prepare_hash_inputs": 0.3543039858341217
+      },
+      "kernel_resources": {
+        "calculateDigests": {
+          "grid_blocks": 20,
+          "local_memory_bytes_per_thread": 688,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 80,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 24,
+          "theoretical_max_active_blocks_per_sm": 6,
+          "theoretical_warp_occupancy_percent": 50,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        },
+        "generateMatrix": {
+          "grid_blocks": 1,
+          "local_memory_bytes_per_thread": 0,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 38,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 16,
+          "theoretical_max_active_blocks_per_sm": 16,
+          "theoretical_warp_occupancy_percent": 33.333333333333336,
+          "threads_per_block": 1,
+          "warps_per_block": 1
+        },
+        "prepareHashInputs": {
+          "grid_blocks": 20,
+          "local_memory_bytes_per_thread": 64,
+          "max_warps_per_sm": 48,
+          "registers_per_thread": 72,
+          "static_shared_memory_bytes_per_block": 0,
+          "theoretical_active_warps_per_sm": 28,
+          "theoretical_max_active_blocks_per_sm": 7,
+          "theoretical_warp_occupancy_percent": 58.333333333333336,
+          "threads_per_block": 128,
+          "warps_per_block": 4
+        }
+      },
+      "nonce_count": 2500,
+      "nonce_low_byte_values_covered": 256,
+      "nonce_start": 0,
+      "status": "live",
+      "warp_size": 32
+    }
+  ],
+  "core_sha": "bc08108ceccd957c79040dc7fedc1d56d8d47f97",
+  "diagnostic_only": true,
+  "digest_bytes_compared_per_case": 32,
+  "full_digest_parity_passed": true,
+  "gpu_status": "live",
+  "header_templates_hex": [
+    "0040002002020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5b5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000",
+    "0040002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5a5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000",
+    "0040002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5b5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000",
+    "0140002003020100070605040b0a09080f0e0d0c13121110171615141b1a19181f1e1d1c5b5d507845ead90ea4c4caeef4baef7817c0fb2169d20739883e22bb6d8cf8ef0be1697171e3021d06000000"
+  ],
+  "kernel_resource_model": "CUDA Runtime function attributes and max-active-block calculation; theoretical per-SM occupancy, not measured achieved occupancy",
+  "nonce_encoding": "little_endian_uint32_at_header_offsets_76_to_79",
+  "occupancy_is_measured": false,
+  "openlibm_sha": "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d",
+  "schema_version": 1,
+  "stage": "hoohash_v110_full_digest_experiment",
+  "timing_scope": "CUDA event intervals bracket the three ordered kernels; exclude host setup, allocations, transfers, oracle work, and output; intervals may include device idle time while the host queues launches; not miner hashrate"
+}

@@ -1,0 +1,165 @@
+name: CUDA HooHash pinned-Core PRNG matrix stage
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/cuda-hoohash-prng-matrix-stage.yml"
+      - "tools/gpu/**"
+      - "tests/test_cuda_core_matrix_oracle.py"
+      - "tests/test_cuda_matrix_stage.py"
+      - "tests/test_cuda_hoohash_digest.py"
+      - "tests/test_cuda_hoohash_transforms.py"
+      - "tests/test_cuda_bounded_search.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/cuda-hoohash-prng-matrix-stage.yml"
+      - "tools/gpu/**"
+      - "tests/test_cuda_core_matrix_oracle.py"
+      - "tests/test_cuda_matrix_stage.py"
+      - "tests/test_cuda_hoohash_digest.py"
+      - "tests/test_cuda_hoohash_transforms.py"
+      - "tests/test_cuda_bounded_search.py"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  pinned-core-matrix-oracle:
+    name: Pinned Core PRNG and all matrix bit patterns
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container: nvidia/cuda:13.3.1-cudnn-devel-ubuntu24.04@sha256:4d1953dba131182cfd732ced5c1025c770e6e298952e001aff5cadbc082069fc
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake git ninja-build python3
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout exact miner commit
+        uses: actions/checkout@v4
+        with:
+          path: miner
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Checkout pinned PEPEPOW Core
+        uses: actions/checkout@v4
+        with:
+          repository: edisontw/PePe-core
+          ref: bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          path: core
+          persist-credentials: false
+
+      - name: Verify exact source revisions
+        env:
+          EXPECTED_MINER_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git -C miner rev-parse HEAD)" = "$EXPECTED_MINER_SHA"
+          test "$(git -C core rev-parse HEAD)" = bc08108ceccd957c79040dc7fedc1d56d8d47f97
+          test -z "$(git -C core status --porcelain --untracked-files=all)"
+
+      - name: Configure CUDA stage and pinned-Core matrix oracle
+        run: |
+          cmake -S miner/tools/gpu -B build/cuda-hoohash-prng-matrix -G Ninja \
+            -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON \
+            -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON \
+            -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON \
+            -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core"
+
+      - name: Build stage and pinned-Core oracles
+        run: cmake --build build/cuda-hoohash-prng-matrix --parallel 2
+
+      - name: Run bounded PRNG and matrix oracle contract
+        env:
+          PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP: "1"
+        run: ctest --test-dir build/cuda-hoohash-prng-matrix --output-on-failure
+
+      # P3-D is stacked on this branch. Keep the later FP64 transform stage
+      # gated until its test source exists, then run it on the exact PR head.
+      - name: Detect FP64 transform diagnostic stage
+        id: fp64-transform
+        run: |
+          if test -f miner/tests/test_cuda_hoohash_transforms.py; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout pinned OpenLibm for FP64 oracle
+        if: steps.fp64-transform.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: JuliaMath/openlibm
+          ref: 9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d
+          path: openlibm
+          persist-credentials: false
+
+      - name: Build pinned OpenLibm for FP64 oracle
+        if: steps.fp64-transform.outputs.enabled == 'true'
+        run: |
+          cmake -S openlibm -B build/openlibm -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+          cmake --build build/openlibm --parallel 2
+          test -f build/openlibm/libopenlibm.a
+          sha256sum build/openlibm/libopenlibm.a
+
+      - name: Configure pinned-Core FP64 transform diagnostics
+        if: steps.fp64-transform.outputs.enabled == 'true'
+        run: |
+          cmake -S miner/tools/gpu -B build/cuda-hoohash-fp64-transform -G Ninja \
+            -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON \
+            -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON \
+            -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON \
+            -DPEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS=ON \
+            -DPEPEPOW_CUDA_FULL_DIGEST_TESTS=ON \
+            -DPEPEPOW_CUDA_FULL_DIGEST_10000_TESTS=ON \
+            -DPEPEPOW_CUDA_BOUNDED_SEARCH_TESTS=ON \
+            -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
+            -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
+            -DPEPEPOW_OPENLIBM_SOURCE_DIR="$GITHUB_WORKSPACE/openlibm" \
+            -DPEPEPOW_OPENLIBM_LIBRARY="$GITHUB_WORKSPACE/build/openlibm/libopenlibm.a" \
+            -DPEPEPOW_CUDA_TEST_ARCHITECTURE=75
+
+      - name: Build FP64 diagnostics, full-digest experiment, bounded search, and CPU oracles
+        if: steps.fp64-transform.outputs.enabled == 'true'
+        run: cmake --build build/cuda-hoohash-fp64-transform --parallel 2
+
+      - name: Verify strict CUDA FP64 compiler flags
+        if: steps.fp64-transform.outputs.enabled == 'true'
+        run: |
+          grep -F -- '--fmad=false' build/cuda-hoohash-fp64-transform/build.ninja
+          grep -F -- '--ftz=false' build/cuda-hoohash-fp64-transform/build.ninja
+          grep -F -- '--prec-div=true' build/cuda-hoohash-fp64-transform/build.ninja
+          grep -F -- '--prec-sqrt=true' build/cuda-hoohash-fp64-transform/build.ninja
+          if grep -F -- '--use_fast_math' build/cuda-hoohash-fp64-transform/build.ninja; then
+            echo "fast math must remain disabled" >&2
+            exit 1
+          fi
+
+      - name: Run CPU contracts and explicit no-GPU CUDA policy
+        if: steps.fp64-transform.outputs.enabled == 'true'
+        env:
+          PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP: "1"
+        run: ctest --test-dir build/cuda-hoohash-fp64-transform --output-on-failure
+
+      - name: Preserve FP64 diagnostic artifacts
+        if: always() && steps.fp64-transform.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuda-hoohash-fp64-transform-contract
+          if-no-files-found: warn
+          path: |
+            build/cuda-hoohash-fp64-transform/cuda-transform-diagnostic-report.json
+            build/cuda-hoohash-fp64-transform/cuda-transform-evidence/
+            build/cuda-hoohash-fp64-transform/cuda-full-digest-evidence/
+            build/cuda-hoohash-fp64-transform/cuda-full-digest-10000-evidence/
+            build/cuda-hoohash-fp64-transform/cuda-bounded-search-evidence/
+            build/openlibm/libopenlibm.a
