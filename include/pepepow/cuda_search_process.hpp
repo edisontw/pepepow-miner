@@ -447,19 +447,23 @@ inline SearchResult search_cuda_with_process(
         invocation_started + std::chrono::milliseconds(invocation_timeout));
     bool requested_cancel = false;
     bool requested_timeout = false;
+    std::optional<SearchClock::time_point> cancellation_grace_deadline;
     std::optional<unsigned long> exit_code;
     while (!(exit_code = child.poll())) {
       const auto now = SearchClock::now();
       if (!requested_cancel && cancelled()) {
         requested_cancel = detail::touch_cancel_file(cancel_path);
         if (!requested_cancel) break;
+        cancellation_grace_deadline = now + options.cancellation_grace;
       }
       if (!requested_timeout && now >= invocation_deadline) {
         requested_timeout = detail::touch_cancel_file(cancel_path);
         if (!requested_timeout) break;
+        if (!cancellation_grace_deadline)
+          cancellation_grace_deadline = now + options.cancellation_grace;
       }
-      if (requested_cancel || requested_timeout) {
-        if (now >= invocation_deadline + options.cancellation_grace) {
+      if ((requested_cancel || requested_timeout) && cancellation_grace_deadline) {
+        if (now >= *cancellation_grace_deadline) {
           child.terminate();
           (void)child.poll();
           const auto failed_status = requested_timeout && !cancelled()

@@ -1,6 +1,7 @@
 #include "pepepow/cuda_search_process.hpp"
 
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <charconv>
 #include <cstdint>
@@ -44,7 +45,8 @@ bool parse_u32(std::string_view input, std::uint32_t& output) {
   return error == std::errc{} && end == input.data() + input.size();
 }
 
-int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest) {
+int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest,
+               bool ignore_cancel) {
   pepepow::Header header{};
   pepepow::Digest target{};
   std::uint32_t start = 0;
@@ -97,6 +99,10 @@ int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest)
     if (!std::filesystem::exists(std::filesystem::path(cancel_path))) return 65;
     emit("cancelled", "cancel_file", 0, "[]");
     return 130;
+  }
+  if (ignore_cancel) {
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+    return 66;
   }
 
   pepepow_header_set_nonce(header.data(), header.size(), start);
@@ -182,7 +188,32 @@ int run_contract_tests(const char* executable) {
     std::cerr << "child cancellation did not complete cooperatively\n";
     return 1;
   }
+
+  options.timeout_ms = 800;
+  options.cancellation_grace = std::chrono::milliseconds(150);
+  options.engine_prefix_arguments = {"--mock-child-ignore-cancel"};
+  std::atomic_bool ignored_cancel{false};
+  std::jthread ignore_cancel_request([&] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    ignored_cancel.store(true, std::memory_order_release);
+  });
+  const auto ignored_cancel_started = std::chrono::steady_clock::now();
+  result = pepepow::search_cuda_with_process(cpu, options, header, easy_target,
+      4, 100, pepepow::SearchClock::now() + std::chrono::seconds(3),
+      &ignored_cancel);
+  ignore_cancel_request.join();
+  const auto ignored_cancel_delay = std::chrono::steady_clock::now() -
+                                   ignored_cancel_started;
+  if (result.status != pepepow::SearchStatus::Cancelled || result.candidate ||
+      ignored_cancel_delay > std::chrono::milliseconds(600)) {
+    std::cerr << "non-cooperative child exceeded cancellation grace\n";
+    return 1;
+  }
+
   cancel.store(false, std::memory_order_release);
+  options.timeout_ms = 1000;
+  options.cancellation_grace = std::chrono::milliseconds(5000);
+  options.engine_prefix_arguments = {"--mock-child-cancel"};
   result = pepepow::search_cuda_with_process(cpu, options, header, easy_target,
       5, 100, pepepow::SearchClock::now() + std::chrono::milliseconds(100));
   if (result.status != pepepow::SearchStatus::Timeout || result.candidate) {
@@ -204,7 +235,8 @@ int main(int argc, char** argv) {
   if (argc >= 2 && std::string_view(argv[1]).starts_with("--mock-child-")) {
     const auto mode = std::string_view(argv[1]);
     return mock_child(argc, argv, mode == "--mock-child-cancel",
-                      mode == "--mock-child-corrupt");
+                      mode == "--mock-child-corrupt",
+                      mode == "--mock-child-ignore-cancel");
   }
   return run_contract_tests(argv[0]);
 }

@@ -58,12 +58,18 @@ cmd.exe /c '"D:\Dev\vs2022-build-tools\Common7\Tools\VsDevCmd.bat" -arch=x64 -ho
   and bounded descendant cleanup through its Windows Job Object, the final
   process and CUDA-product loopback tests passed again: Release `2/2`, Debug
   `2/2`.
+- Cancellation grace now starts when the parent signals cancellation, rather
+  than at the engine invocation deadline. A new uncooperative-child mock was
+  terminated within the configured 150 ms grace plus test scheduling overhead;
+  the process contract test passed in both Release and Debug.
 - MSVC `/W4 /WX` compile-only check of `test_cuda_search_process.cpp` passed.
 - The mock child returned a candidate at `UINT32_MAX`; the parent recomputed
   the complete 32-byte digest with pinned Core before returning it.
 - A last-digest-byte mutation and a below-target mock candidate were rejected.
 - An atomic cancel request produced a cancel file; the child exited
   cooperatively, with measured test stop time below two seconds.
+- A mock child that deliberately ignored its cancel file was terminated within
+  600 ms, proving a user stop does not wait for the longer engine timeout.
 - An expiring parent deadline also caused cooperative child cancellation and
   returned timeout without a candidate.
 - Per-invocation temporary result, stderr, and cancel files were removed after
