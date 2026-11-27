@@ -10,7 +10,7 @@
 - [PR #25](https://github.com/edisontw/pepepow-miner/pull/25) merged as `9c6f34f51a9f70d45e454eacbf1fe3388e61cf27`; PR #30 subsequently integrated the offline benchmark, worker limit of 1–256, `--threads all`, nonce range partitioning, and benchmark CLI. One worker remains the default. The [HooHash worker audit](VALIDATION_EVIDENCE/G1/hoohash-v110-worker-audit-2026-11-25.md) records source inspection and concurrency limits.
 - [Issue #1](https://github.com/edisontw/pepepow-miner/issues/1) remains open for G1 and the remaining product/release gates.
 
-All socket integration tests use numeric IPv4 loopback endpoints and local mock servers. No production pool was contacted and no real share was submitted.
+The integrated main socket tests use numeric IPv4 loopback endpoints and local mock servers. Draft PR #40 separately adds an opt-in bounded public CPU session; it records one Windows 11 CPU/POOL run with 1,000 answered replies. That single configuration is not G1 acceptance.
 
 ## Current owner acceptance and integrated main
 
@@ -51,7 +51,7 @@ Detailed fault coverage and exact-head links are in [G1 transport and reconnect 
 
 **Distribution License Compliance — PENDING before distribution.** The Owner adopts the public Hoosat MIT commit and pinned Core MIT HooHash headers as the current HooHash development basis. Preserve the old GPL headers and license-change history. Complete applicable notices and an SBOM for the exact release package; this gate does not block local development or technical G0. See [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
 
-**G1 — OFFLINE PROTOTYPE ONLY; NOT PASSED.** Local mocks cover deadlines, reconnect, failover, worker ranges, cancellation, stale results, and bounded shutdown. The Owner confirmed the LAB Pool Mining endpoint `stratum+tcp://pool.pepepow.net:39333` and supplied the test payout address. No live run has started: the current CLI explicitly rejects public endpoints, so bounded live-session support and complete JSONL evidence must be implemented first. One synchronous Core hash cannot be interrupted after it starts, so CPU cancellation is cooperative between hashes.
+**G1 — NOT PASSED.** Main's local mocks cover deadlines, reconnect, failover, worker ranges, cancellation, stale results, and bounded shutdown. Draft PR #40 adds a separately opt-in live CPU CLI and records an Owner-authorized Windows 11 CPU/POOL run: 1,000 answered replies in 1,008.07 seconds, with one CPU thread and a 1,800-second hard limit; 992 accepted, 8 generic rejected (`result=false,error=null`), and 0 Pool error replies. The generic rejections cannot be classified from the Pool response. Live reconnect/failover, Linux, SOLO, and the remaining required configurations are not validated. See the [sanitized report and full JSONL evidence on PR #40](https://github.com/edisontw/pepepow-miner/blob/929d8b9f40cccfb8be6bde45c3213c4ac31bac55/docs/VALIDATION_EVIDENCE/G1/windows11-cpu-pool-acceptance-2026-11-27.md). One synchronous Core hash cannot be interrupted after it starts, so CPU cancellation is cooperative between hashes. The evidence commit remains in an open draft PR and is not integrated into main.
 
 **G2–G5 — NOT ACCEPTED.** GUI work and distributable Windows/Linux packages are deferred. No binaries were released.
 

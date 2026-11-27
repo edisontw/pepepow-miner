@@ -54,12 +54,14 @@ no blanket third-party distribution claim. The notice and release gate remains
 ## Next gate
 
 G1 LAB Pool acceptance may proceed under the Owner's existing authorization.
-After this G0 sign-off, the Owner confirmed the Pool Mining endpoint
-`stratum+tcp://pool.pepepow.net:39333` and supplied the test payout address.
-The current CLI rejects public endpoints, so implement bounded public-session
-support before connecting. Then capture subscribe/authorize, job/target, share
-classification, reconnect/failover, and JSONL evidence under explicit runtime
-and CPU limits. No live endpoint was contacted and no share was submitted in
-this G0 sign-off.
+After this G0 sign-off, the Owner confirmed the Pool Mining endpoint and
+supplied a test payout address. A subsequent bounded Windows 11 CPU/POOL run
+completed 1,000 answered replies; 992 were accepted and 8 returned generic
+rejections without a classifiable Pool error. The sanitized report and JSONL
+are recorded on the open draft [PR #40](https://github.com/edisontw/pepepow-miner/blob/929d8b9f40cccfb8be6bde45c3213c4ac31bac55/docs/VALIDATION_EVIDENCE/G1/windows11-cpu-pool-acceptance-2026-11-27.md).
+This post-sign-off run is one configuration only and does not pass G1. Linux,
+SOLO, live reconnect/failover, other required configurations, and remaining G1
+criteria are still pending. The payout address is intentionally omitted from
+repository evidence.
 
 Issue #1 remains open for the remaining product gates and distribution work.
