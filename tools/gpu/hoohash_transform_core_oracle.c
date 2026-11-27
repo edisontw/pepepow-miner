@@ -22,7 +22,7 @@ enum {
   kInputHeaderBytes = 12,
   kInputRecordBytes = 9,
   kOutputHeaderBytes = 12,
-  kOutputRecordBytes = 233,
+  kOutputRecordBytes = 241,
   kMaximumInputs = 32768
 };
 
@@ -244,6 +244,7 @@ static int run(const char *input_path, const char *output_path) {
     offset += 4;
     WRITE_BITS(openlibm_remainder[0]);
     WRITE_BITS(openlibm_remainder[1]);
+    WRITE_BITS(intermediate);
 #undef WRITE_BITS
     if (offset != sizeof(record) ||
         fwrite(record, 1, sizeof(record), output) != sizeof(record)) {

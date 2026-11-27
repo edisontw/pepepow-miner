@@ -287,13 +287,14 @@ The CUDA diagnostic also translates pinned OpenLibm `sincos`,
 are retained. It compares both remainder components and the quadrant as well
 as sine, cosine, their sum, and `exp(sin + cos)`. All these port fields matched
 the pinned Core/OpenLibm outputs bit-for-bit across the 29,224-input physical
-corpus. This includes the complete `MediumComplexNonLinear` result when
-computed through the OpenLibm ports. An initial mismatch exposed a missing
-`z = q[jz]` at entry to the reducer's recompute loop; that source operation
-is now present and both a strict UCRT64 host translation and the RTX 3060
-device run match. The port remains diagnostic-only. Native CUDA device-math
-fields still differ, and this does not establish complete HooHash transform
-or digest parity.
+corpus. This includes `MediumComplexNonLinear` and
+`IntermediateComplexNonLinear` when computed through the OpenLibm ports; the
+intermediate port preserves Core's singularity guard. An initial mismatch
+exposed a missing `z = q[jz]` at entry to the reducer's recompute loop; that
+source operation is now present and both a strict UCRT64 host translation and
+the RTX 3060 device run match. The port remains diagnostic-only. Native CUDA
+device-math fields still differ, and this does not establish complete HooHash
+transform or digest parity.
 
 The Windows RTX 3060 experiment found bitwise-identical outputs between paired
 `sincos` and separate `sin`/`cos` calls for both OpenLibm and CUDA across the

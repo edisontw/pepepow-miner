@@ -15,7 +15,7 @@ namespace {
 
 constexpr std::uint32_t kMaximumInputs = 32768;
 constexpr std::size_t kInputRecordBytes = 17;
-constexpr std::size_t kOutputRecordBytes = 233;
+constexpr std::size_t kOutputRecordBytes = 241;
 constexpr std::size_t kMaximumSafeIterations = 512;
 constexpr char kInputMagic[8] = {'P', 'P', 'W', 'T', 'R', 'I', 'N', '1'};
 constexpr char kOutputMagic[8] = {'P', 'P', 'W', 'T', 'R', 'O', '1', '\0'};
@@ -23,7 +23,7 @@ constexpr double kPi = 3.14159265358979323846;
 constexpr double kEpsilon = 1e-9;
 constexpr double kComplexTransformMultiplier = 0.000001;
 static_assert(kOutputRecordBytes == 3U * 8U + 4U + 6U * 8U + 1U + 17U * 8U +
-                  4U + 2U * 8U,
+                  4U + 3U * 8U,
               "serialized transform record size changed");
 
 struct InputRecord {
@@ -64,6 +64,7 @@ struct OutputRecord {
   std::int32_t openlibm_port_reduction_n;
   std::uint64_t openlibm_port_reduction_y0_bits;
   std::uint64_t openlibm_port_reduction_y1_bits;
+  std::uint64_t openlibm_port_intermediate_bits;
 };
 
 static_assert(offsetof(OutputRecord, medium_bits) == 32,
@@ -318,6 +319,8 @@ __global__ void evaluateTransforms(const InputRecord *inputs,
       openlibm_port_sine + openlibm_port_cosine;
   const double exp_openlibm_port_sincos_sum =
       openlibmExpDiagnostic(openlibm_port_sincos_sum);
+  const double openlibm_port_intermediate =
+      pepepow_cuda_detail::openlibmIntermediateDiagnostic(value);
   double openlibm_port_reduction[2] = {0.0, 0.0};
   int openlibm_port_reduction_n = 0;
   const std::uint32_t absolute_high_word =
@@ -368,6 +371,8 @@ __global__ void evaluateTransforms(const InputRecord *inputs,
       binary64Bits(openlibm_port_reduction[0]);
   result.openlibm_port_reduction_y1_bits =
       binary64Bits(openlibm_port_reduction[1]);
+  result.openlibm_port_intermediate_bits =
+      binary64Bits(openlibm_port_intermediate);
   outputs[index] = result;
 }
 
@@ -585,6 +590,7 @@ bool writeTranscript(const std::string &path,
         output, static_cast<std::uint32_t>(record.openlibm_port_reduction_n));
     writeLittleEndian64(output, record.openlibm_port_reduction_y0_bits);
     writeLittleEndian64(output, record.openlibm_port_reduction_y1_bits);
+    writeLittleEndian64(output, record.openlibm_port_intermediate_bits);
   }
   return output.good();
 }

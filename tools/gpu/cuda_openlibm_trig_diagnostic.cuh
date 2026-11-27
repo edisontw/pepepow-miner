@@ -428,4 +428,18 @@ __device__ __forceinline__ void openlibmSinCosDiagnostic(double x,
   }
 }
 
+__device__ __forceinline__ double openlibmIntermediateDiagnostic(double x) {
+  constexpr double pi_over_two = 1.57079632679489661923;
+  constexpr double three_pi_over_two = 4.71238898038468985769;
+  constexpr double epsilon = 1.0e-9;
+  if (fabs(x - pi_over_two) < epsilon ||
+      fabs(x - three_pi_over_two) < epsilon) {
+    return 0.0;
+  }
+  double sine = 0.0;
+  double cosine = 0.0;
+  openlibmSinCosDiagnostic(x, &sine, &cosine);
+  return sine * sine;
+}
+
 }  // namespace pepepow_cuda_detail

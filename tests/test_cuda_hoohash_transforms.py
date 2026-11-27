@@ -32,7 +32,7 @@ INPUT_MAGIC = b"PPWTRIN1"
 OUTPUT_MAGIC = b"PPWTRO1\0"
 CORE_INPUT_RECORD = struct.Struct("<QB")
 INPUT_RECORD = struct.Struct("<QQB")
-OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQQQQQQQIQQ")
+OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQQQQQQQIQQQ")
 MAXIMUM_INPUTS = 32768
 MAXIMUM_REPORTED_MISMATCHES = 32768
 MASK64 = (1 << 64) - 1
@@ -81,6 +81,7 @@ FUNCTIONS = {
     "exp_openlibm_port_sincos_sum": 27,
     "openlibm_port_reduction_y0": 29,
     "openlibm_port_reduction_y1": 30,
+    "openlibm_port_intermediate": 31,
 }
 PI = 3.14159265358979323846
 EPSILON = 1e-9
@@ -797,6 +798,7 @@ def main():
             "openlibm_port_cosine",
             "openlibm_port_sincos_sum",
             "exp_openlibm_port_sincos_sum",
+            "openlibm_port_intermediate",
         ):
             summary = comparison["functions"][function]
             require(
