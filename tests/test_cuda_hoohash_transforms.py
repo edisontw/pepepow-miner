@@ -32,13 +32,18 @@ INPUT_MAGIC = b"PPWTRIN1"
 OUTPUT_MAGIC = b"PPWTRO1\0"
 CORE_INPUT_RECORD = struct.Struct("<QB")
 INPUT_RECORD = struct.Struct("<QQB")
-OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQQQ")
+OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQQQQQQQIQQ")
 MAXIMUM_INPUTS = 32768
 MAXIMUM_REPORTED_MISMATCHES = 32768
 MASK64 = (1 << 64) - 1
 CORE_SHA = "bc08108ceccd957c79040dc7fedc1d56d8d47f97"
 OPENLIBM_SHA = "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d"
 OPENLIBM_EXP_FILE_BLOB_SHA1 = "639b9fe18dbae273d3182146bb9aebbd59c9e362"
+OPENLIBM_SINCOS_SOURCE_BLOBS = {
+    "src/s_sincos.c": "8628235644aa8e996cbecd37f1b220a74d269a08",
+    "src/e_rem_pio2.c": "c09e38a3640f8b8b91faf69444db529542727671",
+    "src/k_rem_pio2.c": "9555d3ab5257717a20b33151db47d7d495582f00",
+}
 STAGE_NAME = "hoohash_v110_fp64_transform_diagnostic"
 ERROR_EXIT_CODES = {
     "no_device": 2,
@@ -70,6 +75,12 @@ FUNCTIONS = {
     "medium_sincos": 21,
     "exp_core_sincos_sum": 22,
     "exp_core_sincos_sum_openlibm_port": 23,
+    "openlibm_port_sine": 24,
+    "openlibm_port_cosine": 25,
+    "openlibm_port_sincos_sum": 26,
+    "exp_openlibm_port_sincos_sum": 27,
+    "openlibm_port_reduction_y0": 29,
+    "openlibm_port_reduction_y1": 30,
 }
 PI = 3.14159265358979323846
 EPSILON = 1e-9
@@ -358,6 +369,8 @@ def finite_error(core_bits, cuda_bits):
     relative = absolute / abs(core) if core != 0.0 else (
         0.0 if absolute == 0.0 else None
     )
+    if relative is not None and not math.isfinite(relative):
+        relative = None
     ulp = abs(ordered_integer(core_bits) - ordered_integer(cuda_bits))
     return absolute, relative, ulp
 
@@ -407,6 +420,7 @@ def compare_transcripts(core_data, cuda_data, origins):
         "cuda": summarize_paired_vs_separate(cuda_records),
     }
     branch_mismatches = []
+    reduction_n_mismatches = []
     for index, (core, cuda) in enumerate(zip(core_records, cuda_records)):
         require(core[0] == cuda[0] and core[10] == cuda[10],
                 f"input identity/flags differ at input {index}")
@@ -421,6 +435,18 @@ def compare_transcripts(core_data, cuda_data, origins):
                 "cuda_factor_one_bits": f"{cuda[1]:016x}",
                 "core_factor_two_bits": f"{core[2]:016x}",
                 "cuda_factor_two_bits": f"{cuda[2]:016x}",
+            })
+        if core[28] != cuda[28]:
+            reduction_n_mismatches.append({
+                "index": index,
+                "origin": origins[index],
+                "input_bits": f"{core[0]:016x}",
+                "openlibm_n": core[28],
+                "cuda_port_n": cuda[28],
+                "openlibm_y0_bits": f"{core[29]:016x}",
+                "cuda_port_y0_bits": f"{cuda[29]:016x}",
+                "openlibm_y1_bits": f"{core[30]:016x}",
+                "cuda_port_y1_bits": f"{cuda[30]:016x}",
             })
 
     summaries = {}
@@ -501,12 +527,13 @@ def compare_transcripts(core_data, cuda_data, origins):
     cuda_branches = {}
     for record in cuda_records:
         cuda_branches[str(record[3])] = cuda_branches.get(str(record[3]), 0) + 1
-    parity_passed = not branch_mismatches and all(
+    parity_passed = not branch_mismatches and not reduction_n_mismatches and all(
         summary["bitwise_mismatches"] == 0 for summary in summaries.values()
     )
     return {
         "branch_mismatches": branch_mismatches,
         "branch_mismatch_count": len(branch_mismatches),
+        "reduction_n_mismatches": reduction_n_mismatches,
         "core_branch_counts": core_branches,
         "cuda_branch_counts": cuda_branches,
         "functions": summaries,
@@ -663,6 +690,7 @@ def main():
             "git_blob_sha1": OPENLIBM_EXP_FILE_BLOB_SHA1,
             "diagnostic_cuda_field": "exp_core_sincos_sum_openlibm_port",
         },
+        "openlibm_sincos_source_blobs": OPENLIBM_SINCOS_SOURCE_BLOBS,
         "stage": STAGE_NAME,
         "gpu_status": gpu_status,
         "device": payload["device"] if gpu_status == "live" else None,
@@ -713,6 +741,9 @@ def main():
         "branch_mismatch_count": (
             comparison["branch_mismatch_count"] if comparison is not None else None
         ),
+        "reduction_n_mismatches": (
+            comparison["reduction_n_mismatches"] if comparison is not None else None
+        ),
         "core_branch_counts": (
             comparison["core_branch_counts"] if comparison is not None else None
         ),
@@ -761,6 +792,37 @@ def main():
             f"all tested operands; found {exp_port['bitwise_mismatches']} "
             f"mismatches in {exp_port['cases']} cases",
         )
+        for function in (
+            "openlibm_port_sine",
+            "openlibm_port_cosine",
+            "openlibm_port_sincos_sum",
+            "exp_openlibm_port_sincos_sum",
+        ):
+            summary = comparison["functions"][function]
+            require(
+                summary["bitwise_mismatches"] == 0,
+                f"diagnostic CUDA translation of pinned OpenLibm sincos/exp "
+                f"must match all tested operands; {function} found "
+                f"{summary['bitwise_mismatches']} mismatches in "
+                f"{summary['cases']} cases",
+            )
+        require(
+            not comparison["reduction_n_mismatches"],
+            "diagnostic CUDA translation of pinned OpenLibm argument reduction "
+            f"changed the quadrant in {len(comparison['reduction_n_mismatches'])} cases",
+        )
+        for function in (
+            "openlibm_port_reduction_y0",
+            "openlibm_port_reduction_y1",
+        ):
+            summary = comparison["functions"][function]
+            require(
+                summary["bitwise_mismatches"] == 0,
+                f"diagnostic CUDA translation of pinned OpenLibm argument "
+                f"reduction must match all tested operands; {function} found "
+                f"{summary['bitwise_mismatches']} mismatches in "
+                f"{summary['cases']} cases",
+            )
         print("FP64 TRANSFORM RESULTS ARE DIAGNOSTIC ONLY; no GPU digest parity is claimed")
     else:
         print("NO-GPU CONTRACT: Core/OpenLibm baseline saved; device execution explicitly skipped")

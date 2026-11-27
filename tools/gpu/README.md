@@ -278,14 +278,34 @@ errors after setting PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1; runtime and kernel
 failures remain failures. Physical acceptance sets
 PEPEPOW_CUDA_REQUIRE_DEVICE=1.
 
+The CUDA diagnostic also translates pinned OpenLibm `sincos`,
+`__ieee754_rem_pio2`, and `__kernel_rem_pio2` from `src/s_sincos.c`,
+`src/e_rem_pio2.c`, and `src/k_rem_pio2.c` (source blobs
+`8628235644aa8e996cbecd37f1b220a74d269a08`,
+`c09e38a3640f8b8b91faf69444db529542727671`, and
+`9555d3ab5257717a20b33151db47d7d495582f00`). The original permission notices
+are retained. It compares both remainder components and the quadrant as well
+as sine, cosine, their sum, and `exp(sin + cos)`. All these port fields matched
+the pinned Core/OpenLibm outputs bit-for-bit across the 29,224-input physical
+corpus. This includes the complete `MediumComplexNonLinear` result when
+computed through the OpenLibm ports. An initial mismatch exposed a missing
+`z = q[jz]` at entry to the reducer's recompute loop; that source operation
+is now present and both a strict UCRT64 host translation and the RTX 3060
+device run match. The port remains diagnostic-only. Native CUDA device-math
+fields still differ, and this does not establish complete HooHash transform
+or digest parity.
+
 The Windows RTX 3060 experiment found bitwise-identical outputs between paired
 `sincos` and separate `sin`/`cos` calls for both OpenLibm and CUDA across the
 full 29,224-input corpus. The diagnostic OpenLibm `exp` translation matched
-all 29,224 CPU outputs, while native CUDA `exp` differed in 2,433 cases. CUDA
-`sin` and `cos` still differ from Core/OpenLibm, so transform and full-digest
-parity remain incomplete. See the dated
+all 29,224 CPU outputs, while native CUDA `exp` differed in 2,433 cases. The
+new OpenLibm `sincos` translation and its composed `MediumComplexNonLinear`
+result also match all 29,224 CPU outputs. Native CUDA `sin` and `cos` still
+differ from Core/OpenLibm, so complete transform and full-digest parity remain
+incomplete. See the dated
 [physical-device evidence](../../docs/validation/cuda-hoohash-v110-fp64-transform-windows-rtx3060-2026-11-27.md)
-for per-function counts, reproducer, compiler caveat, and artifact hashes.
+for per-function counts, the corrected intermediate result, reproducer,
+compiler caveat, and artifact hashes.
 
 The CUDA target compiles with --fmad=false, --ftz=false, --prec-div=true, and
 --prec-sqrt=true; fast math is not enabled. The CI workflow inspects the

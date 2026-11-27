@@ -9,18 +9,21 @@
 #include <string>
 #include <vector>
 
+#include "cuda_openlibm_trig_diagnostic.cuh"
+
 namespace {
 
 constexpr std::uint32_t kMaximumInputs = 32768;
 constexpr std::size_t kInputRecordBytes = 17;
-constexpr std::size_t kOutputRecordBytes = 181;
+constexpr std::size_t kOutputRecordBytes = 233;
 constexpr std::size_t kMaximumSafeIterations = 512;
 constexpr char kInputMagic[8] = {'P', 'P', 'W', 'T', 'R', 'I', 'N', '1'};
 constexpr char kOutputMagic[8] = {'P', 'P', 'W', 'T', 'R', 'O', '1', '\0'};
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kEpsilon = 1e-9;
 constexpr double kComplexTransformMultiplier = 0.000001;
-static_assert(kOutputRecordBytes == 3U * 8U + 4U + 6U * 8U + 1U + 13U * 8U,
+static_assert(kOutputRecordBytes == 3U * 8U + 4U + 6U * 8U + 1U + 17U * 8U +
+                  4U + 2U * 8U,
               "serialized transform record size changed");
 
 struct InputRecord {
@@ -54,6 +57,13 @@ struct OutputRecord {
   std::uint64_t sincos_medium_bits;
   std::uint64_t exp_core_sincos_sum_bits;
   std::uint64_t exp_openlibm_port_core_sincos_sum_bits;
+  std::uint64_t openlibm_port_sine_bits;
+  std::uint64_t openlibm_port_cosine_bits;
+  std::uint64_t openlibm_port_sincos_sum_bits;
+  std::uint64_t exp_openlibm_port_sincos_sum_bits;
+  std::int32_t openlibm_port_reduction_n;
+  std::uint64_t openlibm_port_reduction_y0_bits;
+  std::uint64_t openlibm_port_reduction_y1_bits;
 };
 
 static_assert(offsetof(OutputRecord, medium_bits) == 32,
@@ -300,6 +310,27 @@ __global__ void evaluateTransforms(const InputRecord *inputs,
   const double exp_core_sincos_sum = exp(core_sincos_sum);
   const double exp_openlibm_port_core_sincos_sum =
       openlibmExpDiagnostic(core_sincos_sum);
+  double openlibm_port_sine = 0.0;
+  double openlibm_port_cosine = 0.0;
+  pepepow_cuda_detail::openlibmSinCosDiagnostic(
+      value, &openlibm_port_sine, &openlibm_port_cosine);
+  const double openlibm_port_sincos_sum =
+      openlibm_port_sine + openlibm_port_cosine;
+  const double exp_openlibm_port_sincos_sum =
+      openlibmExpDiagnostic(openlibm_port_sincos_sum);
+  double openlibm_port_reduction[2] = {0.0, 0.0};
+  int openlibm_port_reduction_n = 0;
+  const std::uint32_t absolute_high_word =
+      static_cast<std::uint32_t>(input.bits >> 32U) & 0x7fffffffU;
+  if (absolute_high_word <= 0x3fe921fbU) {
+    openlibm_port_reduction[0] = value;
+  } else if (absolute_high_word >= 0x7ff00000U) {
+    openlibm_port_reduction[0] = value - value;
+    openlibm_port_reduction[1] = openlibm_port_reduction[0];
+  } else {
+    openlibm_port_reduction_n =
+        pepepow_cuda_detail::openlibmRemPio2(value, openlibm_port_reduction);
+  }
 
   OutputRecord result{};
   result.input_bits = input.bits;
@@ -327,6 +358,16 @@ __global__ void evaluateTransforms(const InputRecord *inputs,
   result.exp_core_sincos_sum_bits = binary64Bits(exp_core_sincos_sum);
   result.exp_openlibm_port_core_sincos_sum_bits =
       binary64Bits(exp_openlibm_port_core_sincos_sum);
+  result.openlibm_port_sine_bits = binary64Bits(openlibm_port_sine);
+  result.openlibm_port_cosine_bits = binary64Bits(openlibm_port_cosine);
+  result.openlibm_port_sincos_sum_bits = binary64Bits(openlibm_port_sincos_sum);
+  result.exp_openlibm_port_sincos_sum_bits =
+      binary64Bits(exp_openlibm_port_sincos_sum);
+  result.openlibm_port_reduction_n = openlibm_port_reduction_n;
+  result.openlibm_port_reduction_y0_bits =
+      binary64Bits(openlibm_port_reduction[0]);
+  result.openlibm_port_reduction_y1_bits =
+      binary64Bits(openlibm_port_reduction[1]);
   outputs[index] = result;
 }
 
@@ -536,6 +577,14 @@ bool writeTranscript(const std::string &path,
     writeLittleEndian64(output, record.sincos_medium_bits);
     writeLittleEndian64(output, record.exp_core_sincos_sum_bits);
     writeLittleEndian64(output, record.exp_openlibm_port_core_sincos_sum_bits);
+    writeLittleEndian64(output, record.openlibm_port_sine_bits);
+    writeLittleEndian64(output, record.openlibm_port_cosine_bits);
+    writeLittleEndian64(output, record.openlibm_port_sincos_sum_bits);
+    writeLittleEndian64(output, record.exp_openlibm_port_sincos_sum_bits);
+    writeLittleEndian32(
+        output, static_cast<std::uint32_t>(record.openlibm_port_reduction_n));
+    writeLittleEndian64(output, record.openlibm_port_reduction_y0_bits);
+    writeLittleEndian64(output, record.openlibm_port_reduction_y1_bits);
   }
   return output.good();
 }

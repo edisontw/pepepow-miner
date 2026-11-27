@@ -16,12 +16,13 @@
 /* OpenLibm exports this BSD extension, but its feature macro is intentionally
  * not enabled for the full pinned-Core translation unit. */
 extern void sincos(double, double *, double *);
+extern int __ieee754_rem_pio2(double, double *);
 
 enum {
   kInputHeaderBytes = 12,
   kInputRecordBytes = 9,
   kOutputHeaderBytes = 12,
-  kOutputRecordBytes = 181,
+  kOutputRecordBytes = 233,
   kMaximumInputs = 32768
 };
 
@@ -59,6 +60,24 @@ static uint64_t double_bits(double value) {
   uint64_t bits = 0;
   memcpy(&bits, &value, sizeof(bits));
   return bits;
+}
+
+static void openlibm_sincos_reduction(double value, int32_t *reduction_n,
+                                     double remainder[2]) {
+  uint64_t bits = 0;
+  memcpy(&bits, &value, sizeof(bits));
+  const uint32_t absolute_high = (uint32_t)(bits >> 32) & 0x7fffffffU;
+  if (absolute_high <= 0x3fe921fbU) {
+    *reduction_n = 0;
+    remainder[0] = value;
+    remainder[1] = 0.0;
+  } else if (absolute_high >= 0x7ff00000U) {
+    *reduction_n = 0;
+    remainder[0] = value - value;
+    remainder[1] = remainder[0];
+  } else {
+    *reduction_n = (int32_t)__ieee754_rem_pio2(value, remainder);
+  }
 }
 
 static uint32_t selected_branch(double input) {
@@ -179,6 +198,10 @@ static int run(const char *input_path, const char *output_path) {
     const double openlibm_sincos_sum =
         openlibm_sincos_sine + openlibm_sincos_cosine;
     const double openlibm_sincos_medium = exp(openlibm_sincos_sum);
+    int32_t openlibm_reduction_n = 0;
+    double openlibm_remainder[2] = {0.0, 0.0};
+    openlibm_sincos_reduction(value, &openlibm_reduction_n,
+                             openlibm_remainder);
 
     uint8_t record[kOutputRecordBytes];
     size_t offset = 0;
@@ -213,6 +236,14 @@ static int run(const char *input_path, const char *output_path) {
     WRITE_BITS(openlibm_sincos_medium);
     WRITE_BITS(openlibm_sincos_medium);
     WRITE_BITS(openlibm_sincos_medium);
+    WRITE_BITS(openlibm_sincos_sine);
+    WRITE_BITS(openlibm_sincos_cosine);
+    WRITE_BITS(openlibm_sincos_sum);
+    WRITE_BITS(openlibm_sincos_medium);
+    write_le32(record + offset, (uint32_t)openlibm_reduction_n);
+    offset += 4;
+    WRITE_BITS(openlibm_remainder[0]);
+    WRITE_BITS(openlibm_remainder[1]);
 #undef WRITE_BITS
     if (offset != sizeof(record) ||
         fwrite(record, 1, sizeof(record), output) != sizeof(record)) {

@@ -1,7 +1,7 @@
 # CUDA HooHash V110 FP64 Transform Diagnostic Evidence
 
 Date: 2026-11-27 (Asia/Taipei)  
-Result: diagnostic framework passed on a physical GPU; bitwise FP64 transform parity **not passed**.
+Result: the diagnostic OpenLibm `sincos`/`exp` path now matches pinned Core bit-for-bit across the corpus. Native CUDA FP64 transform parity and full HooHash digest parity remain **not passed**.
 
 ## Host and toolchain
 
@@ -25,8 +25,8 @@ CTest was run with `PEPEPOW_CUDA_REQUIRE_DEVICE=1`, so an unavailable-device res
 
 | Configuration | Build | CTest |
 | --- | --- | --- |
-| Debug | Passed | 6/6 passed, 3.50 s |
-| Release | Passed | 6/6 passed, 3.32 s |
+| Debug | Passed | 6/6 passed, 3.64 s |
+| Release | Passed | 6/6 passed, 3.41 s |
 
 The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matrix stage, this transform diagnostic, device-probe JSON contract, and no-device skip policy. This establishes that the harness and diagnostic binaries ran successfully; it does not turn numeric mismatches into passes.
 
@@ -42,6 +42,8 @@ The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matri
 - Both pinned OpenLibm `sincos` and CUDA `sincos` produced bitwise-identical sine, cosine, sum, and `exp(sin + cos)` outputs to their respective separate `sin`/`cos` paths for all 29,224 inputs. Against paired Core/OpenLibm results, CUDA had 4,214 sine mismatches, 4,872 cosine mismatches, 4,296 sum mismatches, and 5,605 `exp(sin + cos)` mismatches (up to 2 ULP). The combined APIs did not resolve bitwise parity.
 - A controlled `exp` comparison passed the exact same 64-bit OpenLibm `sincos` sum to CPU and CUDA. CUDA `exp` differed in 2,433/29,224 cases, at most 1 ULP, with maximum absolute error `8.881784197001252e-16`; this isolates an `exp` mismatch independent of trigonometric input differences.
 - A separate diagnostic-only CUDA translation of pinned OpenLibm `__ieee754_exp` (`src/e_exp.c`, Git blob `639b9fe18dbae273d3182146bb9aebbd59c9e362`) received those same 29,224 CPU/OpenLibm `sincos` sums and matched the pinned OpenLibm result bit-for-bit in all 29,224 cases, including the corpus's special values. The translation retains the source copyright and permission notice. This isolates the native CUDA `exp` difference; it does not resolve the independent `sin`/`cos` mismatches or enter any production hash path.
+- A follow-up diagnostic-only CUDA translation now includes pinned OpenLibm `sincos`, `__ieee754_rem_pio2`, and `__kernel_rem_pio2` (`src/s_sincos.c`, `src/e_rem_pio2.c`, and `src/k_rem_pio2.c`; Git blobs `8628235644aa8e996cbecd37f1b220a74d269a08`, `c09e38a3640f8b8b91faf69444db529542727671`, and `9555d3ab5257717a20b33151db47d7d495582f00`). It matched sine, cosine, their sum, both reduction remainder components, the reduction quadrant, and the already-ported `exp` composition bit-for-bit across all 29,224 inputs. In particular, `exp(port_sin + port_cos)` matched pinned Core `MediumComplexNonLinear` for all 29,224 inputs. The first translation omitted the source's `z = q[jz]` initialization on entry to the reduction recompute loop; a strict UCRT64 host translation and the CUDA device corpus both exposed it. After restoring that operation, the host translation and RTX 3060 device test both matched exactly. The port preserves the pinned Sun Microsystems and Elliot Saba permission notices and is diagnostic-only.
+- The complete report still has `bitwise_parity_passed: false`: native CUDA `sin`, `cos`, `exp`, and dependent nonlinear outputs retain the mismatch counts below. The new port proves an exact OpenLibm-compatible route for the `MediumComplexNonLinear` primitive on this corpus; it is not yet wired into a complete GPU HooHash kernel, and does not establish full transform or digest parity.
 - The first controlled `exp` mismatch is matrix row 0, column 6 for original input bits `43129660f32cd3f0`. Both implementations receive sum bits `3ff2fa83b829b9ec`; pinned OpenLibm returns `400a32257b456036` and CUDA returns `400a32257b456037` (1 ULP).
 - Direct intermediate sine: 4,214 mismatches, at most 1 ULP; `fabs(value) + 1` and its square root matched for finite inputs.
 - `medium_complex_nonlinear`: 5,605 bitwise mismatches; maximum finite difference 2 ULP.
@@ -63,7 +65,7 @@ The pinned Core matrix value at row 0, column 6 is `43129660f32cd3f0` (binary64 
 
 On the same header, the earliest direct cosine mismatch is matrix row 0, column 0: input bits `432955e1472d5ee5`, Core/OpenLibm bits `3fdb47337b59ac85`, CUDA bits `3fdb47337b59ac86`. The earliest direct sine mismatch is row 0, column 5: input bits `4350e9985e566702`, Core/OpenLibm bits `3fde142219d9cc20`, CUDA bits `3fde142219d9cc21`.
 
-The observed finite differences are small but still fail the required bitwise comparison. They must not be accepted with an epsilon. Full HooHash V110 digest parity, the 10,000-case GPU digest suite, candidate CPU recheck, hashrate measurements, and G4 acceptance remain untested and blocked on resolving this transform mismatch.
+The observed finite differences are small but still fail the required bitwise comparison. They must not be accepted with an epsilon. Full HooHash V110 digest parity, the 10,000-case GPU digest suite, candidate CPU recheck, hashrate measurements, and G4 acceptance remain untested. The OpenLibm-compatible intermediate path must first be integrated and validated through every transform used by the pinned Core hash.
 
 ## Provenance and retained artifacts
 
@@ -71,12 +73,12 @@ The observed finite differences are small but still fail the required bitwise co
 - OpenLibm source: `9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`.
 - OpenLibm archive SHA-256: `9fb7b4caf1deb2136314508c3116adafd8a192a67d0ca4a95e22744fa0ca5f96`. This was a prebuilt local archive from the earlier validated Windows build, not rebuilt during this diagnostic run.
 - The archive's earlier UCRT64 build flags are recorded in `D:\Dev\pepepow-miner-validation\20261124-windows11\openlibm-flags-release.txt`; they include `-ffp-contract=off`, `-fno-fast-math`, `-fno-rounding-math`, `-fno-math-errno`, `-fno-builtin`, `-m64`, `-msse2`, and `-mfpmath=sse`. The repository's tracked Windows pure-C OpenLibm portability patch SHA-256 is `f780e659c0a94a8a28a942553c2b0bc7da8c4119b2a897842c361ce97f19c5b2`.
-- Debug and Release reports and transcripts are retained locally under `D:\Dev\pepepow-cuda-transform-evidence-20261127\debug\exp-port` and `D:\Dev\pepepow-cuda-transform-evidence-20261127\release\exp-port`.
+- The earlier exp-only reports and transcripts are retained locally under `D:\Dev\pepepow-cuda-transform-evidence-20261127\debug\exp-port` and `D:\Dev\pepepow-cuda-transform-evidence-20261127\release\exp-port`; corrected sincos-port artifacts are under `D:\Dev\pepepow-cuda-transform-evidence-20261127\debug\sincos-fixed` and `D:\Dev\pepepow-cuda-transform-evidence-20261127\release\sincos-fixed`.
 - Debug/Release build logs are `build-debug-openlibm-exp-port.log` and `build-release-openlibm-exp-port.log`; physical-device CTest logs are `ctest-debug-openlibm-exp-port.log` and `ctest-release-openlibm-exp-port.log` in `D:\Dev\pepepow-cuda-transform-evidence-20261127`.
-- Debug and Release diagnostic report SHA-256: `ffed92808d4ccf2185af99adf45df969a7877093fa56b28d4e18f0e78b95249b`.
+- Earlier exp-only diagnostic report SHA-256: `ffed92808d4ccf2185af99adf45df969a7877093fa56b28d4e18f0e78b95249b`. Corrected Debug/Release report SHA-256: `73055327f3f28a150f3f50d8e8a00e7c35d4accec29720d1bba027ad85484ade`.
 - Pinned-Core/OpenLibm CPU transcript SHA-256: `f4c3d991d81619c7406b6a8542cf69b89066367edb64f313399183bc4eb50864`.
 - CUDA transcript SHA-256: `e76f072b08596e23abe94140726b6783be5361c0a5626927359306879a37acd5`.
-- Both OpenLibm-port diagnostic fields matched across all 29,224 records; the report's overall FP64 parity remains false because other transform fields still differ.
+- All diagnostic OpenLibm exp/sincos fields matched across all 29,224 records. Corrected pinned-Core/OpenLibm CPU transcript SHA-256: `77350e75a8a4b2eb0fdb56f0a2da01c333e9c5eae258c96aa87a72b9cb2d86da`; corrected CUDA transcript SHA-256: `64ecd0ce3ca266c02be8f447e2a6f7c3be16a24f27497f4d82200768fffa55f3`. The report's overall FP64 parity remains false because native CUDA math and dependent transforms still differ.
 - CPU-oracle input binary SHA-256: `fbdbc09d8215338a0acd48acbc492d4c289a319400ea66281246a40ecd250013`.
 - CUDA input binary, including the reference `exp` operand, SHA-256: `cae879e50f03d7e983a87c9ba2ae7e0c95097ba9752699c6117274befc76c695`.
 - Input catalog SHA-256: `4fc1259d8a48dc4fb7ff0ed64c4485e84f29dabbf50cbc22f1f41f4f3f89cde7`.
