@@ -72,12 +72,14 @@ kernel compiled with `--fmad=false`, `--ftz=false`, `--prec-div=true`, and
 
 - Release build of all opt-in CUDA stages and CPU oracles: passed.
 - Release CTest suite: 8/8 passed, including the live 10,000-nonce parity
-  test; latest total 4.91 seconds.
+  test; total 4.80 seconds.
 - Debug build of all opt-in CUDA stages and CPU oracles: passed.
 - Debug CTest suite excluding the 10,000-nonce stress batch: 7/7 passed;
-  latest total 4.03 seconds.
+  physical-device total 3.97 seconds.
+- No-GPU Debug CTest suite: 7/7 passed in 2.08 seconds with
+  `CUDA_VISIBLE_DEVICES=-1` and the explicit no-device skip enabled.
 - 10,000-nonce physical CUDA test: nonces 0–9,999, all full 32-byte digests
-  matched pinned Core; latest CTest time 0.97 seconds.
+  matched pinned Core; CTest time 0.96 seconds.
 - Five additional Release 10,000-nonce runs compared each complete digest to
   pinned Core, with matching CPU/GPU transcript hashes in every run.
 - The success JSON schema was tested with a labeled mock fixture; zero/NaN,
@@ -148,7 +150,7 @@ Evidence is under the local directory
 | --- | --- |
 | 10,000-case CPU transcript | `dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47` |
 | 10,000-case CUDA transcript | `dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47` |
-| 10,000-case JSON report | `7f788abfe6ab1161375664de29e27b3e2b5f372e1a9c5972ee230de4c4cfbadd` |
+| 10,000-case JSON report | `fc174eebdaac2c852039b3ef291642d39dfeb2896d89a3eebd2d2fdec3f57d32` |
 | Five-run timing JSON | `c7f17c38252464813e88a5523aaafd6cddd19abb90401b94102678cafedbc345c` |
 | Release CUDA digest executable | `1bb156289227ab531f565fd8da807ae24e5f8f34d028e4d288fea5733d65b1e8` |
 | Pinned OpenLibm static archive | `9fb7b4caf1deb2136314508c3116adafd8a192a67d0ca4a95e22744fa0ca5f96` |
