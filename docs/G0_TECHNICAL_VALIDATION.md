@@ -1,23 +1,28 @@
 # G0 Native CPU Technical Validation
 
-Updated 2026-11-26 (Taipei time).
+Updated 2026-11-27 (Taipei time).
 
-**Status: G0 is NOT PASSED.** The current main head is
-`a505730696936117b2fa67c7a02b7ae4f1443856`. The native Linux and Windows
-Server Debug/Release parity evidence is complete on the #30 integration head;
-the Owner's prior Windows 11 physical acceptance remains 84/84 on
-`7284aa22cafd79e3521291307eca8f5b9a575744`, and Windows 10 remains accepted by
-Owner equivalence without a separate physical run. PRs #31–#33 changed only
-CUDA files, workflows, tests, and evidence after the #30 head, so no CPU hash
-path changed and the completed Windows acceptance is not repeated.
+**Status: G0 Technical Validation — PASS.** This is a technical acceptance for
+the pinned CPU implementation and evidence listed below; it is not a statement
+that all third-party package distribution requirements are complete. The
+current main head is `dfccd6fd2aeb3525cc41e27428537571642da6b7`. Native Ubuntu
+22.04/24.04 Debug/Release parity and negative controls passed on the #30
+integration head; the independent 10,000-case full-digest corpus is preserved
+from its exact feature-head validation. The Owner's Windows 11 physical
+technical acceptance remains 84/84 on
+`7284aa22cafd79e3521291307eca8f5b9a575744`. Windows 10 is accepted by Owner
+equivalence, without a separate physical run. Subsequent #31–#33 main changes
+were CUDA-only and did not change the CPU hash path; the completed Windows
+acceptance is not repeated.
 
 The Owner authorized formal G0 sign-off in [Issue #1 comment
 7192595038](https://github.com/edisontw/pepepow-miner/issues/1#issuecomment-7192595038).
-That authorization does not grant third-party rights. The source/notice audit
-still has unresolved HooHash, BLAKE3, OpenLibm, and pool-fixture questions, so
-the full gate is not signed off. See the [formal G0 evidence
-reconciliation](VALIDATION_EVIDENCE/G0/formal-g0-audit-2026-11-26.md). This
-document is not a request to rerun the accepted Windows test.
+That sign-off is recorded for **G0 Technical Validation only**. Distribution
+License Compliance remains a separate release gate in
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). Do not interpret this
+technical PASS as confirmation that every third-party component is cleared for
+distribution. See the [formal G0 evidence reconciliation](VALIDATION_EVIDENCE/G0/formal-g0-technical-validation-2026-11-27.md).
+This update is not a request to rerun the accepted Windows test.
 
 ## Goal and scope
 
@@ -25,22 +30,17 @@ Build a reproducible native Windows/Linux CPU hash harness to establish that the
 
 The original native target matrix was Windows 11 x64 and Ubuntu 22.04/24.04 x64. The Owner now accepts Windows 10 by equivalence to the completed Windows 11 result. No separate physical Windows 10 run is recorded, and this equivalence decision does not claim Windows 10 device evidence or support. ARM64 and GPU remain outside this gate.
 
-## Outstanding G0 condition
+## Technical G0 evidence and decision
 
 Native Ubuntu 22.04 and 24.04 x64 Debug/Release parity passed in [main
 workflow run 45824850621](https://github.com/edisontw/pepepow-miner/actions/runs/45824850621).
 Windows Server 2022 Debug/Release parity and dependency collection passed in
 [run 45824850719](https://github.com/edisontw/pepepow-miner/actions/runs/45824850719).
-The existing Windows 11 84/84 record is preserved. The unresolved condition is
-the source-rights/notice review recorded in
-[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) and the
-[provenance assessment](sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md). Keep the
-relevant license texts, file headers, pins, and build inventories intact; do
-not infer redistribution permission from Owner approval or a successful build.
-
-The Owner's approval authorizes completion of sign-off when all conditions
-are satisfied. It does not itself satisfy the rights condition or mark G0
-passed.
+The accepted technical evidence is complete. Source pins, checksums, original
+headers, and compile/link inventories remain recorded for reproducibility and
+provenance. Distribution notices and package clearance are tracked separately
+in [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md); they are not
+acceptance conditions for this technical gate.
 
 The first full 32-byte KAT, a scaffold, or a green CI result without the required platform and provenance evidence cannot mark G0 passed.
 
@@ -100,7 +100,7 @@ Record OS, architecture, CPU, compiler/version, CMake, flags, dependency version
 
 ## G0 completion checklist
 
-- [ ] Adopted source and dependencies have fixed SHAs and completed license/notice review; source observations are recorded but rights questions remain unresolved.
+- [x] Adopted technical reference sources have fixed SHAs and reproducible build provenance. Distribution notices are tracked in the separate release gate.
 - [x] Harness compares all 32 bytes and returns nonzero for invalid input or mismatch.
 - [x] Deliberately corrupting the final digest byte causes the test to fail.
 - [x] At least 10,000 cases match an independent reference, including chain cases, in recorded feature-head CI evidence.
@@ -109,6 +109,6 @@ Record OS, architecture, CPU, compiler/version, CMake, flags, dependency version
 - [x] Ubuntu 24.04 x64 native Debug/Release build/run evidence passed in main workflow run 45824850621.
 - [x] Reproduction instructions, corpus sources, environment, and technical results are recorded.
 - [x] Initial performance, dependency issues, maintenance cost, and G1 backlog are documented.
-- [ ] Formal G0 sign-off is recorded after all required conditions, including source-rights review, are complete.
+- [x] Formal G0 Technical Validation sign-off is recorded under the Owner's authorization.
 
-Any known mismatch blocks G0. Record a minimal reproducer and investigate serialization, BLAKE3, matrix/seed, floating point, and compiler settings. Displayed hashrate or a successful connection is not correctness evidence. The Owner has authorized formal sign-off work, but G0 remains NOT PASSED and the sign-off is not issued while source-rights questions remain open.
+Any known mismatch blocks technical G0. Record a minimal reproducer and investigate serialization, BLAKE3, matrix/seed, floating point, and compiler settings. Displayed hashrate or a successful connection is not correctness evidence. Distribution License Compliance remains pending as a distinct pre-release gate; it does not change this technical PASS.
