@@ -1,7 +1,7 @@
 # CUDA HooHash V110 FP64 Transform Diagnostic Evidence
 
 Date: 2026-11-27 (Asia/Taipei)  
-Result: diagnostic OpenLibm `sincos`/`exp` and `IntermediateComplexNonLinear` paths now match pinned Core bit-for-bit across the corpus. Native CUDA FP64 transform parity and full HooHash digest parity remain **not passed**.
+Result: the diagnostic OpenLibm-compatible route matches pinned Core for all finite `ComplexNonLinear` inputs and the tested `SafeComplexTransform` corpus. Native CUDA FP64 transform parity and full HooHash digest parity remain **not passed**.
 
 ## Host and toolchain
 
@@ -25,8 +25,8 @@ CTest was run with `PEPEPOW_CUDA_REQUIRE_DEVICE=1`, so an unavailable-device res
 
 | Configuration | Build | CTest |
 | --- | --- | --- |
-| Debug | Passed | 6/6 passed, 3.64 s |
-| Release | Passed | 6/6 passed, 3.47 s |
+| Debug | Passed | 6/6 passed, 3.71 s |
+| Release | Passed | 6/6 passed, 3.53 s |
 
 The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matrix stage, this transform diagnostic, device-probe JSON contract, and no-device skip policy. This establishes that the harness and diagnostic binaries ran successfully; it does not turn numeric mismatches into passes.
 
@@ -44,7 +44,9 @@ The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matri
 - A separate diagnostic-only CUDA translation of pinned OpenLibm `__ieee754_exp` (`src/e_exp.c`, Git blob `639b9fe18dbae273d3182146bb9aebbd59c9e362`) received those same 29,224 CPU/OpenLibm `sincos` sums and matched the pinned OpenLibm result bit-for-bit in all 29,224 cases, including the corpus's special values. The translation retains the source copyright and permission notice. This isolates the native CUDA `exp` difference; it does not resolve the independent `sin`/`cos` mismatches or enter any production hash path.
 - A follow-up diagnostic-only CUDA translation now includes pinned OpenLibm `sincos`, `__ieee754_rem_pio2`, and `__kernel_rem_pio2` (`src/s_sincos.c`, `src/e_rem_pio2.c`, and `src/k_rem_pio2.c`; Git blobs `8628235644aa8e996cbecd37f1b220a74d269a08`, `c09e38a3640f8b8b91faf69444db529542727671`, and `9555d3ab5257717a20b33151db47d7d495582f00`). It matched sine, cosine, their sum, both reduction remainder components, the reduction quadrant, and the already-ported `exp` composition bit-for-bit across all 29,224 inputs. In particular, `exp(port_sin + port_cos)` matched pinned Core `MediumComplexNonLinear` for all 29,224 inputs. The first translation omitted the source's `z = q[jz]` initialization on entry to the reduction recompute loop; a strict UCRT64 host translation and the CUDA device corpus both exposed it. After restoring that operation, the host translation and RTX 3060 device test both matched exactly. The port preserves the pinned Sun Microsystems and Elliot Saba permission notices and is diagnostic-only.
 - The CUDA diagnostic now also applies the OpenLibm sine port to pinned Core `IntermediateComplexNonLinear`, preserving its singularity guard and square operation order. It matched the complete 29,224-input CPU output bit-for-bit in both Debug and Release on the RTX 3060.
-- The complete report still has `bitwise_parity_passed: false`: native CUDA `sin`, `cos`, `exp`, and dependent nonlinear outputs retain the mismatch counts below. The new port proves an exact OpenLibm-compatible route for the `MediumComplexNonLinear` primitive on this corpus; it is not yet wired into a complete GPU HooHash kernel, and does not establish full transform or digest parity.
+- A diagnostic composition now applies the OpenLibm-compatible medium, intermediate, and high branches using the same factors, branch selection, and argument operation as pinned Core. It matched `ComplexNonLinear` bit-for-bit for all 29,211 finite corpus inputs. The three nonfinite `ComplexNonLinear` bit-pattern differences are NaNs with matching classification; they are recorded rather than treated as finite parity. `SafeComplexTransform` matched all 29,224 transcript records; nonfinite inputs were deliberately marked safe-disabled and produced the contract's zero result.
+- The report gates finite-input `ComplexNonLinear` and `SafeComplexTransform` bitwise equality, plus nonfinite output classification equality. The complete report still has `bitwise_parity_passed: false` because the native CUDA fields above continue to differ; the OpenLibm-compatible diagnostic path is not connected to a full hash kernel.
+- The complete report still has `bitwise_parity_passed: false`: native CUDA `sin`, `cos`, `exp`, and dependent nonlinear outputs retain the mismatch counts below. The diagnostic OpenLibm-compatible route now matches all finite `ComplexNonLinear` inputs and the tested `SafeComplexTransform` outputs, but it is not yet wired into a complete GPU HooHash kernel and does not establish full digest parity.
 - The first controlled `exp` mismatch is matrix row 0, column 6 for original input bits `43129660f32cd3f0`. Both implementations receive sum bits `3ff2fa83b829b9ec`; pinned OpenLibm returns `400a32257b456036` and CUDA returns `400a32257b456037` (1 ULP).
 - Direct intermediate sine: 4,214 mismatches, at most 1 ULP; `fabs(value) + 1` and its square root matched for finite inputs.
 - `medium_complex_nonlinear`: 5,605 bitwise mismatches; maximum finite difference 2 ULP.
@@ -66,7 +68,7 @@ The pinned Core matrix value at row 0, column 6 is `43129660f32cd3f0` (binary64 
 
 On the same header, the earliest direct cosine mismatch is matrix row 0, column 0: input bits `432955e1472d5ee5`, Core/OpenLibm bits `3fdb47337b59ac85`, CUDA bits `3fdb47337b59ac86`. The earliest direct sine mismatch is row 0, column 5: input bits `4350e9985e566702`, Core/OpenLibm bits `3fde142219d9cc20`, CUDA bits `3fde142219d9cc21`.
 
-The observed finite differences are small but still fail the required bitwise comparison. They must not be accepted with an epsilon. Full HooHash V110 digest parity, the 10,000-case GPU digest suite, candidate CPU recheck, hashrate measurements, and G4 acceptance remain untested. The OpenLibm-compatible intermediate path must first be integrated and validated through every transform used by the pinned Core hash.
+The observed finite differences are small but still fail the required bitwise comparison. They must not be accepted with an epsilon. Full HooHash V110 digest parity, the 10,000-case GPU digest suite, candidate CPU recheck, hashrate measurements, and G4 acceptance remain untested. The validated diagnostic route must still be integrated into the complete GPU hash kernel and pass full digest parity.
 
 ## Provenance and retained artifacts
 
@@ -74,12 +76,12 @@ The observed finite differences are small but still fail the required bitwise co
 - OpenLibm source: `9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`.
 - OpenLibm archive SHA-256: `9fb7b4caf1deb2136314508c3116adafd8a192a67d0ca4a95e22744fa0ca5f96`. This was a prebuilt local archive from the earlier validated Windows build, not rebuilt during this diagnostic run.
 - The archive's earlier UCRT64 build flags are recorded in `D:\Dev\pepepow-miner-validation\20261124-windows11\openlibm-flags-release.txt`; they include `-ffp-contract=off`, `-fno-fast-math`, `-fno-rounding-math`, `-fno-math-errno`, `-fno-builtin`, `-m64`, `-msse2`, and `-mfpmath=sse`. The repository's tracked Windows pure-C OpenLibm portability patch SHA-256 is `f780e659c0a94a8a28a942553c2b0bc7da8c4119b2a897842c361ce97f19c5b2`.
-- The earlier exp-only, corrected sincos-port, and intermediate-port reports and transcripts are retained under the matching `debug` and `release` directories in `D:\Dev\pepepow-cuda-transform-evidence-20261127`; the latest run is in each configuration's `intermediate-port` directory.
+- The earlier exp-only, corrected sincos-port, intermediate-port, and complex-port reports and transcripts are retained under the matching `debug` and `release` directories in `D:\Dev\pepepow-cuda-transform-evidence-20261127`; the latest run is in each configuration's `complex-port` directory.
 - Debug/Release build logs are `build-debug-openlibm-exp-port.log` and `build-release-openlibm-exp-port.log`; physical-device CTest logs are `ctest-debug-openlibm-exp-port.log` and `ctest-release-openlibm-exp-port.log` in `D:\Dev\pepepow-cuda-transform-evidence-20261127`.
-- Earlier exp-only diagnostic report SHA-256: `ffed92808d4ccf2185af99adf45df969a7877093fa56b28d4e18f0e78b95249b`. Corrected sincos-port report SHA-256: `73055327f3f28a150f3f50d8e8a00e7c35d4accec29720d1bba027ad85484ade`. Latest Debug/Release report SHA-256: `2ab38e66f9321c074480c689eb896393a57024e0ca30088ac377d612ac643efe`.
+- Earlier exp-only diagnostic report SHA-256: `ffed92808d4ccf2185af99adf45df969a7877093fa56b28d4e18f0e78b95249b`. Corrected sincos-port report SHA-256: `73055327f3f28a150f3f50d8e8a00e7c35d4accec29720d1bba027ad85484ade`. Intermediate-port report SHA-256: `2ab38e66f9321c074480c689eb896393a57024e0ca30088ac377d612ac643efe`. Latest Debug/Release complex-port report SHA-256: `b7ff11d08fb00883dbed50e5f419b46109832db0f111b5c6123d31f1f1b1ccfe`.
 - Pinned-Core/OpenLibm CPU transcript SHA-256: `f4c3d991d81619c7406b6a8542cf69b89066367edb64f313399183bc4eb50864`.
 - CUDA transcript SHA-256: `e76f072b08596e23abe94140726b6783be5361c0a5626927359306879a37acd5`.
-- All diagnostic OpenLibm exp/sincos fields and the ported `IntermediateComplexNonLinear` matched across all 29,224 records. Latest pinned-Core/OpenLibm CPU transcript SHA-256: `9e491185c875a3e780c3d2200f632b019bec68c4922fc38c626beb539b4fb6d1`; latest CUDA transcript SHA-256: `3df3030f33bba48e86fdf1dec3a38a039609f7511a67e26d7ec119b312171344`. The report's overall FP64 parity remains false because native CUDA math and dependent transforms still differ.
+- All diagnostic OpenLibm exp/sincos fields, `IntermediateComplexNonLinear`, all finite-input `ComplexNonLinear` results, and the tested `SafeComplexTransform` outputs matched. Latest pinned-Core/OpenLibm CPU transcript SHA-256: `4693e87f96a6cfd353c43f732edd5b2dbbb5a8c821267515aed1ce425afa43b9`; latest CUDA transcript SHA-256: `a4eb10de07fd6129f4bd3ed2f86aaee0942874d88242d8d9a40e23848fcdd3f9`. The report's overall FP64 parity remains false because native CUDA math and dependent transforms still differ.
 - CPU-oracle input binary SHA-256: `fbdbc09d8215338a0acd48acbc492d4c289a319400ea66281246a40ecd250013`.
 - CUDA input binary, including the reference `exp` operand, SHA-256: `cae879e50f03d7e983a87c9ba2ae7e0c95097ba9752699c6117274befc76c695`.
 - Input catalog SHA-256: `4fc1259d8a48dc4fb7ff0ed64c4485e84f29dabbf50cbc22f1f41f4f3f89cde7`.

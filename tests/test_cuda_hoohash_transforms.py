@@ -32,7 +32,7 @@ INPUT_MAGIC = b"PPWTRIN1"
 OUTPUT_MAGIC = b"PPWTRO1\0"
 CORE_INPUT_RECORD = struct.Struct("<QB")
 INPUT_RECORD = struct.Struct("<QQB")
-OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQQQQQQQIQQQ")
+OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQQQQQQQIQQQQQ")
 MAXIMUM_INPUTS = 32768
 MAXIMUM_REPORTED_MISMATCHES = 32768
 MASK64 = (1 << 64) - 1
@@ -82,6 +82,8 @@ FUNCTIONS = {
     "openlibm_port_reduction_y0": 29,
     "openlibm_port_reduction_y1": 30,
     "openlibm_port_intermediate": 31,
+    "openlibm_port_complex": 32,
+    "openlibm_port_safe": 33,
 }
 PI = 3.14159265358979323846
 EPSILON = 1e-9
@@ -522,6 +524,40 @@ def compare_transcripts(core_data, cuda_data, origins):
             "mismatches": mismatches,
         }
 
+    openlibm_port_validation = {}
+    for function, core_index, cuda_index in (
+        ("complex", 7, 32),
+        ("safe", 8, 33),
+    ):
+        finite_input_mismatches = []
+        nonfinite_classification_mismatches = []
+        for index, (core, cuda) in enumerate(zip(core_records, cuda_records)):
+            core_class = classify_bits(core[core_index])
+            cuda_class = classify_bits(cuda[cuda_index])
+            if classify_bits(core[0]) == "finite":
+                if core[core_index] != cuda[cuda_index]:
+                    finite_input_mismatches.append({
+                        "index": index,
+                        "origin": origins[index],
+                        "input_bits": f"{core[0]:016x}",
+                        "core_bits": f"{core[core_index]:016x}",
+                        "cuda_bits": f"{cuda[cuda_index]:016x}",
+                    })
+            elif core_class != cuda_class:
+                nonfinite_classification_mismatches.append({
+                    "index": index,
+                    "origin": origins[index],
+                    "input_bits": f"{core[0]:016x}",
+                    "core_class": core_class,
+                    "cuda_class": cuda_class,
+                })
+        openlibm_port_validation[function] = {
+            "finite_input_bitwise_mismatches": finite_input_mismatches,
+            "nonfinite_output_classification_mismatches": (
+                nonfinite_classification_mismatches
+            ),
+        }
+
     core_branches = {}
     for record in core_records:
         core_branches[str(record[3])] = core_branches.get(str(record[3]), 0) + 1
@@ -538,6 +574,7 @@ def compare_transcripts(core_data, cuda_data, origins):
         "core_branch_counts": core_branches,
         "cuda_branch_counts": cuda_branches,
         "functions": summaries,
+        "openlibm_port_validation": openlibm_port_validation,
         "paired_vs_separate": paired_vs_separate,
         "bitwise_parity_passed": parity_passed,
     }
@@ -807,6 +844,16 @@ def main():
                 f"must match all tested operands; {function} found "
                 f"{summary['bitwise_mismatches']} mismatches in "
                 f"{summary['cases']} cases",
+            )
+        for function, validation in comparison["openlibm_port_validation"].items():
+            require(
+                not validation["finite_input_bitwise_mismatches"] and
+                not validation["nonfinite_output_classification_mismatches"],
+                f"diagnostic OpenLibm {function} composition failed: "
+                f"{len(validation['finite_input_bitwise_mismatches'])} finite "
+                f"bitwise mismatches and "
+                f"{len(validation['nonfinite_output_classification_mismatches'])} "
+                "non-finite classification mismatches",
             )
         require(
             not comparison["reduction_n_mismatches"],

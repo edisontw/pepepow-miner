@@ -287,23 +287,27 @@ The CUDA diagnostic also translates pinned OpenLibm `sincos`,
 are retained. It compares both remainder components and the quadrant as well
 as sine, cosine, their sum, and `exp(sin + cos)`. All these port fields matched
 the pinned Core/OpenLibm outputs bit-for-bit across the 29,224-input physical
-corpus. This includes `MediumComplexNonLinear` and
-`IntermediateComplexNonLinear` when computed through the OpenLibm ports; the
-intermediate port preserves Core's singularity guard. An initial mismatch
+corpus. This includes `MediumComplexNonLinear`,
+`IntermediateComplexNonLinear`, and every finite-input `ComplexNonLinear`
+result when computed through the OpenLibm ports; the intermediate port
+preserves Core's singularity guard. The tested `SafeComplexTransform` output
+also matches for all records (nonfinite records are safe-disabled). Three
+nonfinite `ComplexNonLinear` NaN bit patterns differ, but their classifications
+match. An initial mismatch
 exposed a missing `z = q[jz]` at entry to the reducer's recompute loop; that
 source operation is now present and both a strict UCRT64 host translation and
 the RTX 3060 device run match. The port remains diagnostic-only. Native CUDA
-device-math fields still differ, and this does not establish complete HooHash
-transform or digest parity.
+device-math fields still differ, and this does not establish full HooHash
+digest parity.
 
 The Windows RTX 3060 experiment found bitwise-identical outputs between paired
 `sincos` and separate `sin`/`cos` calls for both OpenLibm and CUDA across the
 full 29,224-input corpus. The diagnostic OpenLibm `exp` translation matched
 all 29,224 CPU outputs, while native CUDA `exp` differed in 2,433 cases. The
 new OpenLibm `sincos` translation and its composed `MediumComplexNonLinear`
-result also match all 29,224 CPU outputs. Native CUDA `sin` and `cos` still
-differ from Core/OpenLibm, so complete transform and full-digest parity remain
-incomplete. See the dated
+result also match all 29,224 CPU outputs. The port-composed complex path matches
+all finite inputs; native CUDA `sin` and `cos` still differ from Core/OpenLibm,
+so the complete GPU hash path remains unvalidated. See the dated
 [physical-device evidence](../../docs/validation/cuda-hoohash-v110-fp64-transform-windows-rtx3060-2026-11-27.md)
 for per-function counts, the corrected intermediate result, reproducer,
 compiler caveat, and artifact hashes.
