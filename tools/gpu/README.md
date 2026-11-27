@@ -365,6 +365,8 @@ stage's CUDA event JSON reports `gpu_pipeline_ms`,
 `gpu_pipeline_digests_per_second`, and the timing scope. These fields cover
 only the diagnostic kernel pipeline and are not miner hashrate. This does not
 claim a production GPU miner, G4 acceptance, or redistribution clearance.
+The Python contract validates a labeled mock success response before probing
+hardware, so no-GPU CI checks the JSON schema and invalid timing rejection.
 
 Enable the full-digest experiment along with all prerequisite diagnostics:
 

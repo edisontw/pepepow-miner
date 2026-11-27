@@ -169,6 +169,58 @@ def validate_pinned_digests(start, digests):
                     f"expected={fixed} actual={digest.hex()}")
 
 
+def validate_success_contract_fixture():
+    payload = {
+        "schema_version": 1,
+        "status": "ok",
+        "stage": "hoohash_v110_full_digest_experiment",
+        "nonce_start": 23,
+        "nonce_count": 4,
+        "digest_count": 4,
+        "gpu_pipeline_ms": 2.5,
+        "gpu_pipeline_digests_per_second": 1600.0,
+        "gpu_pipeline_timing_scope": (
+            "CUDA event kernel-only; excludes host setup, allocation, transfer, "
+            "oracle, and output; not miner hashrate"
+        ),
+        "device": {
+            "index": 0,
+            "name": "mock-device",
+            "compute_capability": "8.6",
+        },
+        "cuda_versions": {
+            "driver_api": 13030,
+            "runtime_api": 13030,
+            "toolkit_build": "13.3.1",
+        },
+        "error": None,
+    }
+    valid = subprocess.CompletedProcess(
+        args=["mock-cuda-stage"], returncode=0,
+        stdout=json.dumps(payload), stderr="",
+    )
+    validate_success(valid, 23, 4)
+
+    invalid_payloads = []
+    invalid_elapsed = dict(payload, gpu_pipeline_ms=float("nan"))
+    invalid_payloads.append(invalid_elapsed)
+    invalid_rate = dict(payload, gpu_pipeline_digests_per_second=1599.0)
+    invalid_payloads.append(invalid_rate)
+    invalid_scope = dict(payload, gpu_pipeline_timing_scope="total host time")
+    invalid_payloads.append(invalid_scope)
+    for invalid in invalid_payloads:
+        completed = subprocess.CompletedProcess(
+            args=["mock-cuda-stage"], returncode=0,
+            stdout=json.dumps(invalid), stderr="",
+        )
+        try:
+            validate_success(completed, 23, 4)
+        except DigestStageError:
+            continue
+        raise DigestStageError("CUDA success JSON accepted an invalid mock fixture")
+    print("MOCK CUDA success JSON contract: PASS")
+
+
 def run_case(stage, header, start, count, root, cpu):
     gpu_path = root / f"gpu-{start}-{count}.bin"
     completed = subprocess.run([
@@ -271,6 +323,7 @@ def main():
                 args.batch_start + args.batch_count - 1 <= UINT32_MAX,
                 "optional digest batch must fit the bounded uint32 nonce range")
 
+    validate_success_contract_fixture()
     header = HEADER_NONCE6
     temporary_context = (
         nullcontext(Path(args.evidence_dir)) if args.evidence_dir else

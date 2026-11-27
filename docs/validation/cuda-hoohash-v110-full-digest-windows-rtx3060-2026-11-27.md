@@ -80,6 +80,10 @@ kernel compiled with `--fmad=false`, `--ftz=false`, `--prec-div=true`, and
   matched pinned Core; latest CTest time 0.97 seconds.
 - Five additional Release 10,000-nonce runs compared each complete digest to
   pinned Core, with matching CPU/GPU transcript hashes in every run.
+- The success JSON schema was tested with a labeled mock fixture; zero/NaN,
+  inconsistent-rate, and changed-scope fixtures were rejected. With
+  `CUDA_VISIBLE_DEVICES=-1`, the no-GPU path passed the CPU fixtures, explicitly
+  skipped only `no_device`, and emitted the expected skip report.
 - Boundary/fixed vectors: nonce 0, nonces 6–8, and `UINT32_MAX` all matched.
 - The five fixed digest values were also accepted by the existing native
   UCRT64 `pepepow-kat` executable built against the pinned CPU implementation.
@@ -104,6 +108,9 @@ The experimental stage emits `gpu_pipeline_ms` and
 excludes host setup, allocations, host/device transfers, CPU oracle work, and
 output writing. It measures this diagnostic pipeline with one matrix reused
 across the batch; it is not miner hashrate and does not imply pool performance.
+The Python contract also runs a clearly labeled mock success JSON fixture
+before device access, so no-GPU CI validates the success schema and rejects
+invalid timing values without presenting mock data as physical-device output.
 
 Five Release runs each covered nonces 0–9,999 and passed full 32-byte CPU/GPU
 digest comparison. Median event time was 83.914749 ms (range 76.976128–
