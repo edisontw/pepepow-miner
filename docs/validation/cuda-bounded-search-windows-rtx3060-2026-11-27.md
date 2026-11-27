@@ -202,3 +202,30 @@ It is not an exhaustive all-input proof, a Stratum-integrated GPU miner, G4
 acceptance, or a mining hashrate measurement. The CUDA 13.3.1 installation
 guide lists VS 2022 MSVC 193x; MSVC 19.44 is outside that published range, so
 these remain local experimental compatibility results.
+
+## Review follow-up — 2026-11-28
+
+Two review findings on PR #38 were reproduced and fixed: a deadline/cancellation
+that arrives during a successful pinned-Core recheck now suppresses candidate
+publication, and the one-millisecond deadline contract no longer assumes a
+hardware-dependent batch count.
+
+The physical-device regression test used a delayed oracle proxy (250 ms delay)
+with a 100 ms deadline. On Windows 11 x64 with an NVIDIA GeForce RTX 3060
+(compute capability 8.6, CUDA driver/runtime API 13030), CUDA Toolkit 13.3.1 /
+NVCC 13.3.73, MSVC 19.44.35230.0, and Visual Studio 17 2022 x64, the test
+reached a successful CPU recheck then returned cancelled / timeout, with one
+nonce processed and no published candidates. The JSON result is retained
+as [deadline-during-successful-recheck](cuda-bounded-search-deadline-during-recheck-windows-rtx3060-2026-11-28.json).
+
+The Windows build used the existing CUDA 13.3.1 compatibility overlay, pinned
+Core bc08108ceccd957c79040dc7fedc1d56d8d47f97, OpenLibm source
+9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d, and the previously built OpenLibm
+static archive. The bounded-search test target built successfully in Debug
+and Release. With PEPEPOW_CUDA_REQUIRE_DEVICE=1, CTest
+cuda_hoohash_bounded_search_core_recheck passed 1/1 in each configuration.
+The fixture also verified its marker was created, and no engine, proxy, or
+oracle process remained after testing.
+
+This follow-up covers cancellation/deadline publication safety only. It does
+not change the consensus hash path or establish G4 readiness.

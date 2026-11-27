@@ -392,6 +392,10 @@ if(PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS)
       IMPORTED_LOCATION "${_pepepow_digest_oracle}")
 
     if(PEPEPOW_CUDA_BOUNDED_SEARCH_TESTS)
+      add_executable(pepepow-cuda-slow-oracle-proxy
+        ../../tests/cuda_slow_oracle_proxy.cpp)
+      target_compile_features(pepepow-cuda-slow-oracle-proxy PRIVATE cxx_std_17)
+
       add_executable(pepepow-cuda-hoohash-search
         cuda_hoohash_digest_stage.cu)
       configure_cuda_probe_target(pepepow-cuda-hoohash-search)
@@ -415,6 +419,7 @@ if(PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS)
                 --engine "$<TARGET_FILE:pepepow-cuda-hoohash-search>"
                 --oracle "${_pepepow_digest_oracle}"
                 --cpu-oracle "${_pepepow_digest_oracle}"
+                --slow-oracle-proxy "$<TARGET_FILE:pepepow-cuda-slow-oracle-proxy>"
                 --evidence-dir
                 "${CMAKE_CURRENT_BINARY_DIR}/cuda-bounded-search-evidence")
       set_tests_properties(cuda_hoohash_bounded_search_core_recheck

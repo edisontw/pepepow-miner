@@ -1438,6 +1438,18 @@ int runBoundedSearch(const std::uint8_t header[80],
                         cpu_digest_hex);
         return searchErrorExitCode(code);
       }
+      if (searchCancellationRequested()) {
+        verified_candidates.clear();
+        search_status = "cancelled";
+        stop_reason = searchCancellationReason();
+        break;
+      }
+      if (std::chrono::steady_clock::now() >= deadline) {
+        verified_candidates.clear();
+        search_status = "cancelled";
+        stop_reason = "timeout";
+        break;
+      }
       verified_candidates = std::move(batch_candidates);
     }
     if (!verified_candidates.empty()) {
@@ -1452,6 +1464,19 @@ int runBoundedSearch(const std::uint8_t header[80],
     const SearchError code = classifySearchCudaError(error);
     emitSearchError(code, error, nonce_start, nonce_count, processed_count);
     return searchErrorExitCode(code);
+  }
+  // Candidate JSON is the publication boundary. Recheck after cleanup too,
+  // since CPU verification or resource release can cross the deadline.
+  if (std::string_view(search_status) == "found") {
+    if (searchCancellationRequested()) {
+      verified_candidates.clear();
+      search_status = "cancelled";
+      stop_reason = searchCancellationReason();
+    } else if (std::chrono::steady_clock::now() >= deadline) {
+      verified_candidates.clear();
+      search_status = "cancelled";
+      stop_reason = "timeout";
+    }
   }
   emitSearchSuccess(search_status, stop_reason, nonce_start, nonce_count,
                     processed_count, batch_size, batch_count,

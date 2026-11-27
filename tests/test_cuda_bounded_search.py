@@ -128,9 +128,9 @@ def make_command(engine, oracle, header, start, count, target,
     ]
 
 
-def run_engine(command, timeout=90):
+def run_engine(command, timeout=90, env=None):
     completed = subprocess.run(command, capture_output=True, text=True,
-                               timeout=timeout, check=False)
+                               timeout=timeout, check=False, env=env)
     require(completed.stdout.strip(),
             f"CUDA search must emit JSON; exit={completed.returncode}, "
             f"stderr={completed.stderr.strip()}")
@@ -242,7 +242,7 @@ def test_nonce_range_validation(engine, oracle, evidence_dir, cancel_file):
     print("MOCK CONTRACT: UINT32_MAX nonce wraparound rejected before CUDA initialization PASS")
 
 
-def test_live_search(engine, oracle, evidence_dir, cancel_file):
+def test_live_search(engine, oracle, slow_oracle_proxy, evidence_dir, cancel_file):
     fixed = HEADER_NONCE6
     expected = bytes.fromhex(PINNED_DIGESTS[6])
     cpu = oracle_digests(oracle, fixed, 6, 1, evidence_dir)[0]
@@ -364,20 +364,50 @@ def test_live_search(engine, oracle, evidence_dir, cancel_file):
     cancel_file.unlink()
     print("LIVE CUDA DEVICE: cooperative cancel-file stale-job cancellation PASS")
 
-    # Deadline cancellation is checked at batch boundaries. Only a single
-    # tiny batch can finish before this one-millisecond job deadline.
+    # A one-millisecond deadline may cross any number of very fast one-nonce
+    # batches. Validate the cancellation state and internally consistent
+    # progress without assuming a hardware-dependent batch duration.
     completed, payload = run_engine(make_command(
         engine, oracle, bytes(80), 0, 1 << 32, bytes(32),
         cancel_file, batch_size=1, timeout_ms=1))
+    processed = payload.get("processed_count", -1)
+    batches = payload.get("batch_count", -1)
     require(completed.returncode == 130 and payload.get("status") == "cancelled" and
             payload.get("search_status") == "cancelled" and
             payload.get("stop_reason") == "timeout" and
             payload.get("nonce_count") == 1 << 32 and
-            0 <= payload.get("processed_count", -1) <= 1,
+            type(processed) is int and 0 <= processed <= 1 << 32 and
+            type(batches) is int and batches == processed and
+            payload.get("next_nonce") == processed and
+            not payload.get("candidates"),
             f"bounded deadline did not cancel at a batch boundary: {payload}")
     (evidence_dir / "deadline-cancellation.json").write_text(
         json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     print("LIVE CUDA DEVICE: bounded deadline cancellation PASS")
+
+    # The slow proxy proves that the deadline is checked after a successful
+    # CPU recheck, immediately before a verified candidate could be published.
+    recheck_marker = evidence_dir / "slow-oracle-called.marker"
+    if recheck_marker.exists():
+        recheck_marker.unlink()
+    proxy_env = os.environ.copy()
+    proxy_env["PEPEPOW_CUDA_TEST_ORACLE"] = str(oracle)
+    proxy_env["PEPEPOW_CUDA_TEST_ORACLE_MARKER"] = str(recheck_marker)
+    completed, payload = run_engine(make_command(
+        engine, slow_oracle_proxy, fixed, 6, 1, expected, cancel_file,
+        batch_size=1, timeout_ms=100), timeout=15, env=proxy_env)
+    require(recheck_marker.exists(),
+            "slow-oracle fixture did not reach the CPU candidate recheck")
+    recheck_marker.unlink()
+    require(completed.returncode == 130 and payload.get("status") == "cancelled" and
+            payload.get("search_status") == "cancelled" and
+            payload.get("stop_reason") == "timeout" and
+            payload.get("nonce_count") == 1 and payload.get("processed_count") == 1 and
+            not payload.get("candidates"),
+            f"successful CPU recheck published a candidate past the deadline: {payload}")
+    (evidence_dir / "deadline-during-successful-recheck.json").write_text(
+        json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    print("LIVE CUDA DEVICE: post-recheck deadline suppresses candidates PASS")
 
 
 def main():
@@ -385,6 +415,7 @@ def main():
     parser.add_argument("--engine", required=True)
     parser.add_argument("--oracle", required=True)
     parser.add_argument("--cpu-oracle", required=True)
+    parser.add_argument("--slow-oracle-proxy", required=True)
     parser.add_argument("--evidence-dir", required=True)
     args = parser.parse_args()
     evidence_dir = Path(args.evidence_dir)
@@ -396,7 +427,8 @@ def main():
     test_core_candidate_guard(args.cpu_oracle, HEADER_NONCE6, evidence_dir)
     test_nonce_range_validation(args.engine, args.cpu_oracle, evidence_dir,
                                 cancel_file)
-    test_live_search(args.engine, args.oracle, evidence_dir, cancel_file)
+    test_live_search(args.engine, args.oracle, args.slow_oracle_proxy,
+                     evidence_dir, cancel_file)
     print("CUDA bounded search contract PASS; pool submission is not implemented")
 
 

@@ -435,9 +435,13 @@ the pinned Core oracle, check target−1/equality/target+1, reject nonce wrap,
 exercise the `UINT32_MAX` boundary, and enforce a batch-boundary deadline.
 SIGINT/SIGTERM cancellation (plus SIGBREAK on Windows) and an optional
 cancel-file request stop between CUDA batches. A signal, cancel-file request,
-or timeout discards candidates from the in-flight batch. The physical-device
-test creates the cancel file during a long no-hit range and verifies the
-cancelled JSON result and exit status.
+or timeout discards candidates from the in-flight batch. If cancellation or the
+deadline arrives during the pinned-Core CPU recheck, the verified candidates
+are still discarded before JSON publication. Deadline tests validate progress
+and batch accounting without assuming a fixed number of batches per millisecond.
+The physical-device test creates the cancel file during a long no-hit range and
+uses a delayed CPU-oracle fixture to verify cancellation during candidate
+recheck.
 
 This executable handles one job template per invocation and has no Stratum,
 pool, share submission, automatic startup, or background-mining path. It is a
