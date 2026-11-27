@@ -337,8 +337,62 @@ ctest --test-dir build/cuda-hoohash-transform -C Release --output-on-failure
 ```
 
 See the [Windows RTX 3060 transform diagnostic evidence](../../docs/validation/cuda-hoohash-v110-fp64-transform-windows-rtx3060-2026-11-27.md)
-for the measured OpenLibm/libdevice differences. Any mismatch blocks the
-subsequent full-digest GPU correctness stage.
+for the measured OpenLibm/libdevice differences. The transform diagnostic by
+itself does not establish full-digest GPU correctness.
+
+## Experimental full-digest stage
+
+The separate `PEPEPOW_CUDA_FULL_DIGEST_TESTS` option connects the GPU BLAKE3
+header passes, the already compared 4,096-element matrix generator, the
+OpenLibm FP64 diagnostic translations, the pinned Core row/nonce reduction,
+and the final BLAKE3 digest. A batch accepts one 80-byte header template and a
+bounded inclusive uint32 nonce range; nonce bytes are written little-endian
+at offsets 76–79. The matrix seed is computed once with those bytes zeroed and
+the resulting 32 KiB matrix is reused across the batch. Each output record is
+the complete 32-byte digest in the byte order returned by pinned Core.
+
+The CPU oracle includes the unmodified pinned Core HooHash source and links
+that Core's BLAKE3 implementation with the pinned OpenLibm static library. The
+Python contract checks fixed Core digest fixtures, nonce zero, adjacent
+nonces, `UINT32_MAX`, overflow rejection, and every digest byte. Generic CUDA
+runtime and kernel failures fail the test; only recognized no-device/driver/
+initialization errors may skip in an explicitly configured no-GPU CI job. A
+physical-device run sets `PEPEPOW_CUDA_REQUIRE_DEVICE=1`. Passing a bounded
+batch is evidence for those tested inputs only: this remains an experimental
+correctness test. The Windows RTX 3060 record below includes one 10,000-nonce
+full-digest parity run. This does not claim a production GPU miner, hashrate,
+G4 acceptance, or redistribution clearance.
+
+Enable the full-digest experiment along with all prerequisite diagnostics:
+
+```powershell
+cmake -S tools/gpu -B build/cuda-hoohash-transform `
+  -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON `
+  -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS=ON `
+  -DPEPEPOW_CUDA_FULL_DIGEST_TESTS=ON `
+  -DPEPEPOW_CUDA_FULL_DIGEST_10000_TESTS=ON `
+  -DPEPEPOW_CORE_SOURCE_DIR=D:/Dev/pepepow-deps/PePe-core `
+  -DPEPEPOW_OPENLIBM_SOURCE_DIR=D:/Dev/pepepow-deps/openlibm `
+  -DPEPEPOW_OPENLIBM_LIBRARY=D:/path/to/libopenlibm.a `
+  -DPEPEPOW_TRANSFORM_ORACLE_COMPILER=D:/Dev/msys64/ucrt64/bin/gcc.exe `
+  -DPEPEPOW_CUDA_TEST_ARCHITECTURE=86
+cmake --build build/cuda-hoohash-transform --config Release
+$env:PEPEPOW_CUDA_REQUIRE_DEVICE = "1"
+ctest --test-dir build/cuda-hoohash-transform -C Release --output-on-failure
+```
+
+The 10,000-nonce case is bounded to nonce 0 through 9,999 and has a 30-minute
+CTest timeout. On systems without an NVIDIA device, set
+`PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1` for the run; recognized unavailable-
+device errors may skip the GPU execution after all pinned CPU fixtures pass.
+The exact Windows physical-device result is recorded in the dated
+[full-digest validation report](../../docs/validation/cuda-hoohash-v110-full-digest-windows-rtx3060-2026-11-27.md).
+
+The digest transcript starts with `PPWDIG1\0`, a little-endian count, and
+exactly 32 bytes per nonce. The stage makes no network connection and does
+not submit shares or benchmark mining throughput.
 
 Build and run the stage contract with CUDA Toolkit 13.3.x and a pinned Core
 checkout:

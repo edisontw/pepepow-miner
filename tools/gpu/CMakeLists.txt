@@ -28,6 +28,10 @@ option(PEPEPOW_CUDA_MATRIX_STAGE_TESTS
   "Build and compare the CUDA HooHash matrix-generation stage" OFF)
 option(PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS
   "Build bounded Core/OpenLibm versus CUDA FP64 transform diagnostics" OFF)
+option(PEPEPOW_CUDA_FULL_DIGEST_TESTS
+  "Build the experimental CUDA full HooHash V110 digest parity stage" OFF)
+option(PEPEPOW_CUDA_FULL_DIGEST_10000_TESTS
+  "Run the bounded 10,000-nonce CUDA full-digest parity test" OFF)
 set(PEPEPOW_CPU_ORACLE "" CACHE FILEPATH
   "Path to pepepow-kat built against the pinned PEPEPOW Core/OpenLibm reference")
 set(PEPEPOW_CORE_SOURCE_DIR "" CACHE PATH
@@ -42,6 +46,14 @@ set(PEPEPOW_CORE_EXPECTED_SHA "bc08108ceccd957c79040dc7fedc1d56d8d47f97" CACHE S
   "Required pinned PEPEPOW Core source commit for CUDA stage tests")
 set(PEPEPOW_CUDA_TEST_ARCHITECTURE "75" CACHE STRING
   "CUDA architecture used by the short nonce-coverage test kernel")
+if(PEPEPOW_CUDA_FULL_DIGEST_TESTS AND NOT PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS)
+  message(FATAL_ERROR
+    "PEPEPOW_CUDA_FULL_DIGEST_TESTS requires PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS and its pinned Core/OpenLibm oracle setup")
+endif()
+if(PEPEPOW_CUDA_FULL_DIGEST_10000_TESTS AND NOT PEPEPOW_CUDA_FULL_DIGEST_TESTS)
+  message(FATAL_ERROR
+    "PEPEPOW_CUDA_FULL_DIGEST_10000_TESTS requires PEPEPOW_CUDA_FULL_DIGEST_TESTS")
+endif()
 if(BUILD_TESTING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
@@ -334,6 +346,82 @@ if(PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS)
   add_executable(pepepow-hoohash-transform-core-oracle IMPORTED GLOBAL)
   set_target_properties(pepepow-hoohash-transform-core-oracle PROPERTIES
     IMPORTED_LOCATION "${_pepepow_transform_oracle}")
+
+  if(PEPEPOW_CUDA_FULL_DIGEST_TESTS)
+    set(_pepepow_digest_oracle
+      "${CMAKE_CURRENT_BINARY_DIR}/pepepow-hoohash-digest-core-oracle${CMAKE_EXECUTABLE_SUFFIX}")
+    add_custom_target(pepepow-hoohash-digest-core-oracle-build ALL
+      COMMAND "${CMAKE_COMMAND}" -E env
+        "PATH=${_pepepow_transform_compiler_dir}"
+        "${_pepepow_transform_oracle_compiler}"
+        -std=c11 -O2 -fno-fast-math -ffp-contract=off -frounding-math
+        -fno-builtin -DHAVE_OPENLIBM=1
+        "-DPEPEPOW_CORE_HOOHASH_C_PATH=\"${_pepepow_core_hoohash_source}\""
+        "-I${PEPEPOW_CORE_SOURCE_DIR}/src"
+        "-I${PEPEPOW_OPENLIBM_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/hoohash_digest_core_oracle.c"
+        "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3.c"
+        "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_dispatch.c"
+        "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_portable.c"
+        "${PEPEPOW_OPENLIBM_LIBRARY}"
+        -lm -o "${_pepepow_digest_oracle}"
+      BYPRODUCTS "${_pepepow_digest_oracle}"
+      DEPENDS
+        hoohash_digest_core_oracle.c
+        "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/hoohash/hoohash.c"
+        "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3.c"
+        "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_dispatch.c"
+        "${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/blake3_portable.c"
+        "${PEPEPOW_OPENLIBM_LIBRARY}"
+      VERBATIM)
+    add_dependencies(pepepow-hoohash-digest-core-oracle-build
+      pepepow-hoohash-transform-core-oracle-build)
+
+    add_executable(pepepow-hoohash-digest-core-oracle IMPORTED GLOBAL)
+    set_target_properties(pepepow-hoohash-digest-core-oracle PROPERTIES
+      IMPORTED_LOCATION "${_pepepow_digest_oracle}")
+
+    add_executable(pepepow-cuda-hoohash-digest-stage
+      cuda_hoohash_digest_stage.cu)
+    configure_cuda_probe_target(pepepow-cuda-hoohash-digest-stage)
+    target_compile_options(pepepow-cuda-hoohash-digest-stage PRIVATE
+      "$<$<COMPILE_LANGUAGE:CUDA>:--fmad=false>"
+      "$<$<COMPILE_LANGUAGE:CUDA>:--ftz=false>"
+      "$<$<COMPILE_LANGUAGE:CUDA>:--prec-div=true>"
+      "$<$<COMPILE_LANGUAGE:CUDA>:--prec-sqrt=true>")
+    set_target_properties(pepepow-cuda-hoohash-digest-stage PROPERTIES
+      CUDA_ARCHITECTURES "${PEPEPOW_CUDA_TEST_ARCHITECTURE}")
+
+    add_test(NAME hoohash_cuda_full_digest_pinned_core_parity
+      COMMAND "${Python3_EXECUTABLE}"
+              "${CMAKE_CURRENT_SOURCE_DIR}/../../tests/test_cuda_hoohash_digest.py"
+              --oracle "${_pepepow_digest_oracle}"
+              --device-stage "$<TARGET_FILE:pepepow-cuda-hoohash-digest-stage>"
+              --evidence-dir
+              "${CMAKE_CURRENT_BINARY_DIR}/cuda-full-digest-evidence")
+    set_tests_properties(hoohash_cuda_full_digest_pinned_core_parity
+      PROPERTIES
+        TIMEOUT 360
+        ENVIRONMENT_MODIFICATION
+          "PATH=path_list_prepend:${_pepepow_transform_compiler_dir};PATH=path_list_prepend:${CUDAToolkit_BIN_DIR}")
+
+    if(PEPEPOW_CUDA_FULL_DIGEST_10000_TESTS)
+      add_test(NAME hoohash_cuda_full_digest_10000_nonce_parity
+        COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../../tests/test_cuda_hoohash_digest.py"
+                --oracle "${_pepepow_digest_oracle}"
+                --device-stage "$<TARGET_FILE:pepepow-cuda-hoohash-digest-stage>"
+                --batch-start 0
+                --batch-count 10000
+                --evidence-dir
+                "${CMAKE_CURRENT_BINARY_DIR}/cuda-full-digest-10000-evidence")
+      set_tests_properties(hoohash_cuda_full_digest_10000_nonce_parity
+        PROPERTIES
+          TIMEOUT 1800
+          ENVIRONMENT_MODIFICATION
+            "PATH=path_list_prepend:${_pepepow_transform_compiler_dir};PATH=path_list_prepend:${CUDAToolkit_BIN_DIR}")
+    endif()
+  endif()
 
   add_executable(pepepow-cuda-hoohash-transform-stage
     cuda_hoohash_transform_stage.cu)
