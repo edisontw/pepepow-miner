@@ -476,8 +476,13 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
   double *device_matrix = nullptr;
   std::uint8_t *device_digests = nullptr;
   cudaEvent_t pipeline_begin = nullptr;
+  cudaEvent_t prepare_end = nullptr;
+  cudaEvent_t matrix_end = nullptr;
   cudaEvent_t pipeline_end = nullptr;
   float pipeline_elapsed_ms = 0.0F;
+  float prepare_elapsed_ms = 0.0F;
+  float matrix_elapsed_ms = 0.0F;
+  float digest_elapsed_ms = 0.0F;
   const std::size_t digest_bytes = static_cast<std::size_t>(count) * 32U;
   error = cudaMalloc(reinterpret_cast<void **>(&device_header), 80U);
   if (error == cudaSuccess) {
@@ -496,6 +501,8 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
     error = cudaMemcpy(device_header, header, 80U, cudaMemcpyHostToDevice);
   }
   if (error == cudaSuccess) error = cudaEventCreate(&pipeline_begin);
+  if (error == cudaSuccess) error = cudaEventCreate(&prepare_end);
+  if (error == cudaSuccess) error = cudaEventCreate(&matrix_end);
   if (error == cudaSuccess) error = cudaEventCreate(&pipeline_end);
   if (error == cudaSuccess) error = cudaEventRecord(pipeline_begin);
 
@@ -506,10 +513,12 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
                                            device_first_passes,
                                            device_matrix_seed);
     error = cudaGetLastError();
+    if (error == cudaSuccess) error = cudaEventRecord(prepare_end);
   }
   if (error == cudaSuccess) {
     generateMatrix<<<1, 1>>>(device_matrix_seed, device_matrix);
     error = cudaGetLastError();
+    if (error == cudaSuccess) error = cudaEventRecord(matrix_end);
   }
   if (error == cudaSuccess) {
     constexpr unsigned int threads = 128U;
@@ -523,6 +532,16 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
   if (error == cudaSuccess) {
     error = cudaEventElapsedTime(&pipeline_elapsed_ms,
                                  pipeline_begin, pipeline_end);
+  }
+  if (error == cudaSuccess) {
+    error = cudaEventElapsedTime(&prepare_elapsed_ms, pipeline_begin,
+                                 prepare_end);
+  }
+  if (error == cudaSuccess) {
+    error = cudaEventElapsedTime(&matrix_elapsed_ms, prepare_end, matrix_end);
+  }
+  if (error == cudaSuccess) {
+    error = cudaEventElapsedTime(&digest_elapsed_ms, matrix_end, pipeline_end);
   }
 
   std::vector<std::uint8_t> host_digests(digest_bytes);
@@ -542,6 +561,10 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
       ? cudaSuccess : cudaFree(device_header);
   const cudaError_t destroy_pipeline_end = pipeline_end == nullptr
       ? cudaSuccess : cudaEventDestroy(pipeline_end);
+  const cudaError_t destroy_matrix_end = matrix_end == nullptr
+      ? cudaSuccess : cudaEventDestroy(matrix_end);
+  const cudaError_t destroy_prepare_end = prepare_end == nullptr
+      ? cudaSuccess : cudaEventDestroy(prepare_end);
   const cudaError_t destroy_pipeline_begin = pipeline_begin == nullptr
       ? cudaSuccess : cudaEventDestroy(pipeline_begin);
   if (error == cudaSuccess && free_digests != cudaSuccess) error = free_digests;
@@ -552,6 +575,12 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
   if (error == cudaSuccess && destroy_pipeline_end != cudaSuccess) {
     error = destroy_pipeline_end;
   }
+  if (error == cudaSuccess && destroy_matrix_end != cudaSuccess) {
+    error = destroy_matrix_end;
+  }
+  if (error == cudaSuccess && destroy_prepare_end != cudaSuccess) {
+    error = destroy_prepare_end;
+  }
   if (error == cudaSuccess && destroy_pipeline_begin != cudaSuccess) {
     error = destroy_pipeline_begin;
   }
@@ -561,6 +590,12 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
     return exitCode(code);
   }
   if (!(pipeline_elapsed_ms > 0.0F) || !std::isfinite(pipeline_elapsed_ms)) {
+    emitError(ErrorCode::cuda_failure, cudaErrorUnknown);
+    return exitCode(ErrorCode::cuda_failure);
+  }
+  if (prepare_elapsed_ms < 0.0F || !std::isfinite(prepare_elapsed_ms) ||
+      matrix_elapsed_ms < 0.0F || !std::isfinite(matrix_elapsed_ms) ||
+      digest_elapsed_ms < 0.0F || !std::isfinite(digest_elapsed_ms)) {
     emitError(ErrorCode::cuda_failure, cudaErrorUnknown);
     return exitCode(ErrorCode::cuda_failure);
   }
@@ -618,9 +653,14 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
             << ",\"gpu_pipeline_digests_per_second\":"
             << (static_cast<double>(count) * 1000.0 /
                 static_cast<double>(pipeline_elapsed_ms))
-            << ",\"gpu_pipeline_timing_scope\":\"CUDA event kernel-only; "
-               "excludes host setup, allocation, transfer, oracle, and output; "
-               "not miner hashrate\""
+            << ",\"gpu_pipeline_timing_scope\":\"CUDA event intervals bracket "
+               "the three ordered kernels; exclude host setup, allocation, "
+               "transfer, oracle, and output; intervals may include device idle "
+               "time while the host queues launches; not miner hashrate\""
+            << ",\"kernel_event_intervals_ms\":{"
+            << "\"prepare_hash_inputs\":" << prepare_elapsed_ms
+            << ",\"matrix_generation\":" << matrix_elapsed_ms
+            << ",\"digest_calculation\":" << digest_elapsed_ms << '}'
             << ",\"kernel_resource_model\":\"CUDA Runtime function attributes "
                "and max-active-block calculation; theoretical per-SM occupancy, "
                "not measured achieved occupancy\""

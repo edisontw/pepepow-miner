@@ -119,8 +119,9 @@ def validate_success(completed, start, count):
     require(isinstance(payload, dict) and set(payload) == {
         "schema_version", "status", "stage", "nonce_start", "nonce_count",
         "digest_count", "gpu_pipeline_ms", "gpu_pipeline_digests_per_second",
-        "gpu_pipeline_timing_scope", "kernel_resource_model", "warp_size",
-        "kernel_resources", "device", "cuda_versions", "error",
+        "gpu_pipeline_timing_scope", "kernel_event_intervals_ms",
+        "kernel_resource_model", "warp_size", "kernel_resources", "device",
+        "cuda_versions", "error",
     }, "CUDA success JSON fields changed")
     require(payload["schema_version"] == 1 and payload["status"] == "ok" and
             payload["stage"] == "hoohash_v110_full_digest_experiment" and
@@ -130,8 +131,9 @@ def validate_success(completed, start, count):
     elapsed_ms = payload["gpu_pipeline_ms"]
     digests_per_second = payload["gpu_pipeline_digests_per_second"]
     timing_scope = (
-        "CUDA event kernel-only; excludes host setup, allocation, transfer, "
-        "oracle, and output; not miner hashrate"
+        "CUDA event intervals bracket the three ordered kernels; exclude host "
+        "setup, allocation, transfer, oracle, and output; intervals may include "
+        "device idle time while the host queues launches; not miner hashrate"
     )
     require(isinstance(elapsed_ms, (int, float)) and
             not isinstance(elapsed_ms, bool) and math.isfinite(elapsed_ms) and
@@ -146,6 +148,21 @@ def validate_success(completed, start, count):
             f"expected={count * 1000.0 / elapsed_ms if isinstance(elapsed_ms, (int, float)) and elapsed_ms > 0 else None!r})")
     require(payload["gpu_pipeline_timing_scope"] == timing_scope,
             "CUDA event timing scope changed")
+    intervals = payload["kernel_event_intervals_ms"]
+    interval_names = {
+        "prepare_hash_inputs", "matrix_generation", "digest_calculation",
+    }
+    require(isinstance(intervals, dict) and set(intervals) == interval_names,
+            "CUDA kernel event interval names changed")
+    require(all(isinstance(intervals[name], (int, float)) and
+                not isinstance(intervals[name], bool) and
+                math.isfinite(intervals[name]) and intervals[name] >= 0
+                for name in interval_names),
+            "CUDA kernel event intervals must be finite and nonnegative")
+    interval_total = sum(intervals.values())
+    require(math.isclose(interval_total, elapsed_ms, rel_tol=1e-5,
+                         abs_tol=0.01),
+            "CUDA kernel event intervals do not reconcile to pipeline time")
     resource_model = (
         "CUDA Runtime function attributes and max-active-block calculation; "
         "theoretical per-SM occupancy, not measured achieved occupancy"
@@ -245,9 +262,16 @@ def validate_success_contract_fixture():
         "gpu_pipeline_ms": 2.5,
         "gpu_pipeline_digests_per_second": 1600.0,
         "gpu_pipeline_timing_scope": (
-            "CUDA event kernel-only; excludes host setup, allocation, transfer, "
-            "oracle, and output; not miner hashrate"
+            "CUDA event intervals bracket the three ordered kernels; exclude "
+            "host setup, allocation, transfer, oracle, and output; intervals "
+            "may include device idle time while the host queues launches; not "
+            "miner hashrate"
         ),
+        "kernel_event_intervals_ms": {
+            "prepare_hash_inputs": 1.0,
+            "matrix_generation": 0.5,
+            "digest_calculation": 1.0,
+        },
         "kernel_resource_model": (
             "CUDA Runtime function attributes and max-active-block calculation; "
             "theoretical per-SM occupancy, not measured achieved occupancy"
@@ -313,6 +337,12 @@ def validate_success_contract_fixture():
     invalid_payloads.append(invalid_rate)
     invalid_scope = dict(payload, gpu_pipeline_timing_scope="total host time")
     invalid_payloads.append(invalid_scope)
+    invalid_intervals = dict(payload, kernel_event_intervals_ms={
+        "prepare_hash_inputs": 1.0,
+        "matrix_generation": 1.0,
+        "digest_calculation": 1.0,
+    })
+    invalid_payloads.append(invalid_intervals)
     invalid_occupancy = json.loads(json.dumps(payload))
     invalid_occupancy["kernel_resources"]["calculateDigests"][
         "theoretical_warp_occupancy_percent"] = 37.5
@@ -363,6 +393,7 @@ def run_case(stage, header, start, count, root, cpu):
             "kernel_resource_model": payload["kernel_resource_model"],
             "warp_size": payload["warp_size"],
             "kernel_resources": payload["kernel_resources"],
+            "kernel_event_intervals_ms": payload["kernel_event_intervals_ms"],
             "gpu_pipeline_ms": payload["gpu_pipeline_ms"],
             "gpu_pipeline_digests_per_second": payload[
                 "gpu_pipeline_digests_per_second"]}
@@ -386,6 +417,8 @@ def write_report(path, header, cases, result):
             "status": device_result["status"],
             "device_error": device_result["error"],
             "warp_size": device_result.get("warp_size"),
+            "kernel_event_intervals_ms": device_result.get(
+                "kernel_event_intervals_ms"),
             "gpu_pipeline_ms": device_result.get("gpu_pipeline_ms"),
             "gpu_pipeline_digests_per_second": device_result.get(
                 "gpu_pipeline_digests_per_second"),
@@ -403,9 +436,10 @@ def write_report(path, header, cases, result):
         "nonce_encoding": "little_endian_uint32_at_header_offsets_76_to_79",
         "digest_bytes_compared_per_case": 32,
         "timing_scope": (
-            "CUDA event time for the three kernel pipeline only; excludes host "
-            "setup, allocations, transfers, oracle work, and output; not miner "
-            "hashrate"
+            "CUDA event intervals bracket the three ordered kernels; exclude "
+            "host setup, allocations, transfers, oracle work, and output; "
+            "intervals may include device idle time while the host queues "
+            "launches; not miner hashrate"
         ),
         "kernel_resource_model": (
             "CUDA Runtime function attributes and max-active-block calculation; "

@@ -72,14 +72,14 @@ kernel compiled with `--fmad=false`, `--ftz=false`, `--prec-div=true`, and
 
 - Release build of all opt-in CUDA stages and CPU oracles: passed.
 - Release CTest suite: 8/8 passed, including the live 10,000-nonce parity
-  test; total 4.84 seconds.
+  test; total 4.89 seconds.
 - Debug build of all opt-in CUDA stages and CPU oracles: passed.
 - Debug CTest suite: 8/8 passed, including the live 10,000-nonce parity
-  test; physical-device total 4.98 seconds.
-- No-GPU Debug CTest suite: 7/7 passed in 2.00 seconds with
+  test; physical-device total 4.93 seconds.
+- No-GPU Debug CTest suite: 7/7 passed in 2.07 seconds with
   `CUDA_VISIBLE_DEVICES=-1` and the explicit no-device skip enabled.
 - 10,000-nonce physical CUDA test: nonces 0–9,999, all full 32-byte digests
-  matched pinned Core; CTest time 0.96 seconds in Release and 0.99 seconds in
+  matched pinned Core; CTest time 0.96 seconds in Release and 0.97 seconds in
   Debug.
 - Five additional Release 10,000-nonce runs compared each complete digest to
   pinned Core, with matching CPU/GPU transcript hashes in every run.
@@ -105,24 +105,40 @@ results.
 
 ## CUDA event pipeline timing
 
-The experimental stage emits `gpu_pipeline_ms` and
-`gpu_pipeline_digests_per_second` using CUDA events around
-`prepareHashInputs`, `generateMatrix`, and `calculateDigests`. The timing
-excludes host setup, allocations, host/device transfers, CPU oracle work, and
-output writing. It measures this diagnostic pipeline with one matrix reused
-across the batch; it is not miner hashrate and does not imply pool performance.
-The Python contract also runs a clearly labeled mock success JSON fixture
-before device access, so no-GPU CI validates the success schema and rejects
-invalid timing values without presenting mock data as physical-device output.
+The experimental stage emits `gpu_pipeline_ms`,
+`gpu_pipeline_digests_per_second`, and `kernel_event_intervals_ms`. CUDA events
+bracket `prepareHashInputs`, `generateMatrix`, and `calculateDigests` in the
+default stream. The overall interval excludes host setup, allocations,
+host/device transfers, CPU oracle work, and output writing. Event brackets may
+include device idle time while the host queues the next launch; they are not
+isolated instruction timings. These values measure this diagnostic pipeline
+with one matrix reused across the batch; they are not miner hashrate and do not
+imply pool performance. The Python contract also runs a
+clearly labeled mock success JSON fixture before device access, so no-GPU CI
+validates the success schema and rejects invalid timing values without
+presenting mock data as physical-device output.
 
 Five Release runs each covered nonces 0–9,999 and passed full 32-byte CPU/GPU
-digest comparison. Median event time was 77.307907 ms (range 76.950531–
-83.954689 ms), equivalent to a median 129,352.87 pipeline digests/s. The
+digest comparison. Median pipeline interval was 77.036545 ms (range 76.985344–
+83.919868 ms), equivalent to a median 129,808.52 pipeline digests/s. The first
+sample was slower; the other four intervals were 76.985–77.249 ms. The
 10,000-record CPU and GPU transcript SHA-256 matched in every run:
 `dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47`.
-Per-run timing and transcript details are preserved locally at
-`D:\Dev\pepepow-cuda-digest-evidence-20261127\build-vs331\event-timing-10k-resource-repeats.json`
-(SHA-256 `6756ff548331ac28605346f5a038c0e731568b53997da72ed1460ab478bd8cf6`).
+The per-stage event interval medians (with five-run ranges) were:
+
+| Event interval | Median | Range |
+| --- | ---: | ---: |
+| `prepareHashInputs` | 0.406528 ms | 0.360448–0.459776 ms |
+| `generateMatrix` | 1.064960 ms | 1.061888–1.154048 ms |
+| `calculateDigests` | 75.525124 ms | 75.517952–82.405373 ms |
+
+The `calculateDigests` bracket was the largest interval. These event brackets
+may include device idle time while the host queues launches, so they identify
+the next profiling area but are not isolated kernel instruction times or
+evidence about which operation inside the kernel is slow. Per-run CPU/GPU
+transcript hashes and timings are preserved locally at
+`D:\Dev\pepepow-cuda-digest-evidence-20261127\build-vs331\event-timing-segments\event-timing-segments-10k-repeats.json`
+(SHA-256 `1ae6923fb6d67b6da8974e9e79063fe0ae6d0ba88c03133361bfa921f034f097`).
 
 ## Runtime kernel resources and occupancy
 
@@ -166,11 +182,13 @@ strict floating-point flags. It reported:
 | `prepareHashInputs` | 72 | 64 bytes | 0 / 0 |
 
 The 688-byte `calculateDigests` stack frame remains material even though
-PTXAS reports zero register spill loads and stores. This is a follow-up
-optimization target: inspect local stack traffic and measure active-block
-occupancy on the physical GPU while preserving full-digest parity. No GPU
-mining hashrate is inferred from the CTest wall time; the separately reported
-CUDA-event measurement is limited to this experimental kernel pipeline.
+PTXAS reports zero register spill loads and stores. The Runtime occupancy API
+provides a theoretical per-SM estimate; achieved occupancy and dynamic local
+memory traffic are still unmeasured because Nsight Compute was unavailable.
+Any kernel optimization should wait for supported function-level profiling
+and must preserve full-digest parity. No GPU mining hashrate is inferred from
+CTest wall time; CUDA event measurements remain limited to this experimental
+kernel pipeline.
 
 ## Evidence hashes
 
@@ -181,9 +199,13 @@ Evidence is under the local directory
 | --- | --- |
 | 10,000-case CPU transcript | `dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47` |
 | 10,000-case CUDA transcript | `dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47` |
-| 10,000-case JSON report | `1b1cc39ca02b93cb578401f3d81ca41a619d492f3440e290aed4268532cf29e1` |
-| Five-run timing/resource JSON | `6756ff548331ac28605346f5a038c0e731568b53997da72ed1460ab478bd8cf6` |
-| Release CUDA digest executable | `372bd2c490f33189d1b4eda69d331306f009b233fcfbfbf746cfd66af6cfce32` |
+| 10,000-case JSON report | `116018ae4eef452772af3f535c6b05c0a1c56e3748c39a58d6aa08ef55dc688d` |
+| No-GPU skip JSON report | `17d2f09a33071c23166b9f8cf56ecfa28d9406526b0abca3417a378bcfdeb62a` |
+| Five-run segmented timing JSON | `1ae6923fb6d67b6da8974e9e79063fe0ae6d0ba88c03133361bfa921f034f097` |
+| Release CTest log | `44c9937326d5b65e553ade1e629dc422fd78d4815fa7908c755dd65724df578f` |
+| Debug CTest log | `ad91fe945f82ac6c3aedfad8bfc8b1dc1eb9e3c015b9e8c9eec596c7c1d20dda` |
+| No-GPU Debug CTest log | `21f49a7fab2c4ed2468cf89af1433385aeb5b4613ce53b3e14149196699e250e` |
+| Release CUDA digest executable | `b846cb03bf9b7cf9f99cb32555b93bd84be553aa5525ba5d3eed34a84b3c14d8` |
 | `sm_86` CUDA PTX | `b03bb96a4ee8391c86b90b3ec1595837a676ffd1fdfcc0f76b162452405370b0` |
 | Pinned OpenLibm static archive | `9fb7b4caf1deb2136314508c3116adafd8a192a67d0ca4a95e22744fa0ca5f96` |
 | NVCC/PTXAS resource-usage log | `e504cc264822fe06b8a7a1bfa3fca22d8f1413c2dc85f1976856eaa4777801ff` |
@@ -191,6 +213,7 @@ Evidence is under the local directory
 The matching transcript hashes include the same `PPWDIG1\0` header and 10,000
 complete output digests. The report records the exact nonce range, Core and
 OpenLibm SHAs, digest count, per-transcript hashes, device status, and strict
-floating-point build flags. The CTest console logs and both Debug/Release
-build logs, plus `resource-usage/digest-release-ptxas.log`, remain alongside
-the artifacts in the local evidence directory.
+floating-point build flags. The CTest console logs are under
+`event-timing-segments`; both Debug/Release build logs and
+`resource-usage/digest-release-ptxas.log` remain alongside the artifacts in the
+local evidence directory.

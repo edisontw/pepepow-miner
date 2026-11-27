@@ -362,9 +362,12 @@ batch is evidence for those tested inputs only: this remains an experimental
 correctness test. The Windows RTX 3060 record below includes a 10,000-nonce
 full-digest parity run and five separately checked timing repetitions. The
 stage's CUDA event JSON reports `gpu_pipeline_ms`,
-`gpu_pipeline_digests_per_second`, and the timing scope. These fields cover
-only the diagnostic kernel pipeline and are not miner hashrate. This does not
-claim a production GPU miner, G4 acceptance, or redistribution clearance.
+`gpu_pipeline_digests_per_second`, per-stage `kernel_event_intervals_ms`, and
+the timing scope. Per-stage event brackets may include device idle time while
+the host queues the next launch; they are not isolated instruction timings.
+These values describe this diagnostic pipeline and are not miner hashrate. This
+does not claim a production GPU miner, G4 acceptance, or redistribution
+clearance.
 The Python contract validates a labeled mock success response before probing
 hardware, so no-GPU CI checks the JSON schema and invalid timing rejection.
 The success JSON also records per-kernel register and local-memory attributes,
