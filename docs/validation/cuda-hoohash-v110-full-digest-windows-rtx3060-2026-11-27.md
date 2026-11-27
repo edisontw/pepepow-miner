@@ -13,6 +13,11 @@ not qualify a production GPU miner, G4 acceptance, a supported Windows CUDA
 compiler combination, or binary redistribution. G0 remains blocked by the
 separate upstream source-rights review.
 
+A later supplemental corpus distributed 10,000 nonces across four distinct
+80-byte header templates. Release and Debug RTX 3060 runs matched every full
+digest against pinned Core for all four templates, while retaining the fixed
+Explorer and uint32-boundary fixtures.
+
 ## Source and host
 
 - Repository: `edisontw/pepepow-miner`, branch
@@ -189,6 +194,54 @@ Any kernel optimization should wait for supported function-level profiling
 and must preserve full-digest parity. No GPU mining hashrate is inferred from
 CTest wall time; CUDA event measurements remain limited to this experimental
 kernel pipeline.
+
+## Four-template full-digest extension
+
+Source revision tested: `55121b767cda7cb3073e43053ef1804d33d74da0`.
+
+The opt-in 10,000-case CTest now splits the nonce batch evenly across four
+deterministic 80-byte headers: the unchanged fixture, then one-bit mutations at
+byte offsets 0 (version), 4 (previous hash), and 36 (merkle root). The nonce
+field at offsets 76–79 is unchanged in each template and is overwritten with
+the tested little-endian nonce by the CUDA stage. Each template runs nonces
+0–2,499, so all 256 nonce low-byte values occur for every distinct matrix
+seed. The harness compares complete 32-byte CPU/GPU digests and records a
+separate header SHA-256 and transcript SHA-256 per template.
+
+Native Windows 11 RTX 3060 physical-device runs used
+`PEPEPOW_CUDA_REQUIRE_DEVICE=1`. Release and Debug each passed the two full-
+digest CTests (fixed vectors plus the four-template 10,000-case batch); the
+direct evidence runs compared 10,005 digests each, including five fixed
+vectors (nonce 0, Explorer nonces 6–8, and `UINT32_MAX`). For every template,
+the 2,500-record CPU and CUDA transcript hashes were identical:
+
+| Template | Header variation | Low-byte values | Header SHA-256 | Matching CPU/GPU transcript SHA-256 |
+| --- | --- | ---: | --- | --- |
+| 0 | Base fixture | 256 | `ef8192435c5b9c64ff9e10dcb3c4b91035abcfd79837e2b86d0725c4180f87c7` | `ac329e151d1d6d480a66ff5aad07c6b3f5569956400b527cf7ef8575b901ce1e` |
+| 1 | Version byte at offset 0 XOR 1 | 256 | `abd97ec2ee76545589df79b45456174b5be38e6bf3e5cdd9d13df65f7e43a4f3` | `1f14ec32a5c907d4517c11092a0aaf547613474e7d42f236c3f5c57a576eeb90` |
+| 2 | Previous-hash byte at offset 4 XOR 1 | 256 | `dada1d7d91436060045c6138256f6e8322109a3f4e299bf8a3de9700fb7c233a` | `b63cf04d5b7be3d7e1d2f78b32e0ae0d9f3effa366f54e86a5ccfb3897d6bc80` |
+| 3 | Merkle-root byte at offset 36 XOR 1 | 256 | `bec755c8fbae873cadafd5e79f028904d9a3168b1f37d51852ba16b103464683` | `a9c0b3b71a69dd86537f3d5580bbcd8a068c340ce90afda653e43ee2a5e2a6f6` |
+
+The Release/Debug physical CTest invocations passed 2/2 in 1.78/1.77 seconds.
+With `CUDA_VISIBLE_DEVICES=-1` and explicit unavailable-device skip enabled,
+the Debug full-digest CTests passed 2/2 in 0.68 seconds; the report explicitly
+records `skipped_no_device`, not physical parity. CUDA build and test files were
+kept in the separate directory
+`D:\Dev\pepepow-cuda-digest-evidence-20261127\build-vs331-multitemplate`.
+
+| Evidence artifact | SHA-256 |
+| --- | --- |
+| Release physical JSON report | `e211cfcdf5e51879627e43643e2410e1abd8f148f9241fbb5a2dd5f01d63b723` |
+| Debug physical JSON report | `f8c96827d7370d12e6ba4ec6397f0f45ea7d02da5b50c29168d7a2ff5fa46d77` |
+| No-GPU Debug JSON report | `8011c07e64764540fd28c4db40dfe7b674875c92ef96522547107f249b05ec04` |
+| Release physical CTest log | `34e634ef95579d97feb1ff0ccf8108c1c943397f30645b2306aa3ba58be730c5` |
+| Debug physical CTest log | `b3e456d60d4a789b7a2ec23c0481ae29e6a9ba81d2fd1a24063c0d61eb6f1f61` |
+| No-GPU Debug CTest log | `37fe9773477df9f6c85d508d3e61188e78d0439669647c2dc68c108029066a95` |
+| Release digest-stage executable | `a3a7898169e50de5b8c733526adad6d1890ee79dabe9a44e88ad53f807db7f77` |
+| Debug digest-stage executable | `2ad041a3e0476b7c4acd73beefdd135aa9f4c9fdd0afba03ccd28fc4cc223ba3` |
+
+This extends tested inputs only. It does not establish all-input parity,
+production GPU mining, G4 acceptance, pool behavior, or redistribution rights.
 
 ## Evidence hashes
 

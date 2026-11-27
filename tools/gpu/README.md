@@ -399,6 +399,13 @@ The 10,000-nonce case is bounded to nonce 0 through 9,999 and has a 30-minute
 CTest timeout. On systems without an NVIDIA device, set
 `PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1` for the run; recognized unavailable-
 device errors may skip the GPU execution after all pinned CPU fixtures pass.
+The opt-in 10,000-case CTest splits its batch evenly across four deterministic
+80-byte header templates: the base fixture and one-bit variants in the version,
+previous-hash, and merkle-root fields. Each template gets 2,500 nonces and
+covers all 256 low-byte values. The CPU oracle and physical GPU compare every
+complete 32-byte digest for every template/nonce pair. A CTest invocation of
+the stage still accepts one header template; the harness invokes it once per
+template and records each template and transcript hash in the JSON evidence.
 The exact Windows physical-device result is recorded in the dated
 [full-digest validation report](../../docs/validation/cuda-hoohash-v110-full-digest-windows-rtx3060-2026-11-27.md).
 
