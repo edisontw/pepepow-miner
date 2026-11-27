@@ -94,6 +94,23 @@ and Core's final digest-byte reversal on the GPU. The Python comparator
 compares complete digest records; it does not compare prefixes or target
 results.
 
+## Static kernel resource snapshot
+
+A separate NVCC/PTXAS resource-usage compile used the same `sm_86` target and
+strict floating-point flags. It reported:
+
+| Kernel | Registers | Stack frame | Register spill loads/stores |
+| --- | ---: | ---: | ---: |
+| `calculateDigests` | 80 | 688 bytes | 0 / 0 |
+| `generateMatrix` | 38 | 0 bytes | 0 / 0 |
+| `prepareHashInputs` | 72 | 64 bytes | 0 / 0 |
+
+The 688-byte `calculateDigests` stack frame remains material even though
+PTXAS reports zero register spill loads and stores. This is a follow-up
+optimization target: inspect local stack traffic and measure active-block
+occupancy on the physical GPU while preserving full-digest parity. No GPU
+throughput result is inferred from the CTest wall time.
+
 ## Evidence hashes
 
 Evidence is under the local directory
@@ -106,9 +123,11 @@ Evidence is under the local directory
 | 10,000-case JSON report | `b27417178be292b83c0baf5ae8f3b95e8098d92680b70dc1aa5330792a98c27a` |
 | Release CUDA digest executable | `479accf2038eea70fd6d83ef29d7ecba6785c15fc7e60f89fa3c64527762e429` |
 | Pinned OpenLibm static archive | `9fb7b4caf1deb2136314508c3116adafd8a192a67d0ca4a95e22744fa0ca5f96` |
+| NVCC/PTXAS resource-usage log | `e504cc264822fe06b8a7a1bfa3fca22d8f1413c2dc85f1976856eaa4777801ff` |
 
 The matching transcript hashes include the same `PPWDIG1\0` header and 10,000
 complete output digests. The report records the exact nonce range, Core and
 OpenLibm SHAs, digest count, per-transcript hashes, device status, and strict
 floating-point build flags. The CTest console logs and both Debug/Release
-build logs remain alongside the artifacts in the local evidence directory.
+build logs, plus `resource-usage/digest-release-ptxas.log`, remain alongside
+the artifacts in the local evidence directory.
