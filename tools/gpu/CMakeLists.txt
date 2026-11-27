@@ -413,6 +413,7 @@ if(PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS)
                 --device-stage "$<TARGET_FILE:pepepow-cuda-hoohash-digest-stage>"
                 --batch-start 0
                 --batch-count 10000
+                --batch-template-count 4
                 --evidence-dir
                 "${CMAKE_CURRENT_BINARY_DIR}/cuda-full-digest-10000-evidence")
       set_tests_properties(hoohash_cuda_full_digest_10000_nonce_parity

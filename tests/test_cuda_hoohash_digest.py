@@ -360,8 +360,49 @@ def validate_success_contract_fixture():
     print("MOCK CUDA success JSON contract: PASS")
 
 
-def run_case(stage, header, start, count, root, cpu):
-    gpu_path = root / f"gpu-{start}-{count}.bin"
+def make_batch_headers(base_header, template_count):
+    """Build bounded, deterministic header templates for multi-template parity."""
+    mutation_offsets = (None, 0, 4, 36)
+    require(1 <= template_count <= len(mutation_offsets),
+            "batch template count is outside the deterministic corpus")
+    headers = []
+    for template_index in range(template_count):
+        header = bytearray(base_header)
+        offset = mutation_offsets[template_index]
+        if offset is not None:
+            header[offset] ^= 0x01
+        headers.append(bytes(header))
+    require(len(set(headers)) == template_count,
+            "deterministic batch header templates must be unique")
+    return headers
+
+
+def validate_batch_template_contract():
+    headers = make_batch_headers(HEADER_NONCE6, 4)
+    require(headers[0] == HEADER_NONCE6,
+            "first deterministic batch template must preserve the fixture")
+    require(headers[1][0] == (HEADER_NONCE6[0] ^ 0x01) and
+            headers[2][4] == (HEADER_NONCE6[4] ^ 0x01) and
+            headers[3][36] == (HEADER_NONCE6[36] ^ 0x01),
+            "batch templates must vary version, previous hash, and merkle data")
+    require(all(header[76:80] == HEADER_NONCE6[76:80] for header in headers),
+            "template mutations must not alter the nonce field")
+    batch_start = 0
+    batch_count = 10000
+    quotient, remainder = divmod(batch_count, len(headers))
+    counts = [quotient + (1 if index < remainder else 0)
+              for index in range(len(headers))]
+    require(sum(counts) == batch_count and all(count >= 256 for count in counts),
+            "multi-template partition must account for the bounded batch")
+    for count in counts:
+        low_bytes = {(batch_start + offset) & 0xff for offset in range(count)}
+        require(low_bytes == set(range(256)),
+                "each batch template must cover every nonce low-byte value")
+    print("MULTI-TEMPLATE CONTRACT: 4 unique headers; each covers nonce low bytes 0–255")
+
+
+def run_case(stage, case_id, header, start, count, root, cpu):
+    gpu_path = root / f"gpu-{case_id}-{start}-{count}.bin"
     completed = subprocess.run([
         stage, "--header-hex", header.hex(), "--nonce-start", str(start),
         "--nonce-count", str(count), "--output", str(gpu_path),
@@ -386,8 +427,9 @@ def run_case(stage, header, start, count, root, cpu):
                 f"full 32-byte digest mismatch at nonce {start + offset}: "
                 f"CPU={cpu_digest.hex()} CUDA={gpu_digest.hex()}"
             )
-    print(f"LIVE CUDA: {start}..{start + count - 1}, {count} full 32-byte "
-          f"digests match pinned Core on {payload['device']['name']}")
+    print(f"LIVE CUDA [{case_id}]: {start}..{start + count - 1}, "
+          f"{count} full 32-byte digests match pinned Core on "
+          f"{payload['device']['name']}")
     return {"status": "live", "error": None, "device": payload["device"],
             "cuda_versions": payload["cuda_versions"], "gpu_path": gpu_path,
             "kernel_resource_model": payload["kernel_resource_model"],
@@ -399,13 +441,19 @@ def run_case(stage, header, start, count, root, cpu):
                 "gpu_pipeline_digests_per_second"]}
 
 
-def write_report(path, header, cases, result):
+def write_report(path, cases, result):
     reports = []
-    for start, count, cpu_path, cpu_digests, device_result in cases:
+    for case_id, header, start, count, cpu_path, cpu_digests, device_result in cases:
         gpu_path = device_result["gpu_path"]
         reports.append({
+            "case_id": case_id,
+            "header_template_hex": header.hex(),
+            "header_template_sha256": hashlib.sha256(header).hexdigest(),
             "nonce_start": start,
             "nonce_count": count,
+            "nonce_low_byte_values_covered": len({
+                (start + offset) & 0xff for offset in range(count)
+            }),
             "cpu_transcript": cpu_path.name,
             "cpu_transcript_sha256": hashlib.sha256(cpu_path.read_bytes()).hexdigest(),
             "gpu_transcript": gpu_path.name if gpu_path else None,
@@ -432,7 +480,7 @@ def write_report(path, header, cases, result):
         "gpu_status": result,
         "core_sha": CORE_SHA,
         "openlibm_sha": OPENLIBM_SHA,
-        "header_template_hex": header.hex(),
+        "header_templates_hex": sorted({case[1].hex() for case in cases}),
         "nonce_encoding": "little_endian_uint32_at_header_offsets_76_to_79",
         "digest_bytes_compared_per_case": 32,
         "timing_scope": (
@@ -465,6 +513,7 @@ def main():
     parser.add_argument("--device-stage", required=True)
     parser.add_argument("--batch-start", type=int)
     parser.add_argument("--batch-count", type=int)
+    parser.add_argument("--batch-template-count", type=int, default=1)
     parser.add_argument("--evidence-dir")
     args = parser.parse_args()
 
@@ -473,10 +522,18 @@ def main():
     if args.batch_start is not None:
         require(0 <= args.batch_start <= UINT32_MAX and
                 1 <= args.batch_count <= 10000 and
+                1 <= args.batch_template_count <= 4 and
+                (args.batch_template_count == 1 or
+                 args.batch_count >= args.batch_template_count * 256) and
                 args.batch_start + args.batch_count - 1 <= UINT32_MAX,
-                "optional digest batch must fit the bounded uint32 nonce range")
+                "optional digest batch must fit uint32 and give every template "
+                "all nonce low-byte values")
+    else:
+        require(args.batch_template_count == 1,
+                "--batch-template-count requires an explicit digest batch")
 
     validate_success_contract_fixture()
+    validate_batch_template_contract()
     header = HEADER_NONCE6
     temporary_context = (
         nullcontext(Path(args.evidence_dir)) if args.evidence_dir else
@@ -488,29 +545,40 @@ def main():
         # Include nonce zero, an Explorer nonce and its neighbors, and the
         # uint32 boundary. A requested larger physical batch is added after
         # those fixed fixtures so errors retain a small reproducer.
-        ranges = [(0, 1), (6, 3), (UINT32_MAX, 1)]
-        if args.batch_start is not None:
-            ranges.append((args.batch_start, args.batch_count))
-
         prepared = []
-        for start, count in ranges:
-            cpu_path = root / f"cpu-{start}-{count}.bin"
+        fixed_ranges = [(0, 1), (6, 3), (UINT32_MAX, 1)]
+        for fixture_index, (start, count) in enumerate(fixed_ranges):
+            cpu_path = root / f"cpu-fixed-{fixture_index}-{start}-{count}.bin"
             digests = oracle_digests(args.oracle, header, start, count, cpu_path)
             validate_pinned_digests(start, digests)
-            prepared.append((start, count, cpu_path, digests))
+            prepared.append((f"fixed-{fixture_index}", header, start, count,
+                             cpu_path, digests))
+
+        if args.batch_start is not None:
+            templates = make_batch_headers(header, args.batch_template_count)
+            quotient, remainder = divmod(args.batch_count, len(templates))
+            for template_index, template in enumerate(templates):
+                count = quotient + (1 if template_index < remainder else 0)
+                require(count > 0, "each selected header template needs a nonce")
+                case_id = f"batch-template-{template_index}"
+                cpu_path = root / f"cpu-{case_id}-{args.batch_start}-{count}.bin"
+                digests = oracle_digests(
+                    args.oracle, template, args.batch_start, count, cpu_path)
+                prepared.append((case_id, template, args.batch_start, count,
+                                 cpu_path, digests))
         print("PINNED CORE: all complete 32-byte fixed digest fixtures PASS")
 
         device_cases = []
-        for start, count, cpu_path, cpu_digests in prepared:
-            device_result = run_case(args.device_stage, header, start, count,
-                                     root, cpu_digests)
-            device_cases.append((start, count, cpu_path, cpu_digests,
-                                 device_result))
+        for case_id, case_header, start, count, cpu_path, cpu_digests in prepared:
+            device_result = run_case(args.device_stage, case_id, case_header,
+                                     start, count, root, cpu_digests)
+            device_cases.append((case_id, case_header, start, count, cpu_path,
+                                 cpu_digests, device_result))
             if device_result["status"] == "skipped_no_device":
                 print("NO GPU: pinned Core full-digest fixtures passed; "
                       f"device execution explicitly skipped ({device_result['error']})")
-                write_report(root / "full-digest-report.json", header,
-                             device_cases, "skipped_no_device")
+                write_report(root / "full-digest-report.json", device_cases,
+                             "skipped_no_device")
                 return 0
 
         invalid = subprocess.run([
@@ -521,7 +589,7 @@ def main():
         error = validate_error(invalid)
         require(error["code"] == "invalid_arguments",
                 "uint32 nonce wraparound must fail before CUDA initialization")
-        write_report(root / "full-digest-report.json", header, device_cases, "live")
+        write_report(root / "full-digest-report.json", device_cases, "live")
 
     print("PINNED CORE FULL-DIGEST CORRECTNESS PASS; no production GPU miner "
           "or hashrate claim is made")
