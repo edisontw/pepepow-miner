@@ -107,7 +107,8 @@ inline std::optional<SubmitOutcome> decode_submit_reply(std::string_view line,
       (expected_id.size() > 1 && expected_id.front() == '0')) return std::nullopt;
   for (char c : expected_id) if (c < '0' || c > '9') return std::nullopt;
   std::size_t i = 0;
-  auto ws = [&] { while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) ++i; };
+  auto ws = [&] { while (i < line.size() && (line[i] == ' ' || line[i] == '\t' ||
+                                             line[i] == '\r' || line[i] == '\n')) ++i; };
   auto take = [&](char c) { ws(); if (i >= line.size() || line[i] != c) return false; ++i; return true; };
   auto lit = [&](std::string_view s) { ws(); if (line.substr(i, s.size()) != s) return false; i += s.size(); return true; };
   if (!take('{') || !lit("\"id\"") || !take(':') || !lit(expected_id) ||
@@ -137,10 +138,19 @@ inline SubmitErrorClass decode_submit_error_class(std::string_view line,
   const auto outcome = decode_submit_reply(line, expected_id);
   if (!outcome || *outcome == SubmitOutcome::Accepted) return SubmitErrorClass::None;
   if (*outcome == SubmitOutcome::Rejected) return SubmitErrorClass::Rejected;
-  const auto marker = line.find("\"error\":");
-  if (marker == std::string_view::npos) return SubmitErrorClass::Other;
+  const auto key = line.find("\"error\"");
+  if (key == std::string_view::npos) return SubmitErrorClass::Other;
+  std::size_t value = key + 7;
+  auto ws = [&] {
+    while (value < line.size() && (line[value] == ' ' || line[value] == '\t' ||
+                                   line[value] == '\r' || line[value] == '\n')) ++value;
+  };
+  ws();
+  if (value == line.size() || line[value] != ':') return SubmitErrorClass::Other;
+  ++value;
+  ws();
   std::string message;
-  for (std::size_t i = marker + 8; i < line.size();) {
+  for (std::size_t i = value; i < line.size();) {
     if (line[i] != '"') { ++i; continue; }
     ++i;
     while (i < line.size() && line[i] != '"') {

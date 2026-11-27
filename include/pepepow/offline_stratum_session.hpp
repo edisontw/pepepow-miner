@@ -61,7 +61,14 @@ class OfflineStratumSession {
     if (!subscribed_) return false;
     NotifyWork work;
     auto event = decode_notify(line, &work);
-    if (!event || !jobs_.apply(*event)) return false;
+    if (!event) return false;
+    const auto active = jobs_.active();
+    // Pools may repeat a non-clean notification without changing any search
+    // input. Keep its current generation so an in-flight search can continue.
+    if (!event->clean_jobs && active && work_ && active->id == event->job_id &&
+        active->difficulty == jobs_.current_difficulty() && same_notify_work(*work_, work))
+      return true;
+    if (!jobs_.apply(*event)) return false;
     work_ = std::move(work);
     return true;
   }
@@ -119,6 +126,13 @@ class OfflineStratumSession {
   const std::optional<SubscribeReply>& subscription() const { return subscription_.current(); }
   const JobState& jobs() const { return jobs_; }
  private:
+  static bool same_notify_work(const NotifyWork& left, const NotifyWork& right) {
+    return left.prevhash == right.prevhash && left.coinb1 == right.coinb1 &&
+           left.coinb2 == right.coinb2 && left.version == right.version &&
+           left.bits == right.bits && left.ntime == right.ntime &&
+           left.merkle_branch == right.merkle_branch;
+  }
+
   JobState jobs_;
   std::optional<NotifyWork> work_;
   ShareCounters counters_;

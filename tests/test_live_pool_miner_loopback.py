@@ -41,17 +41,26 @@ def serve(listener: socket.socket, errors: list[BaseException], submissions: lis
             authorize = read_line(peer)
             assert authorize["method"] == "mining.authorize"
             send_line(peer, {"id": authorize["id"], "result": True, "error": None})
-            peer.sendall(
+            notify = (
                 b'{"id":null,"method":"mining.set_difficulty","params":[0.0000015]}\n'
                 b'{"id":null,"method":"mining.notify","params":["mock-job",'
                 b'"0000000000000000000000000000000000000000000000000000000000000000",'
                 b'"01000000","ffffffff",[],"20000000","1d00ffff","65a0bc00",true]}\n'
             )
+            peer.sendall(notify)
 
-            for _ in range(2):
+            for index in range(2):
                 submit = read_line(peer)
                 assert submit["method"] == "mining.submit"
                 submissions.append(submit)
+                if index == 0:
+                    # Repeat the same work with clean_jobs=false while the
+                    # client awaits this submit reply. It must not reset nonce progress.
+                    peer.sendall(
+                        b'{"id":null,"method":"mining.notify","params":["mock-job",'
+                        b'"0000000000000000000000000000000000000000000000000000000000000000",'
+                        b'"01000000","ffffffff",[],"20000000","1d00ffff","65a0bc00",false]}\n'
+                    )
                 send_line(peer, {"id": submit["id"], "result": True, "error": None})
     except BaseException as exc:  # Preserve server-thread assertions for the caller.
         errors.append(exc)
@@ -106,9 +115,12 @@ def main() -> int:
         return 1
     events = [json.loads(line) for line in result.stdout.splitlines() if line.startswith("{")]
     candidates = [item for item in events if item.get("event") == "candidate"]
+    duplicate_candidates = [item for item in events if item.get("event") == "duplicate_candidate"]
     summary = next((item for item in events if item.get("event") == "summary"), None)
     if [item["nonce"] for item in candidates] != ["00000000", "00000001"]:
         raise AssertionError(f"expected two distinct sequential nonces: {candidates}")
+    if duplicate_candidates:
+        raise AssertionError(f"an unchanged notify reset nonce progress: {duplicate_candidates}")
     if len(submissions) != 2 or summary is None or summary.get("accepted") != 2:
         raise AssertionError(f"missing bounded share accounting: {summary}; submits={submissions}")
     if any(item["params"][0] != "mock-wallet.worker" for item in submissions):

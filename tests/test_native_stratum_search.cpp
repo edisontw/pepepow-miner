@@ -145,9 +145,11 @@ bool run() {
   if (!cancelled || cancelled->search(0, 7, 1000, &cancel) != SearchStatus::Cancelled ||
       cancelled->candidate()) return failure();
   auto replaced = OfflineStratumSearch::capture(controller, extranonce2);
+  std::string replacement_notify(notify);
+  replacement_notify.replace(replacement_notify.rfind("false"), 5, "true");
   if (!replaced || replaced->search(0, 7) != SearchStatus::Found ||
       !fixture_matches(replaced->candidate()) ||
-      controller.receive_work_events(notify, generation).applied != 1 ||
+      controller.receive_work_events(replacement_notify, generation).applied != 1 ||
       replaced->make_mock_submit(controller, login) ||
       controller.pending_status().submit_pending != 0) return failure();
 

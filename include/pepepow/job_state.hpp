@@ -67,6 +67,7 @@ class JobState {
     return false;
   }
   std::optional<JobSnapshot> active() const { return active_; }
+  double current_difficulty() const { return difficulty_; }
   bool is_authorized() const { return authorized_; }
   bool can_submit(const JobSnapshot& job) const {
     return authorized_ && active_ && job.generation == generation_ &&
