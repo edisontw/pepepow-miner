@@ -30,8 +30,9 @@ from test_cuda_blake3_stage import run_cpu_oracle
 
 INPUT_MAGIC = b"PPWTRIN1"
 OUTPUT_MAGIC = b"PPWTRO1\0"
-INPUT_RECORD = struct.Struct("<QB")
-OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQ")
+CORE_INPUT_RECORD = struct.Struct("<QB")
+INPUT_RECORD = struct.Struct("<QQB")
+OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQQ")
 MAXIMUM_INPUTS = 32768
 MAXIMUM_REPORTED_MISMATCHES = 32768
 MASK64 = (1 << 64) - 1
@@ -66,6 +67,7 @@ FUNCTIONS = {
     "sincos_cosine": 19,
     "sincos_sine_plus_cosine": 20,
     "medium_sincos": 21,
+    "exp_core_sincos_sum": 22,
 }
 PI = 3.14159265358979323846
 EPSILON = 1e-9
@@ -272,10 +274,19 @@ def make_input_corpus(matrix_oracle, blake3_oracle, root):
     }
 
 
-def encode_input_corpus(records):
+def encode_core_input_corpus(records):
     payload = bytearray(INPUT_MAGIC + struct.pack("<I", len(records)))
     for bits, safe_enabled in records:
-        payload.extend(INPUT_RECORD.pack(bits, safe_enabled))
+        payload.extend(CORE_INPUT_RECORD.pack(bits, safe_enabled))
+    return bytes(payload)
+
+
+def encode_input_corpus(records, core_sincos_sums):
+    require(len(records) == len(core_sincos_sums),
+            "Core sincos-sum reference count differs from input count")
+    payload = bytearray(INPUT_MAGIC + struct.pack("<I", len(records)))
+    for (bits, safe_enabled), core_sincos_sum in zip(records, core_sincos_sums):
+        payload.extend(INPUT_RECORD.pack(bits, core_sincos_sum, safe_enabled))
     return bytes(payload)
 
 
@@ -531,7 +542,7 @@ def main():
         invalid_input = Path(temp) / "nonfinite-safe-input.bin"
         invalid_input.write_bytes(
             INPUT_MAGIC + struct.pack("<I", 1) +
-            INPUT_RECORD.pack(0x7FF8000000000000, 1)
+            INPUT_RECORD.pack(0x7FF8000000000000, 0, 1)
         )
         nonfinite_safe = subprocess.run(
             [args.device_stage, "--input", str(invalid_input),
@@ -549,26 +560,36 @@ def main():
         )
     records = corpus_metadata["records"]
     origins = corpus_metadata["origins"]
-    input_data = encode_input_corpus(records)
+    core_input_data = encode_core_input_corpus(records)
+    core_input_path = evidence_dir / "core-transform-inputs.bin"
     input_path = evidence_dir / "transform-inputs.bin"
     core_path = evidence_dir / "pinned-core-openlibm-transcript.bin"
     cuda_path = evidence_dir / "cuda-transform-transcript.bin"
     catalog_path = evidence_dir / "transform-input-catalog.jsonl"
+    core_input_path.write_bytes(core_input_data)
+
+    core_summary = run_transform_oracle(
+        args.core_oracle, core_input_path, core_path
+    )
+    core_data = load_transcript(core_path, len(records), OUTPUT_MAGIC)
+    core_sincos_sums = [
+        OUTPUT_RECORD.unpack_from(core_data, 12 + index * OUTPUT_RECORD.size)[20]
+        for index in range(len(records))
+    ]
+    input_data = encode_input_corpus(records, core_sincos_sums)
     input_path.write_bytes(input_data)
 
     with catalog_path.open("w", encoding="utf-8", newline="\n") as catalog:
-        for index, ((bits, safe_enabled), origin) in enumerate(zip(records, origins)):
+        for index, ((bits, safe_enabled), origin, core_sum) in enumerate(
+            zip(records, origins, core_sincos_sums)
+        ):
             catalog.write(json.dumps({
                 "index": index,
                 "origin": origin,
                 "input_bits": f"{bits:016x}",
                 "safe_enabled": bool(safe_enabled),
+                "core_sincos_sum_bits": f"{core_sum:016x}",
             }, sort_keys=True, allow_nan=False) + "\n")
-
-    core_summary = run_transform_oracle(
-        args.core_oracle, input_path, core_path
-    )
-    core_data = load_transcript(core_path, len(records), OUTPUT_MAGIC)
 
     device = subprocess.run(
         [args.device_stage, "--input", str(input_path),
@@ -648,6 +669,7 @@ def main():
         "matrix_transcript_sha256": corpus_metadata["matrix_transcript_sha256"],
         "matrix_oracle_summary": corpus_metadata["matrix_summary"],
         "input_sha256": hashlib.sha256(input_data).hexdigest(),
+        "core_input_sha256": hashlib.sha256(core_input_data).hexdigest(),
         "core_transcript_sha256": hashlib.sha256(core_data).hexdigest(),
         "openlibm_library_sha256": hashlib.sha256(
             Path(args.openlibm_library).read_bytes()

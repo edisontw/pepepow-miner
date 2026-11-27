@@ -25,8 +25,8 @@ CTest was run with `PEPEPOW_CUDA_REQUIRE_DEVICE=1`, so an unavailable-device res
 
 | Configuration | Build | CTest |
 | --- | --- | --- |
-| Debug | Passed | 6/6 passed, 3.54 s |
-| Release | Passed | 6/6 passed, 3.33 s |
+| Debug | Passed | 6/6 passed, 3.48 s |
+| Release | Passed | 6/6 passed, 3.20 s |
 
 The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matrix stage, this transform diagnostic, device-probe JSON contract, and no-device skip policy. This establishes that the harness and diagnostic binaries ran successfully; it does not turn numeric mismatches into passes.
 
@@ -40,6 +40,8 @@ The six tests cover the CUDA BLAKE3 stage, pinned-Core matrix oracle, CUDA matri
 - Direct `sin(value)`: 4,214 mismatches, at most 1 ULP; direct `cos(value)`: 4,872 mismatches, at most 1 ULP.
 - Direct `sin(value) + cos(value)`: 4,296 mismatches, maximum absolute difference `2.220446049250313e-16`. Its maximum ULP count is 8,192 near cancellation around zero.
 - Both pinned OpenLibm `sincos` and CUDA `sincos` produced bitwise-identical sine, cosine, sum, and `exp(sin + cos)` outputs to their respective separate `sin`/`cos` paths for all 29,224 inputs. Against paired Core/OpenLibm results, CUDA had 4,214 sine mismatches, 4,872 cosine mismatches, 4,296 sum mismatches, and 5,605 `exp(sin + cos)` mismatches (up to 2 ULP). The combined APIs did not resolve bitwise parity.
+- A controlled `exp` comparison passed the exact same 64-bit OpenLibm `sincos` sum to CPU and CUDA. CUDA `exp` differed in 2,433/29,224 cases, at most 1 ULP, with maximum absolute error `8.881784197001252e-16`; this isolates an `exp` mismatch independent of trigonometric input differences.
+- The first controlled `exp` mismatch is matrix row 0, column 6 for original input bits `43129660f32cd3f0`. Both implementations receive sum bits `3ff2fa83b829b9ec`; pinned OpenLibm returns `400a32257b456036` and CUDA returns `400a32257b456037` (1 ULP).
 - Direct intermediate sine: 4,214 mismatches, at most 1 ULP; `fabs(value) + 1` and its square root matched for finite inputs.
 - `medium_complex_nonlinear`: 5,605 bitwise mismatches; maximum finite difference 2 ULP.
 - `intermediate_complex_nonlinear`: 4,214 bitwise mismatches; maximum finite difference 3 ULP.
@@ -69,12 +71,13 @@ The observed finite differences are small but still fail the required bitwise co
 - OpenLibm archive SHA-256: `9fb7b4caf1deb2136314508c3116adafd8a192a67d0ca4a95e22744fa0ca5f96`. This was a prebuilt local archive from the earlier validated Windows build, not rebuilt during this diagnostic run.
 - The archive's earlier UCRT64 build flags are recorded in `D:\Dev\pepepow-miner-validation\20261124-windows11\openlibm-flags-release.txt`; they include `-ffp-contract=off`, `-fno-fast-math`, `-fno-rounding-math`, `-fno-math-errno`, `-fno-builtin`, `-m64`, `-msse2`, and `-mfpmath=sse`. The repository's tracked Windows pure-C OpenLibm portability patch SHA-256 is `f780e659c0a94a8a28a942553c2b0bc7da8c4119b2a897842c361ce97f19c5b2`.
 - Debug and Release reports and transcripts are retained locally at `D:\Dev\pepepow-cuda-transform-evidence-20261127\debug` and `D:\Dev\pepepow-cuda-transform-evidence-20261127\release`.
-- Full Debug/Release build and physical-device CTest logs are retained as `build-debug-openlibm-sincos.log`, `build-release-openlibm-sincos.log`, `ctest-debug-openlibm-sincos.log`, and `ctest-release-openlibm-sincos.log` in `D:\Dev\pepepow-cuda-transform-evidence-20261127`.
-- The Debug and Release report SHA-256 is `2491999610e318fe18a0ab4c7107ed034fbde016efb4eae91fdd05a37b2ea685`.
-- Pinned-Core/OpenLibm CPU transcript SHA-256: `d4972e19ef6b832ff3708a564e00614ed9e0e69f02069affffd25a86c2ecfb42`.
-- CUDA transcript SHA-256: `39190401076b457c60998a136b144bcd4f2fdfe178b3defcadb288df3f675fa2`.
-- Input binary SHA-256: `fbdbc09d8215338a0acd48acbc492d4c289a319400ea66281246a40ecd250013`.
-- Input catalog SHA-256: `d1de16c97b8091905618e10610c02905f415d4710bc25950f116ab9964e8855b`.
+- Full Debug/Release build and physical-device CTest logs are retained as `build-debug-exp-controlled.log`, `build-release-exp-controlled.log`, `ctest-debug-exp-controlled.log`, and `ctest-release-exp-controlled.log` in `D:\Dev\pepepow-cuda-transform-evidence-20261127`.
+- The Debug and Release report SHA-256 is `f248c17db7c44f8d01b45b307e8b61dc495530164adda4840bfffb9d0cda117b`.
+- Pinned-Core/OpenLibm CPU transcript SHA-256: `103c8ef08e5b004d0ae35edf6d99fa3e8bc60f1f9fdc4072eba64539b9f31257`.
+- CUDA transcript SHA-256: `656ea08e4863a9219c79deccaf16ccc7dd8d2af0a4ce1b8386ffd764eb75f2f8`.
+- CPU-oracle input binary SHA-256: `fbdbc09d8215338a0acd48acbc492d4c289a319400ea66281246a40ecd250013`.
+- CUDA input binary, including the reference `exp` operand, SHA-256: `cae879e50f03d7e983a87c9ba2ae7e0c95097ba9752699c6117274befc76c695`.
+- Input catalog SHA-256: `4fc1259d8a48dc4fb7ff0ed64c4485e84f29dabbf50cbc22f1f41f4f3f89cde7`.
 - Matrix transcript SHA-256 for the 32-seed matrix corpus: `cc127d05b1fddb65b4b5181943c6906bed0a448407d8853bde0d91ed2826dfff`.
 
 These are short diagnostic runs. They did not connect to a mining pool, mine, submit shares, run a long GPU load, alter hardware settings, or establish a usable GPU miner.

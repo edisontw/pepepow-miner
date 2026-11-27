@@ -12,19 +12,20 @@
 namespace {
 
 constexpr std::uint32_t kMaximumInputs = 32768;
-constexpr std::size_t kInputRecordBytes = 9;
-constexpr std::size_t kOutputRecordBytes = 165;
+constexpr std::size_t kInputRecordBytes = 17;
+constexpr std::size_t kOutputRecordBytes = 173;
 constexpr std::size_t kMaximumSafeIterations = 512;
 constexpr char kInputMagic[8] = {'P', 'P', 'W', 'T', 'R', 'I', 'N', '1'};
 constexpr char kOutputMagic[8] = {'P', 'P', 'W', 'T', 'R', 'O', '1', '\0'};
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kEpsilon = 1e-9;
 constexpr double kComplexTransformMultiplier = 0.000001;
-static_assert(kOutputRecordBytes == 3U * 8U + 4U + 6U * 8U + 1U + 11U * 8U,
+static_assert(kOutputRecordBytes == 3U * 8U + 4U + 6U * 8U + 1U + 12U * 8U,
               "serialized transform record size changed");
 
 struct InputRecord {
   std::uint64_t bits;
+  std::uint64_t core_sincos_sum_bits;
   std::uint32_t safe_enabled;
 };
 
@@ -51,6 +52,7 @@ struct OutputRecord {
   std::uint64_t sincos_cosine_bits;
   std::uint64_t sincos_sum_bits;
   std::uint64_t sincos_medium_bits;
+  std::uint64_t exp_core_sincos_sum_bits;
 };
 
 static_assert(offsetof(OutputRecord, medium_bits) == 32,
@@ -197,6 +199,9 @@ __global__ void evaluateTransforms(const InputRecord *inputs,
   sincos(value, &sincos_sine, &sincos_cosine);
   const double sincos_sum = sincos_sine + sincos_cosine;
   const double sincos_medium = exp(sincos_sum);
+  const double core_sincos_sum = __longlong_as_double(
+      static_cast<long long>(input.core_sincos_sum_bits));
+  const double exp_core_sincos_sum = exp(core_sincos_sum);
 
   OutputRecord result{};
   result.input_bits = input.bits;
@@ -221,6 +226,7 @@ __global__ void evaluateTransforms(const InputRecord *inputs,
   result.sincos_cosine_bits = binary64Bits(sincos_cosine);
   result.sincos_sum_bits = binary64Bits(sincos_sum);
   result.sincos_medium_bits = binary64Bits(sincos_medium);
+  result.exp_core_sincos_sum_bits = binary64Bits(exp_core_sincos_sum);
   outputs[index] = result;
 }
 
@@ -270,12 +276,12 @@ bool readInputCorpus(const std::string &path, std::vector<InputRecord> &inputs) 
     if (!input.read(reinterpret_cast<char *>(record), sizeof(record))) {
       return false;
     }
-    if (record[8] > 1) return false;
+    if (record[16] > 1) return false;
     const std::uint64_t bits = readLittleEndian64(record);
     double value = 0.0;
     std::memcpy(&value, &bits, sizeof(value));
-    if (record[8] != 0 && !std::isfinite(value)) return false;
-    inputs[index] = {bits, record[8]};
+    if (record[16] != 0 && !std::isfinite(value)) return false;
+    inputs[index] = {bits, readLittleEndian64(record + 8), record[16]};
   }
   return input.peek() == std::ifstream::traits_type::eof();
 }
@@ -428,6 +434,7 @@ bool writeTranscript(const std::string &path,
     writeLittleEndian64(output, record.sincos_cosine_bits);
     writeLittleEndian64(output, record.sincos_sum_bits);
     writeLittleEndian64(output, record.sincos_medium_bits);
+    writeLittleEndian64(output, record.exp_core_sincos_sum_bits);
   }
   return output.good();
 }

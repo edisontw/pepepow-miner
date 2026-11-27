@@ -259,8 +259,10 @@ bounded launch, and CTest has a 180-second timeout.
 The report preserves the Core and CUDA binary64 bit patterns for every
 mismatch and records absolute error, relative error, ULP difference, branch
 selection, NaN/Infinity classification, and paired-versus-separate `sincos`
-path comparisons. Full binary transcripts and the input catalog are saved
-beside the report. The test does not accept numerical
+path comparisons. For the `exp` check it passes the exact OpenLibm sum bits as
+a separate CUDA input, isolating device `exp` from trig differences. Full
+binary transcripts and the input catalog are saved beside the report. The
+test does not accept numerical
 mismatches using an epsilon: it reports them as diagnostics, and bitwise
 transform parity remains false until every compared output matches. A
 no-GPU CI job may skip only recognized no-device, driver, or initialization

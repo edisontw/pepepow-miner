@@ -21,7 +21,7 @@ enum {
   kInputHeaderBytes = 12,
   kInputRecordBytes = 9,
   kOutputHeaderBytes = 12,
-  kOutputRecordBytes = 165,
+  kOutputRecordBytes = 173,
   kMaximumInputs = 32768
 };
 
@@ -210,6 +210,7 @@ static int run(const char *input_path, const char *output_path) {
     WRITE_BITS(openlibm_sincos_sine);
     WRITE_BITS(openlibm_sincos_cosine);
     WRITE_BITS(openlibm_sincos_sum);
+    WRITE_BITS(openlibm_sincos_medium);
     WRITE_BITS(openlibm_sincos_medium);
 #undef WRITE_BITS
     if (offset != sizeof(record) ||
