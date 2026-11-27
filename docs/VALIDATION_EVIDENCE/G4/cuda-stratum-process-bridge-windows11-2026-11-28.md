@@ -80,8 +80,8 @@ cmd.exe /c '"D:\Dev\vs2022-build-tools\Common7\Tools\VsDevCmd.bat" -arch=x64 -ho
 - POSIX cleanup now keeps the process-group leader unreaped until descendants
   are terminated. A Linux-only test spawns a same-group child and checks that it
   is no longer running after search cleanup. This Windows local run cannot
-  execute that Linux-only case; it was added to the pinned-Core Linux workflow
-  and awaits exact-head CI.
+  execute that Linux-only case; exact-head Ubuntu CI run `46076030612` passed
+  `cuda_search_process_contract` (`0.52 s`) and the selected Linux suite `3/3`.
 - An expiring parent deadline also caused cooperative child cancellation and
   returned timeout without a candidate.
 - Per-invocation temporary result, stderr, and cancel files were removed after
