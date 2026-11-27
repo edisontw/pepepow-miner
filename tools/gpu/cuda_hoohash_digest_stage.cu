@@ -2,6 +2,28 @@
 
 #include "cuda_hoohash_fp64_diagnostic.cuh"
 
+#if defined(PEPEPOW_CUDA_BOUNDED_SEARCH_ENGINE)
+#define NOMINMAX
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#else
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#endif
+#include <algorithm>
+#include <array>
+#include <cerrno>
+#include <chrono>
+#include <csignal>
+#include <cstdlib>
+#include <filesystem>
+#include <thread>
+#include <limits>
+#include "pepepow/uint256_target.h"
+#endif
 #include <charconv>
 #include <cmath>
 #include <cstdint>
@@ -15,7 +37,7 @@
 
 namespace {
 
-constexpr std::uint32_t kMaximumBatch = 10000;
+[[maybe_unused]] constexpr std::uint32_t kMaximumBatch = 10000;
 constexpr char kOutputMagic[8] = {'P', 'P', 'W', 'D', 'I', 'G', '1', '\0'};
 
 __device__ __constant__ std::uint32_t kBlake3Iv[8] = {
@@ -272,6 +294,36 @@ __global__ void calculateDigests(const std::uint8_t *first_passes,
   }
 }
 
+#if defined(PEPEPOW_CUDA_BOUNDED_SEARCH_ENGINE)
+__global__ void collectTargetCandidates(const std::uint8_t *digests,
+                                        std::uint8_t *target,
+                                        std::uint32_t nonce_start,
+                                        std::uint32_t count,
+                                        std::uint32_t *candidate_count,
+                                        std::uint32_t *candidate_nonces,
+                                        std::uint8_t *candidate_digests) {
+  const std::uint32_t index = blockIdx.x * blockDim.x + threadIdx.x;
+  if (index >= count) return;
+  const std::uint8_t *digest = digests + static_cast<std::size_t>(index) * 32U;
+  bool meets_target = true;
+  // Core's uint256 target helpers interpret the hash and target as
+  // little-endian integers, comparing the most-significant byte first.
+  for (int byte = 31; byte >= 0; --byte) {
+    if (digest[byte] < target[byte]) break;
+    if (digest[byte] > target[byte]) {
+      meets_target = false;
+      break;
+    }
+  }
+  if (!meets_target) return;
+
+  const std::uint32_t slot = atomicAdd(candidate_count, 1U);
+  candidate_nonces[slot] = nonce_start + index;
+  std::uint8_t *output = candidate_digests + static_cast<std::size_t>(slot) * 32U;
+  for (unsigned int byte = 0; byte < 32U; ++byte) output[byte] = digest[byte];
+}
+#endif
+
 struct KernelResources {
   int threads_per_block = 0;
   int grid_blocks = 0;
@@ -456,8 +508,8 @@ bool writeTranscript(const std::string &path, std::uint32_t count,
   return output.good();
 }
 
-int run(const std::uint8_t header[80], std::uint32_t nonce_start,
-        std::uint32_t count, const std::string &output_path) {
+[[maybe_unused]] int run(const std::uint8_t header[80], std::uint32_t nonce_start,
+                         std::uint32_t count, const std::string &output_path) {
   int device_count = 0;
   cudaError_t error = cudaGetDeviceCount(&device_count);
   if (error != cudaSuccess) {
@@ -682,9 +734,772 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
   return 0;
 }
 
+#if defined(PEPEPOW_CUDA_BOUNDED_SEARCH_ENGINE)
+constexpr std::uint32_t kMaximumSearchBatch = 256U;
+constexpr std::uint64_t kNonceSpaceSize = std::uint64_t{1} << 32U;
+constexpr std::uint32_t kMaximumSearchTimeoutMs = 60000U;
+volatile std::sig_atomic_t g_search_cancel_requested = 0;
+std::string g_search_cancel_file;
+
+void requestSearchCancellation(int) { g_search_cancel_requested = 1; }
+
+bool searchCancellationRequested() {
+  if (g_search_cancel_requested != 0) return true;
+  if (g_search_cancel_file.empty()) return false;
+  std::error_code error;
+  const bool exists = std::filesystem::exists(g_search_cancel_file, error);
+  return error || exists;
+}
+
+const char *searchCancellationReason() {
+  return g_search_cancel_requested != 0 ? "signal" : "cancel_file";
+}
+
+std::uint32_t readLittleEndian32Host(const std::uint8_t *data) {
+  return static_cast<std::uint32_t>(data[0]) |
+         (static_cast<std::uint32_t>(data[1]) << 8U) |
+         (static_cast<std::uint32_t>(data[2]) << 16U) |
+         (static_cast<std::uint32_t>(data[3]) << 24U);
+}
+
+bool decodeTarget(std::string_view text, std::uint8_t output[32]) {
+  if (text.size() != 64U) return false;
+  auto nibble = [](char value) -> int {
+    if (value >= '0' && value <= '9') return value - '0';
+    if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+    if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+    return -1;
+  };
+  for (std::size_t index = 0; index < 32U; ++index) {
+    const int high = nibble(text[index * 2U]);
+    const int low = nibble(text[index * 2U + 1U]);
+    if (high < 0 || low < 0) return false;
+    output[index] = static_cast<std::uint8_t>((high << 4) | low);
+  }
+  return true;
+}
+
+bool parseUint64(std::string_view text, std::uint64_t &value) {
+  if (text.empty()) return false;
+  const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+  return result.ec == std::errc{} && result.ptr == text.data() + text.size();
+}
+
+std::string encodeHex(const std::uint8_t *data, std::size_t size) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string output(size * 2U, '0');
+  for (std::size_t index = 0; index < size; ++index) {
+    output[index * 2U] = digits[data[index] >> 4U];
+    output[index * 2U + 1U] = digits[data[index] & 0x0fU];
+  }
+  return output;
+}
+
+enum class SearchError {
+  no_device,
+  driver_unavailable,
+  initialization_failed,
+  cuda_failure,
+  verifier_unavailable,
+  gpu_digest_mismatch,
+  cpu_target_reject,
+  candidate_contract_failure,
+  invalid_arguments,
+};
+
+const char *searchErrorName(SearchError error) {
+  switch (error) {
+    case SearchError::no_device: return "no_device";
+    case SearchError::driver_unavailable: return "driver_unavailable";
+    case SearchError::initialization_failed: return "initialization_failed";
+    case SearchError::cuda_failure: return "cuda_failure";
+    case SearchError::verifier_unavailable: return "verifier_unavailable";
+    case SearchError::gpu_digest_mismatch: return "gpu_digest_mismatch";
+    case SearchError::cpu_target_reject: return "cpu_target_reject";
+    case SearchError::candidate_contract_failure: return "candidate_contract_failure";
+    case SearchError::invalid_arguments: return "invalid_arguments";
+  }
+  return "cuda_failure";
+}
+
+int searchErrorExitCode(SearchError error) {
+  switch (error) {
+    case SearchError::no_device: return 2;
+    case SearchError::driver_unavailable: return 3;
+    case SearchError::initialization_failed: return 4;
+    case SearchError::cuda_failure: return 5;
+    case SearchError::verifier_unavailable: return 6;
+    case SearchError::gpu_digest_mismatch: return 7;
+    case SearchError::cpu_target_reject: return 8;
+    case SearchError::candidate_contract_failure: return 9;
+    case SearchError::invalid_arguments: return 64;
+  }
+  return 5;
+}
+
+SearchError classifySearchCudaError(cudaError_t error) {
+  switch (error) {
+    case cudaErrorNoDevice: return SearchError::no_device;
+    case cudaErrorInsufficientDriver: return SearchError::driver_unavailable;
+    case cudaErrorInitializationError: return SearchError::initialization_failed;
+    default: return SearchError::cuda_failure;
+  }
+}
+
+void emitSearchError(SearchError code, cudaError_t cuda_error,
+                     std::uint64_t nonce_start, std::uint64_t nonce_count,
+                     std::uint64_t processed_count,
+                     std::uint32_t failed_nonce = 0U,
+                     std::string_view gpu_digest = {},
+                     std::string_view cpu_digest = {}) {
+  std::cout << "{\"schema_version\":1,\"status\":\"error\","
+            << "\"engine\":\"cuda_hoohash_v110_bounded_search\","
+            << "\"nonce_start\":" << nonce_start
+            << ",\"nonce_count\":" << nonce_count
+            << ",\"processed_count\":" << processed_count
+            << ",\"error\":{\"code\":\"" << searchErrorName(code)
+            << "\",\"cuda_error\":\"" << cudaErrorName(cuda_error)
+            << "\",\"exit_code\":" << searchErrorExitCode(code);
+  if (code == SearchError::gpu_digest_mismatch ||
+      code == SearchError::cpu_target_reject) {
+    std::cout << ",\"nonce\":" << failed_nonce
+              << ",\"gpu_digest_hex\":\"" << gpu_digest
+              << "\",\"cpu_digest_hex\":\"" << cpu_digest << '"';
+  }
+  std::cout << "}}\n";
+}
+
+struct SearchDeviceBuffers {
+  std::uint8_t *header = nullptr;
+  std::uint8_t *target = nullptr;
+  std::uint8_t *first_passes = nullptr;
+  std::uint8_t *matrix_seed = nullptr;
+  double *matrix = nullptr;
+  std::uint8_t *digests = nullptr;
+  std::uint32_t *candidate_count = nullptr;
+  std::uint32_t *candidate_nonces = nullptr;
+  std::uint8_t *candidate_digests = nullptr;
+
+  cudaError_t allocate(std::uint32_t batch_capacity) {
+    const std::size_t digest_bytes = static_cast<std::size_t>(batch_capacity) * 32U;
+    cudaError_t error = cudaMalloc(reinterpret_cast<void **>(&header), 80U);
+    if (error == cudaSuccess) error = cudaMalloc(reinterpret_cast<void **>(&target), 32U);
+    if (error == cudaSuccess) {
+      error = cudaMalloc(reinterpret_cast<void **>(&first_passes), digest_bytes);
+    }
+    if (error == cudaSuccess) {
+      error = cudaMalloc(reinterpret_cast<void **>(&matrix_seed), 32U);
+    }
+    if (error == cudaSuccess) {
+      error = cudaMalloc(reinterpret_cast<void **>(&matrix), 4096U * sizeof(double));
+    }
+    if (error == cudaSuccess) error = cudaMalloc(reinterpret_cast<void **>(&digests), digest_bytes);
+    if (error == cudaSuccess) {
+      error = cudaMalloc(reinterpret_cast<void **>(&candidate_count), sizeof(std::uint32_t));
+    }
+    if (error == cudaSuccess) {
+      error = cudaMalloc(reinterpret_cast<void **>(&candidate_nonces),
+                         static_cast<std::size_t>(batch_capacity) * sizeof(std::uint32_t));
+    }
+    if (error == cudaSuccess) {
+      error = cudaMalloc(reinterpret_cast<void **>(&candidate_digests), digest_bytes);
+    }
+    return error;
+  }
+
+  cudaError_t release() {
+    cudaError_t first_error = cudaSuccess;
+    auto free_buffer = [&first_error](auto *&buffer) {
+      if (buffer == nullptr) return;
+      const cudaError_t error = cudaFree(buffer);
+      if (first_error == cudaSuccess && error != cudaSuccess) first_error = error;
+      buffer = nullptr;
+    };
+    free_buffer(candidate_digests);
+    free_buffer(candidate_nonces);
+    free_buffer(candidate_count);
+    free_buffer(digests);
+    free_buffer(matrix);
+    free_buffer(matrix_seed);
+    free_buffer(first_passes);
+    free_buffer(target);
+    free_buffer(header);
+    return first_error;
+  }
+
+  ~SearchDeviceBuffers() { (void)release(); }
+};
+
+struct SearchCandidate {
+  std::uint32_t nonce = 0;
+  std::array<std::uint8_t, 32> digest{};
+};
+
+class TemporaryTranscript {
+ public:
+  TemporaryTranscript() {
+#ifdef _WIN32
+    char directory[MAX_PATH + 1U]{};
+    const DWORD length = GetTempPathA(static_cast<DWORD>(sizeof(directory)), directory);
+    if (length == 0U || length >= sizeof(directory)) return;
+    if (GetTempFileNameA(directory, "ppw", 0U, path_) == 0U) path_[0] = '\0';
+#else
+    char pattern[] = "/tmp/pepepow-cuda-search-XXXXXX";
+    const int descriptor = mkstemp(pattern);
+    if (descriptor < 0) return;
+    close(descriptor);
+    path_ = pattern;
+#endif
+  }
+
+  TemporaryTranscript(const TemporaryTranscript &) = delete;
+  TemporaryTranscript &operator=(const TemporaryTranscript &) = delete;
+
+  ~TemporaryTranscript() {
+#ifdef _WIN32
+    if (path_[0] != '\0') DeleteFileA(path_);
+#else
+    if (!path_.empty()) std::remove(path_.c_str());
+#endif
+  }
+
+  bool valid() const {
+#ifdef _WIN32
+    return path_[0] != '\0';
+#else
+    return !path_.empty();
+#endif
+  }
+
+  const char *path() const {
+#ifdef _WIN32
+    return path_;
+#else
+    return path_.c_str();
+#endif
+  }
+
+ private:
+#ifdef _WIN32
+  char path_[MAX_PATH + 1U]{};
+#else
+  std::string path_;
+#endif
+};
+
+std::string quoteWindowsArgument(std::string_view argument) {
+  std::string quoted("\"");
+  std::size_t backslashes = 0U;
+  for (const char character : argument) {
+    if (character == '\\') {
+      ++backslashes;
+      continue;
+    }
+    if (character == '"') {
+      quoted.append(backslashes * 2U + 1U, '\\');
+      quoted.push_back('"');
+      backslashes = 0U;
+      continue;
+    }
+    quoted.append(backslashes, '\\');
+    backslashes = 0U;
+    quoted.push_back(character);
+  }
+  quoted.append(backslashes * 2U, '\\');
+  quoted.push_back('"');
+  return quoted;
+}
+
+bool runCoreOracle(const std::string &oracle_path, const std::string &header_hex,
+                   std::uint32_t nonce_start, std::uint32_t nonce_count,
+                   const char *output_path) {
+  const std::string start_text = std::to_string(nonce_start);
+  const std::string count_text = std::to_string(nonce_count);
+#ifdef _WIN32
+  const std::vector<std::string> arguments = {
+      oracle_path, "--header-hex", header_hex, "--nonce-start", start_text,
+      "--nonce-count", count_text, "--output", output_path};
+  std::string command_line;
+  for (const auto &argument : arguments) {
+    if (!command_line.empty()) command_line.push_back(' ');
+    command_line.append(quoteWindowsArgument(argument));
+  }
+  HANDLE null_output = CreateFileA("NUL", GENERIC_WRITE,
+                                  FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                                  nullptr);
+  if (null_output == INVALID_HANDLE_VALUE) return false;
+  STARTUPINFOA startup{};
+  startup.cb = sizeof(startup);
+  startup.dwFlags = STARTF_USESTDHANDLES;
+  startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+  startup.hStdOutput = null_output;
+  startup.hStdError = null_output;
+  PROCESS_INFORMATION process{};
+  const BOOL created = CreateProcessA(
+      oracle_path.c_str(), command_line.data(), nullptr, nullptr, TRUE,
+      CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process);
+  CloseHandle(null_output);
+  if (!created) return false;
+  const auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::seconds(10);
+  DWORD wait_result = WAIT_TIMEOUT;
+  while (std::chrono::steady_clock::now() < deadline) {
+    wait_result = WaitForSingleObject(process.hProcess, 10U);
+    if (wait_result == WAIT_OBJECT_0 || wait_result == WAIT_FAILED) break;
+    if (searchCancellationRequested()) break;
+  }
+  if (wait_result != WAIT_OBJECT_0) {
+    TerminateProcess(process.hProcess, 124U);
+    (void)WaitForSingleObject(process.hProcess, 1000U);
+  }
+  DWORD exit_code = 1U;
+  const BOOL got_exit_code = GetExitCodeProcess(process.hProcess, &exit_code);
+  CloseHandle(process.hThread);
+  CloseHandle(process.hProcess);
+  return wait_result == WAIT_OBJECT_0 && got_exit_code != FALSE && exit_code == 0U;
+#else
+  const std::vector<std::string> arguments = {
+      oracle_path, "--header-hex", header_hex, "--nonce-start", start_text,
+      "--nonce-count", count_text, "--output", output_path};
+  std::vector<char *> argv;
+  argv.reserve(arguments.size() + 1U);
+  for (const auto &argument : arguments) {
+    argv.push_back(const_cast<char *>(argument.c_str()));
+  }
+  argv.push_back(nullptr);
+  const pid_t child = fork();
+  if (child < 0) return false;
+  if (child == 0) {
+    const int null_output = open("/dev/null", O_WRONLY);
+    if (null_output >= 0) {
+      (void)dup2(null_output, STDOUT_FILENO);
+      (void)dup2(null_output, STDERR_FILENO);
+      if (null_output > STDERR_FILENO) close(null_output);
+    }
+    execv(oracle_path.c_str(), argv.data());
+    _exit(127);
+  }
+  const auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::seconds(10);
+  int status = 0;
+  while (std::chrono::steady_clock::now() < deadline) {
+    const pid_t waited = waitpid(child, &status, WNOHANG);
+    if (waited == child) return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+    if (waited < 0 && errno != EINTR) return false;
+    if (searchCancellationRequested()) break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  (void)kill(child, SIGKILL);
+  (void)waitpid(child, &status, 0);
+  return false;
+#endif
+}
+
+enum class RecheckStatus {
+  ok,
+  oracle_unavailable,
+  transcript_invalid,
+  digest_mismatch,
+  target_reject,
+};
+
+class CoreOracleRechecker {
+ public:
+  explicit CoreOracleRechecker(std::string path) : path_(std::move(path)) {}
+
+  bool available() const {
+    std::error_code error;
+    return std::filesystem::is_regular_file(path_, error) && !error;
+  }
+
+  RecheckStatus recheck(const std::uint8_t header[80],
+                        const std::uint8_t target[32],
+                        const std::vector<SearchCandidate> &candidates,
+                        std::uint32_t &failed_nonce,
+                        std::string &gpu_digest_hex,
+                        std::string &cpu_digest_hex) const {
+    if (candidates.empty()) return RecheckStatus::ok;
+    const auto bounds = std::minmax_element(
+        candidates.begin(), candidates.end(),
+        [](const SearchCandidate &lhs, const SearchCandidate &rhs) {
+          return lhs.nonce < rhs.nonce;
+        });
+    const std::uint32_t first_nonce = bounds.first->nonce;
+    const std::uint32_t last_nonce = bounds.second->nonce;
+    const std::uint32_t count = last_nonce - first_nonce + 1U;
+    TemporaryTranscript transcript;
+    if (!transcript.valid()) return RecheckStatus::oracle_unavailable;
+    if (!runCoreOracle(path_, encodeHex(header, 80U), first_nonce, count,
+                       transcript.path())) {
+      return RecheckStatus::oracle_unavailable;
+    }
+
+    std::ifstream input(transcript.path(), std::ios::binary);
+    char magic[8]{};
+    std::uint8_t count_bytes[4]{};
+    input.read(magic, sizeof(magic));
+    input.read(reinterpret_cast<char *>(count_bytes), sizeof(count_bytes));
+    const std::uint32_t transcript_count = readLittleEndian32Host(count_bytes);
+    if (!input || std::memcmp(magic, kOutputMagic, sizeof(kOutputMagic)) != 0 ||
+        transcript_count != count) {
+      return RecheckStatus::transcript_invalid;
+    }
+    std::vector<std::uint8_t> digests(static_cast<std::size_t>(count) * 32U);
+    input.read(reinterpret_cast<char *>(digests.data()),
+               static_cast<std::streamsize>(digests.size()));
+    if (!input || input.peek() != std::char_traits<char>::eof()) {
+      return RecheckStatus::transcript_invalid;
+    }
+
+    for (const auto &candidate : candidates) {
+      const std::size_t offset =
+          static_cast<std::size_t>(candidate.nonce - first_nonce) * 32U;
+      const std::uint8_t *cpu_digest = digests.data() + offset;
+      if (std::memcmp(cpu_digest, candidate.digest.data(), 32U) != 0) {
+        failed_nonce = candidate.nonce;
+        gpu_digest_hex = encodeHex(candidate.digest.data(), 32U);
+        cpu_digest_hex = encodeHex(cpu_digest, 32U);
+        return RecheckStatus::digest_mismatch;
+      }
+      if (!pepepow_uint256_meets_target_le(cpu_digest, target)) {
+        failed_nonce = candidate.nonce;
+        gpu_digest_hex = encodeHex(candidate.digest.data(), 32U);
+        cpu_digest_hex = encodeHex(cpu_digest, 32U);
+        return RecheckStatus::target_reject;
+      }
+    }
+    return RecheckStatus::ok;
+  }
+
+ private:
+  std::string path_;
+};
+
+void emitSearchSuccess(const char *search_status, const char *stop_reason,
+                       std::uint32_t nonce_start, std::uint64_t nonce_count,
+                       std::uint64_t processed_count, std::uint32_t batch_size,
+                       std::uint64_t batch_count,
+                       const std::vector<SearchCandidate> &candidates,
+                       const cudaDeviceProp &properties, int driver_version,
+                       int runtime_version) {
+  std::cout << "{\"schema_version\":1,\"status\":\""
+            << (std::string_view(search_status) == "cancelled" ? "cancelled" : "ok")
+            << "\",\"engine\":\"cuda_hoohash_v110_bounded_search\","
+            << "\"search_status\":\"" << search_status << '"'
+            << ",\"stop_reason\":";
+  if (stop_reason == nullptr) std::cout << "null";
+  else std::cout << '"' << stop_reason << '"';
+  std::cout << ",\"nonce_start\":" << nonce_start
+            << ",\"nonce_count\":" << nonce_count
+            << ",\"processed_count\":" << processed_count
+            << ",\"next_nonce\":" << (static_cast<std::uint64_t>(nonce_start) + processed_count)
+            << ",\"batch_size\":" << batch_size
+            << ",\"batch_count\":" << batch_count
+            << ",\"matrix_cache\":{\"builds\":1,\"reuses\":"
+            << (batch_count == 0U ? 0U : batch_count - 1U)
+            << ",\"key\":\"80-byte header with nonce bytes 76..79 zeroed\"}"
+            << ",\"target_encoding\":\"little_endian_uint256\""
+            << ",\"cpu_recheck\":\"pinned_core_full_digest_and_target\""
+            << ",\"candidates\":[";
+  for (std::size_t index = 0; index < candidates.size(); ++index) {
+    if (index != 0U) std::cout << ',';
+    std::cout << "{\"nonce\":" << candidates[index].nonce
+              << ",\"digest_hex\":\""
+              << encodeHex(candidates[index].digest.data(), 32U) << "\"}";
+  }
+  std::cout << "],\"device\":{\"index\":0,\"name\":\""
+            << jsonEscape(properties.name) << "\",\"compute_capability\":\""
+            << properties.major << '.' << properties.minor << "\"}"
+            << ",\"cuda_versions\":{\"driver_api\":" << driver_version
+            << ",\"runtime_api\":" << runtime_version
+            << ",\"toolkit_build\":\"" << PEPEPOW_CUDA_TOOLKIT_VERSION
+            << "\"},\"error\":null}\n";
+}
+
+int runBoundedSearch(const std::uint8_t header[80],
+                     const std::uint8_t target[32], std::uint32_t nonce_start,
+                     std::uint64_t nonce_count, std::uint32_t batch_size,
+                     std::uint32_t timeout_ms, const char *cpu_oracle_path,
+                     const char *cancel_file_path) {
+  CoreOracleRechecker verifier(cpu_oracle_path);
+  if (!verifier.available()) {
+    emitSearchError(SearchError::verifier_unavailable, cudaSuccess, nonce_start,
+                    nonce_count, 0U);
+    return searchErrorExitCode(SearchError::verifier_unavailable);
+  }
+
+  std::signal(SIGINT, requestSearchCancellation);
+  std::signal(SIGTERM, requestSearchCancellation);
+#ifdef SIGBREAK
+  std::signal(SIGBREAK, requestSearchCancellation);
+#endif
+  g_search_cancel_requested = 0;
+  g_search_cancel_file = cancel_file_path;
+
+  int device_count = 0;
+  cudaError_t error = cudaGetDeviceCount(&device_count);
+  if (error != cudaSuccess) {
+    const SearchError code = classifySearchCudaError(error);
+    emitSearchError(code, error, nonce_start, nonce_count, 0U);
+    return searchErrorExitCode(code);
+  }
+  if (device_count <= 0) {
+    emitSearchError(SearchError::no_device, cudaErrorNoDevice, nonce_start,
+                    nonce_count, 0U);
+    return searchErrorExitCode(SearchError::no_device);
+  }
+  error = cudaSetDevice(0);
+
+  SearchDeviceBuffers buffers;
+  if (error == cudaSuccess) error = buffers.allocate(batch_size);
+  if (error == cudaSuccess) error = cudaMemcpy(buffers.header, header, 80U,
+                                                cudaMemcpyHostToDevice);
+  if (error == cudaSuccess) error = cudaMemcpy(buffers.target, target, 32U,
+                                                cudaMemcpyHostToDevice);
+  if (error == cudaSuccess) {
+    // The zero-nonce header seed and its 32 KiB FP64 matrix are invariant for
+    // this immutable job. Build once, then reuse them across every bounded batch.
+    prepareHashInputs<<<1, 1>>>(buffers.header, nonce_start, 1U,
+                                buffers.first_passes, buffers.matrix_seed);
+    error = cudaGetLastError();
+  }
+  if (error == cudaSuccess) {
+    generateMatrix<<<1, 1>>>(buffers.matrix_seed, buffers.matrix);
+    error = cudaGetLastError();
+  }
+  if (error == cudaSuccess) error = cudaDeviceSynchronize();
+
+  const auto started = std::chrono::steady_clock::now();
+  const auto deadline = started + std::chrono::milliseconds(timeout_ms);
+  std::uint64_t processed_count = 0U;
+  std::uint64_t batch_count = 0U;
+  std::vector<SearchCandidate> verified_candidates;
+  const cudaDeviceProp properties = [&error]() {
+    cudaDeviceProp result{};
+    const cudaError_t property_error = cudaGetDeviceProperties(&result, 0);
+    if (error == cudaSuccess && property_error != cudaSuccess) error = property_error;
+    return result;
+  }();
+  int driver_version = 0;
+  int runtime_version = 0;
+  if (error == cudaSuccess) error = cudaDriverGetVersion(&driver_version);
+  if (error == cudaSuccess) error = cudaRuntimeGetVersion(&runtime_version);
+
+  const char *search_status = "exhausted";
+  const char *stop_reason = nullptr;
+  while (error == cudaSuccess && processed_count < nonce_count) {
+    if (searchCancellationRequested()) {
+      search_status = "cancelled";
+      stop_reason = searchCancellationReason();
+      break;
+    }
+    if (std::chrono::steady_clock::now() >= deadline) {
+      search_status = "cancelled";
+      stop_reason = "timeout";
+      break;
+    }
+
+    const std::uint32_t count = static_cast<std::uint32_t>(std::min<std::uint64_t>(
+        nonce_count - processed_count, batch_size));
+    const std::uint32_t batch_start = static_cast<std::uint32_t>(
+        static_cast<std::uint64_t>(nonce_start) + processed_count);
+    const unsigned int blocks = (count + 127U) / 128U;
+    prepareHashInputs<<<blocks, 128>>>(buffers.header, batch_start, count,
+                                       buffers.first_passes, buffers.matrix_seed);
+    error = cudaGetLastError();
+    if (error == cudaSuccess) {
+      calculateDigests<<<blocks, 128>>>(buffers.first_passes, buffers.matrix,
+                                        batch_start, count, buffers.digests);
+      error = cudaGetLastError();
+    }
+    if (error == cudaSuccess) error = cudaMemset(buffers.candidate_count, 0,
+                                                  sizeof(std::uint32_t));
+    if (error == cudaSuccess) {
+      collectTargetCandidates<<<blocks, 128>>>(
+          buffers.digests, buffers.target, batch_start, count,
+          buffers.candidate_count, buffers.candidate_nonces,
+          buffers.candidate_digests);
+      error = cudaGetLastError();
+    }
+
+    std::uint32_t candidate_count = 0U;
+    if (error == cudaSuccess) {
+      error = cudaMemcpy(&candidate_count, buffers.candidate_count,
+                         sizeof(candidate_count), cudaMemcpyDeviceToHost);
+    }
+    if (error == cudaSuccess && candidate_count > count) {
+      error = cudaErrorUnknown;
+    }
+    std::vector<std::uint32_t> candidate_nonces(candidate_count);
+    std::vector<std::uint8_t> candidate_digests(
+        static_cast<std::size_t>(candidate_count) * 32U);
+    if (error == cudaSuccess && candidate_count != 0U) {
+      error = cudaMemcpy(candidate_nonces.data(), buffers.candidate_nonces,
+                         candidate_nonces.size() * sizeof(std::uint32_t),
+                         cudaMemcpyDeviceToHost);
+    }
+    if (error == cudaSuccess && candidate_count != 0U) {
+      error = cudaMemcpy(candidate_digests.data(), buffers.candidate_digests,
+                         candidate_digests.size(), cudaMemcpyDeviceToHost);
+    }
+    if (error != cudaSuccess) break;
+
+    processed_count += count;
+    ++batch_count;
+    if (searchCancellationRequested()) {
+      search_status = "cancelled";
+      stop_reason = searchCancellationReason();
+      break;
+    }
+    if (std::chrono::steady_clock::now() >= deadline) {
+      search_status = "cancelled";
+      stop_reason = "timeout";
+      break;
+    }
+
+    std::vector<SearchCandidate> batch_candidates;
+    batch_candidates.reserve(candidate_count);
+    for (std::uint32_t index = 0; index < candidate_count; ++index) {
+      SearchCandidate candidate{};
+      candidate.nonce = candidate_nonces[index];
+      std::copy_n(candidate_digests.data() + static_cast<std::size_t>(index) * 32U,
+                  32U, candidate.digest.begin());
+      batch_candidates.push_back(candidate);
+    }
+    std::sort(batch_candidates.begin(), batch_candidates.end(),
+              [](const SearchCandidate &lhs, const SearchCandidate &rhs) {
+                return lhs.nonce < rhs.nonce;
+              });
+    bool candidate_contract_failure = false;
+    for (std::size_t index = 0; index < batch_candidates.size(); ++index) {
+      if (searchCancellationRequested()) {
+        search_status = "cancelled";
+        stop_reason = searchCancellationReason();
+        break;
+      }
+      if (std::chrono::steady_clock::now() >= deadline) {
+        search_status = "cancelled";
+        stop_reason = "timeout";
+        break;
+      }
+      const auto &candidate = batch_candidates[index];
+      if (candidate.nonce < batch_start ||
+          static_cast<std::uint64_t>(candidate.nonce) >=
+              static_cast<std::uint64_t>(batch_start) + count ||
+          (index != 0U && batch_candidates[index - 1U].nonce == candidate.nonce)) {
+        candidate_contract_failure = true;
+        break;
+      }
+    }
+    if (error != cudaSuccess) break;
+    if (candidate_contract_failure) {
+      (void)buffers.release();
+      emitSearchError(SearchError::candidate_contract_failure, cudaSuccess,
+                      nonce_start, nonce_count, processed_count);
+      return searchErrorExitCode(SearchError::candidate_contract_failure);
+    }
+    if (searchCancellationRequested() || stop_reason != nullptr) {
+      verified_candidates.clear();
+      search_status = "cancelled";
+      if (searchCancellationRequested()) stop_reason = searchCancellationReason();
+      else if (stop_reason == nullptr) stop_reason = "timeout";
+      break;
+    }
+    if (!batch_candidates.empty()) {
+      std::uint32_t failed_nonce = 0U;
+      std::string gpu_digest_hex;
+      std::string cpu_digest_hex;
+      const RecheckStatus recheck = verifier.recheck(
+          header, target, batch_candidates, failed_nonce, gpu_digest_hex,
+          cpu_digest_hex);
+      if (recheck != RecheckStatus::ok) {
+        if (searchCancellationRequested()) {
+          search_status = "cancelled";
+          stop_reason = searchCancellationReason();
+          break;
+        }
+        if (std::chrono::steady_clock::now() >= deadline) {
+          search_status = "cancelled";
+          stop_reason = "timeout";
+          break;
+        }
+        SearchError code = SearchError::verifier_unavailable;
+        if (recheck == RecheckStatus::transcript_invalid) {
+          code = SearchError::candidate_contract_failure;
+        } else if (recheck == RecheckStatus::digest_mismatch) {
+          code = SearchError::gpu_digest_mismatch;
+        } else if (recheck == RecheckStatus::target_reject) {
+          code = SearchError::cpu_target_reject;
+        }
+        (void)buffers.release();
+        emitSearchError(code, cudaSuccess, nonce_start, nonce_count,
+                        processed_count, failed_nonce, gpu_digest_hex,
+                        cpu_digest_hex);
+        return searchErrorExitCode(code);
+      }
+      verified_candidates = std::move(batch_candidates);
+    }
+    if (!verified_candidates.empty()) {
+      search_status = "found";
+      break;
+    }
+  }
+
+  const cudaError_t release_error = buffers.release();
+  if (error == cudaSuccess && release_error != cudaSuccess) error = release_error;
+  if (error != cudaSuccess) {
+    const SearchError code = classifySearchCudaError(error);
+    emitSearchError(code, error, nonce_start, nonce_count, processed_count);
+    return searchErrorExitCode(code);
+  }
+  emitSearchSuccess(search_status, stop_reason, nonce_start, nonce_count,
+                    processed_count, batch_size, batch_count,
+                    verified_candidates, properties, driver_version,
+                    runtime_version);
+  return std::string_view(search_status) == "cancelled" ? 130 : 0;
+}
+#endif
+
 }  // namespace
 
 int main(int argc, char **argv) {
+#if defined(PEPEPOW_CUDA_BOUNDED_SEARCH_ENGINE)
+  std::uint8_t header[80]{};
+  std::uint8_t target[32]{};
+  std::uint32_t nonce_start = 0U;
+  std::uint32_t batch_size = 128U;
+  std::uint32_t timeout_ms = 30000U;
+  std::uint64_t nonce_count = 0U;
+  const char *cpu_oracle_path = nullptr;
+  const char *cancel_file_path = nullptr;
+  if (argc != 17 || std::string_view(argv[1]) != "--header-hex" ||
+      !decodeHeader(argv[2], header) ||
+      std::string_view(argv[3]) != "--nonce-start" ||
+      !parseUint32(argv[4], nonce_start) ||
+      std::string_view(argv[5]) != "--nonce-count" ||
+      !parseUint64(argv[6], nonce_count) || nonce_count == 0U ||
+      nonce_count > kNonceSpaceSize - nonce_start ||
+      readLittleEndian32Host(header + 76U) != nonce_start ||
+      std::string_view(argv[7]) != "--target-hex" ||
+      !decodeTarget(argv[8], target) ||
+      std::string_view(argv[9]) != "--batch-size" ||
+      !parseUint32(argv[10], batch_size) || batch_size == 0U ||
+      batch_size > kMaximumSearchBatch ||
+      std::string_view(argv[11]) != "--timeout-ms" ||
+      !parseUint32(argv[12], timeout_ms) || timeout_ms == 0U ||
+      timeout_ms > kMaximumSearchTimeoutMs ||
+      std::string_view(argv[13]) != "--cpu-oracle" || argv[14][0] == '\0' ||
+      std::string_view(argv[15]) != "--cancel-file" || argv[16][0] == '\0') {
+    emitSearchError(SearchError::invalid_arguments, cudaSuccess, nonce_start,
+                    nonce_count, 0U);
+    return searchErrorExitCode(SearchError::invalid_arguments);
+  }
+  cpu_oracle_path = argv[14];
+  cancel_file_path = argv[16];
+  return runBoundedSearch(header, target, nonce_start, nonce_count, batch_size,
+                          timeout_ms, cpu_oracle_path, cancel_file_path);
+#else
   std::uint8_t header[80]{};
   std::uint32_t nonce_start = 0;
   std::uint32_t count = 0;
@@ -701,4 +1516,5 @@ int main(int argc, char **argv) {
     return exitCode(ErrorCode::invalid_arguments);
   }
   return run(header, nonce_start, count, argv[8]);
+#endif
 }
