@@ -7,6 +7,8 @@ on:
       - "tools/gpu/**"
       - "tests/test_cuda_core_matrix_oracle.py"
       - "tests/test_cuda_matrix_stage.py"
+      - "tests/test_cuda_hoohash_digest.py"
+      - "tests/test_cuda_hoohash_transforms.py"
   push:
     branches: [main]
     paths:
@@ -14,6 +16,8 @@ on:
       - "tools/gpu/**"
       - "tests/test_cuda_core_matrix_oracle.py"
       - "tests/test_cuda_matrix_stage.py"
+      - "tests/test_cuda_hoohash_digest.py"
+      - "tests/test_cuda_hoohash_transforms.py"
   workflow_dispatch:
 
 concurrency:
@@ -119,7 +123,6 @@ jobs:
             -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
             -DPEPEPOW_OPENLIBM_SOURCE_DIR="$GITHUB_WORKSPACE/openlibm" \
             -DPEPEPOW_OPENLIBM_LIBRARY="$GITHUB_WORKSPACE/build/openlibm/libopenlibm.a" \
-            -DPEPEPOW_TRANSFORM_ORACLE_COMPILER="$(command -v gcc)" \
             -DPEPEPOW_CUDA_TEST_ARCHITECTURE=75
 
       - name: Build FP64 diagnostics, full-digest experiment, and CPU oracles

@@ -298,9 +298,12 @@ if(PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS)
       "Transform diagnostics require a clean pinned OpenLibm checkout (${_pepepow_openlibm_status_error}): ${_pepepow_openlibm_dirty}")
   endif()
 
-  set(_pepepow_transform_oracle_compiler
-    "${PEPEPOW_TRANSFORM_ORACLE_COMPILER}")
-  if(NOT _pepepow_transform_oracle_compiler)
+  if(PEPEPOW_TRANSFORM_ORACLE_COMPILER)
+    set(_pepepow_transform_oracle_compiler
+      "${PEPEPOW_TRANSFORM_ORACLE_COMPILER}")
+  else()
+    unset(_pepepow_transform_oracle_compiler CACHE)
+    unset(_pepepow_transform_oracle_compiler)
     find_program(_pepepow_transform_oracle_compiler NAMES gcc clang)
   endif()
   if(NOT _pepepow_transform_oracle_compiler)
