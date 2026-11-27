@@ -213,6 +213,13 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
     add_test(NAME stratum_endpoint_contract COMMAND test_stratum_endpoint)
 
     if(PEPEPOW_ENABLE_LIVE_POOL_MINER)
+      add_executable(test_cuda_search_engine_failure
+        tests/test_cuda_search_engine_failure.cpp)
+      if(MSVC)
+        target_compile_options(test_cuda_search_engine_failure PRIVATE /W4 /WX)
+      else()
+        target_compile_options(test_cuda_search_engine_failure PRIVATE -Wall -Wextra -Werror -pedantic)
+      endif()
       add_test(NAME live_pool_miner_loopback
         COMMAND "${Python3_EXECUTABLE}"
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_live_pool_miner_loopback.py"
@@ -221,7 +228,8 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
       add_test(NAME live_pool_miner_cuda_product_loopback
         COMMAND "${Python3_EXECUTABLE}"
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_live_pool_miner_loopback.py"
-                "$<TARGET_FILE:pepepow-live-miner>" --supports-cuda)
+                "$<TARGET_FILE:pepepow-live-miner>" --supports-cuda
+                --cuda-error-engine "$<TARGET_FILE:test_cuda_search_engine_failure>")
       set_tests_properties(live_pool_miner_cuda_product_loopback PROPERTIES TIMEOUT 30)
     endif()
   endif()

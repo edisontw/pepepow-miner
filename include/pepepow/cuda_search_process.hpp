@@ -395,7 +395,8 @@ inline std::string read_stderr_excerpt(const std::filesystem::path& path) {
   contents.resize(static_cast<std::size_t>(input.gcount()));
   for (auto& character : contents) {
     const auto byte = static_cast<unsigned char>(character);
-    if (byte < 0x20U || byte == 0x7fU) character = ' ';
+    if (byte < 0x20U) character = ' ';
+    else if (byte >= 0x7fU) character = '?';
   }
   if (size > maximum) contents += " [stderr truncated]";
   return contents;

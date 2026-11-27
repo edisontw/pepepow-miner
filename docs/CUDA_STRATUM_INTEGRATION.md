@@ -55,3 +55,13 @@ device evidence, GPU parity, a Stratum pool test, or G4 acceptance.
 
 Live CLI contract tests require both CUDA paths when `--device cuda` is
 selected and reject CUDA paths when the default CPU device is selected.
+
+If the CUDA search child exits unsuccessfully or returns an invalid result,
+the live miner emits a JSON `search_error` event with `device: "cuda"`,
+`code: "engine_failure"`, and a bounded, JSON-escaped diagnostic message.
+The same diagnostic is written to stderr for interactive use. The Windows and
+Linux loopback contract test injects a child process that exits with an error;
+it verifies the event parses, quotes and backslashes survive JSON decoding,
+the run fails, and no candidate or share submission is produced. This test
+uses only a local mock Stratum peer and does not initialize CUDA or contact a
+pool.

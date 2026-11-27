@@ -25,6 +25,8 @@ on:
       - 'tests/job_state/**'
       - 'tests/test_job_state.cpp'
       - 'tests/test_native_stratum_search.cpp'
+      - 'tests/test_live_pool_miner_loopback.py'
+      - 'tests/test_cuda_search_engine_failure.cpp'
       - 'tests/test_cpu_worker_pool.cpp'
       - 'tests/test_cpu_benchmark_accounting.cpp'
       - 'tests/test_cpu_benchmark_cli.py'
@@ -34,6 +36,7 @@ on:
       - 'tests/vectors/stratum/**'
       - 'tools/windows/Invoke-Windows10-11NativeAcceptance.ps1'
       - 'docs/WINDOWS10_11_PHYSICAL_ACCEPTANCE.md'
+      - 'docs/CUDA_STRATUM_INTEGRATION.md'
       - 'CMakeLists.txt'
   push:
     branches: [main]
@@ -60,6 +63,8 @@ on:
       - 'tests/job_state/**'
       - 'tests/test_job_state.cpp'
       - 'tests/test_native_stratum_search.cpp'
+      - 'tests/test_live_pool_miner_loopback.py'
+      - 'tests/test_cuda_search_engine_failure.cpp'
       - 'tests/test_cpu_worker_pool.cpp'
       - 'tests/test_cpu_benchmark_accounting.cpp'
       - 'tests/test_cpu_benchmark_cli.py'
@@ -69,6 +74,7 @@ on:
       - 'tests/vectors/stratum/**'
       - 'tools/windows/Invoke-Windows10-11NativeAcceptance.ps1'
       - 'docs/WINDOWS10_11_PHYSICAL_ACCEPTANCE.md'
+      - 'docs/CUDA_STRATUM_INTEGRATION.md'
       - 'CMakeLists.txt'
   workflow_dispatch:
 
@@ -437,6 +443,7 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS=-Wl,-Map=dependency-link.map \
             -DHARNESS_CONTRACT_TESTS_ONLY=OFF \
             -DPEPEPOW_NATIVE_STRATUM_SEARCH=ON \
+            -DPEPEPOW_ENABLE_LIVE_POOL_MINER=ON \
             -DPEPEPOW_CORE_SOURCE_DIR="$CORE_WIN" \
             -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
             -DOPENLIBM_INCLUDE_DIR="$OPENLIBM_INCLUDE_WIN" \

@@ -273,6 +273,32 @@ void event(std::string_view name, std::string_view fields = {}) {
   std::cout << "}\n" << std::flush;
 }
 
+std::string json_escape(std::string_view value) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string escaped;
+  escaped.reserve(value.size());
+  for (const unsigned char character : value) {
+    switch (character) {
+      case '"': escaped += "\\\""; break;
+      case '\\': escaped += "\\\\"; break;
+      case '\b': escaped += "\\b"; break;
+      case '\f': escaped += "\\f"; break;
+      case '\n': escaped += "\\n"; break;
+      case '\r': escaped += "\\r"; break;
+      case '\t': escaped += "\\t"; break;
+      default:
+        if (character < 0x20U) {
+          escaped += "\\u00";
+          escaped.push_back(digits[character >> 4]);
+          escaped.push_back(digits[character & 0x0fU]);
+        } else {
+          escaped.push_back(static_cast<char>(character));
+        }
+    }
+  }
+  return escaped;
+}
+
 template <typename Bytes>
 std::string hex(const Bytes& bytes) {
   constexpr char digits[] = "0123456789abcdef";
@@ -642,10 +668,13 @@ int mine_session(Socket socket, OfflineStratumController& controller,
     }
     const auto* candidate = work->candidate();
     if (search_status != SearchStatus::Found || !candidate) {
-      if (options.cuda_device && !cuda_diagnostic.empty())
+      if (options.cuda_device && !cuda_diagnostic.empty()) {
+        event("search_error", "\"device\":\"cuda\",\"code\":\"engine_failure\",\"message\":\"" +
+                                  json_escape(cuda_diagnostic) + "\"");
         std::cerr << "CUDA search failed: " << cuda_diagnostic << '\n';
-      else
+      } else {
         std::cerr << "Native CPU search returned an invalid state\n";
+      }
       failed = true;
       break;
     }
