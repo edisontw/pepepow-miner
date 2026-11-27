@@ -65,3 +65,11 @@ it verifies the event parses, quotes and backslashes survive JSON decoding,
 the run fails, and no candidate or share submission is produced. This test
 uses only a local mock Stratum peer and does not initialize CUDA or contact a
 pool.
+
+The CUDA-capable loopback contract also replaces a job with `clean_jobs=true`
+while the first mock engine is active. The mock waits for the adapter's
+cancel-file signal, returns a cancelled result, and records each engine start.
+The test verifies that the old job is classified as stale, the replacement
+job starts, and no candidate or submit event is emitted. The mock pool closes
+the connection after the replacement search starts to bound the test. This
+covers the live session-to-child cancellation path without a GPU.

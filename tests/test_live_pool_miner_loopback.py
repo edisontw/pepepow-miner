@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
+import time
 from pathlib import Path
 
 
@@ -138,11 +141,177 @@ def run_cuda_error_event(binary: str, error_engine: str) -> None:
         raise AssertionError("human-readable CUDA diagnostic was not written to stderr")
 
 
+def wait_for_signal_or_abort(signal: threading.Event, abort: threading.Event,
+                             timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while not signal.is_set() and not abort.is_set():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        signal.wait(min(0.05, remaining))
+    return signal.is_set()
+
+
+def serve_cuda_job_replacement(listener: socket.socket,
+                               errors: list[BaseException],
+                               first_engine_ready: threading.Event,
+                               replacement_engine_ready: threading.Event,
+                               abort: threading.Event) -> None:
+    try:
+        listener.settimeout(10)
+        peer, _ = listener.accept()
+        with peer:
+            peer.settimeout(10)
+            subscribe = read_line(peer)
+            assert subscribe["method"] == "mining.subscribe"
+            send_line(peer, {"id": subscribe["id"], "result": [[
+                ["mining.set_difficulty", "mock"], ["mining.notify", "mock"]
+            ], "aabbccdd", 4], "error": None})
+
+            authorize = read_line(peer)
+            assert authorize["method"] == "mining.authorize"
+            send_line(peer, {"id": authorize["id"], "result": True, "error": None})
+            send_line(peer, {"id": None, "method": "mining.set_difficulty",
+                             "params": [0.0000015]})
+            send_line(peer, {"id": None, "method": "mining.notify", "params": [
+                "cuda-stale-job",
+                "0000000000000000000000000000000000000000000000000000000000000000",
+                "01000000", "ffffffff", [], "20000000", "1d00ffff", "65a0bc00", True,
+            ]})
+            if not wait_for_signal_or_abort(first_engine_ready, abort, 8):
+                if not abort.is_set():
+                    raise AssertionError("CUDA engine did not start for the first job")
+                return
+
+            send_line(peer, {"id": None, "method": "mining.notify", "params": [
+                "cuda-replacement-job",
+                "0000000000000000000000000000000000000000000000000000000000000000",
+                "01000000", "ffffffff", [], "20000000", "1d00ffff", "65a0bc00", True,
+            ]})
+            if not wait_for_signal_or_abort(replacement_engine_ready, abort, 8):
+                if not abort.is_set():
+                    raise AssertionError("CUDA engine did not start for the replacement job")
+                return
+
+            # The client should remain silent while its replacement job is being
+            # searched. Any bytes here would be an unexpected share submission.
+            peer.settimeout(0.25)
+            try:
+                data = peer.recv(1)
+            except socket.timeout:
+                data = b""
+            if data:
+                raise AssertionError("stale CUDA work submitted data to the mock pool")
+    except BaseException as exc:  # Preserve server-thread assertions for the caller.
+        errors.append(exc)
+    finally:
+        listener.close()
+
+
+def wait_for_ready_lines(path: Path, expected: int, process: subprocess.Popen[str],
+                         timeout: float) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            lines = path.read_text(encoding="ascii").splitlines()
+        except FileNotFoundError:
+            lines = []
+        if len(lines) >= expected:
+            return True
+        if process.poll() is not None:
+            return False
+        time.sleep(0.01)
+    return False
+
+
+def run_cuda_job_replacement(binary: str, cancel_engine: str) -> None:
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+    first_engine_ready = threading.Event()
+    replacement_engine_ready = threading.Event()
+    abort = threading.Event()
+    errors: list[BaseException] = []
+    with tempfile.TemporaryDirectory(prefix="pepepow-cuda-replace-") as directory:
+        ready_file = Path(directory) / "engine-ready.txt"
+        server = threading.Thread(
+            target=serve_cuda_job_replacement,
+            args=(listener, errors, first_engine_ready, replacement_engine_ready, abort),
+            daemon=True,
+        )
+        server.start()
+        environment = os.environ.copy()
+        environment["PEPEPOW_TEST_CUDA_READY_FILE"] = str(ready_file)
+        command = [
+            binary, "--mine", "--endpoint", f"stratum+tcp://127.0.0.1:{port}",
+            "--login", "mock-wallet.worker", "--extranonce2", "00000000",
+            "--mode", "POOL", "--threads", "1", "--responses", "1",
+            "--max-runtime-seconds", "10", "--device", "cuda",
+            "--cuda-engine", cancel_engine, "--cpu-oracle", binary,
+        ]
+        process = subprocess.Popen(command, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True, env=environment)
+        try:
+            if not wait_for_ready_lines(ready_file, 1, process, 8):
+                if process.poll() is None:
+                    raise AssertionError("first CUDA mock engine did not become ready before timeout")
+                stdout, stderr = process.communicate()
+                raise AssertionError(
+                    "first CUDA mock engine exited before becoming ready: "
+                    f"code={process.returncode}; stdout={stdout}; stderr={stderr}")
+            first_engine_ready.set()
+            if not wait_for_ready_lines(ready_file, 2, process, 8):
+                if process.poll() is None:
+                    raise AssertionError("job replacement did not launch a new CUDA search before timeout")
+                stdout, stderr = process.communicate()
+                raise AssertionError(
+                    "miner exited before starting the replacement CUDA search: "
+                    f"code={process.returncode}; stdout={stdout}; stderr={stderr}")
+            replacement_engine_ready.set()
+            try:
+                stdout, stderr = process.communicate(timeout=8)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+                raise AssertionError("CUDA job replacement loopback did not stop") from None
+        finally:
+            abort.set()
+            if process.poll() is None:
+                process.kill()
+                process.communicate()
+            server.join(timeout=2)
+            if server.is_alive():
+                listener.close()
+                server.join(timeout=2)
+    if server.is_alive():
+        raise AssertionError("CUDA job replacement loopback server did not stop")
+    if errors:
+        raise errors[0]
+    if process.returncode == 0:
+        raise AssertionError("the mock transport closure should end the bounded test run")
+    events = [json.loads(line) for line in stdout.splitlines() if line.startswith("{")]
+    cancel = next((item for item in events if item.get("event") == "search_cancel_requested"), None)
+    if not cancel or cancel.get("job_id") != "cuda-stale-job":
+        raise AssertionError(f"stale CUDA search was not cancelled: {events}; stderr={stderr}")
+    stale = next((item for item in events if item.get("event") == "stale_candidate"), None)
+    if not stale or stale.get("job_id") != "cuda-stale-job" or \
+            stale.get("search_status") != "cancelled":
+        raise AssertionError(f"replaced CUDA work was not classified as stale: {events}")
+    if not any(item.get("event") == "search_started" and
+               item.get("job_id") == "cuda-replacement-job" for item in events):
+        raise AssertionError(f"replacement CUDA job was not started: {events}")
+    if any(item.get("event") in {"candidate", "submit_sent"} for item in events):
+        raise AssertionError(f"a stale CUDA candidate reached submission: {events}")
+
+
 def main() -> int:
     args = sys.argv[2:]
     binary = str(Path(sys.argv[1]).resolve())
     supports_cuda = False
     error_engine = None
+    cancel_engine = None
     index = 0
     while index < len(args):
         if args[index] == "--supports-cuda" and not supports_cuda:
@@ -151,10 +320,13 @@ def main() -> int:
         elif args[index] == "--cuda-error-engine" and error_engine is None and index + 1 < len(args):
             error_engine = str(Path(args[index + 1]).resolve())
             index += 2
+        elif args[index] == "--cuda-cancel-engine" and cancel_engine is None and index + 1 < len(args):
+            cancel_engine = str(Path(args[index + 1]).resolve())
+            index += 2
         else:
             raise SystemExit("invalid live miner loopback test arguments")
-    if error_engine and not supports_cuda:
-        raise SystemExit("CUDA error engine fixture requires --supports-cuda")
+    if (error_engine or cancel_engine) and not supports_cuda:
+        raise SystemExit("CUDA engine fixtures require --supports-cuda")
     invalid_batch = subprocess.run(
         [
             binary, "--mine", "--endpoint", "stratum+tcp://127.0.0.1:1",
@@ -258,6 +430,8 @@ def main() -> int:
         raise AssertionError("submit login did not preserve the authorized worker identity")
     if error_engine:
         run_cuda_error_event(binary, error_engine)
+    if cancel_engine:
+        run_cuda_job_replacement(binary, cancel_engine)
     print("PASS: opt-in live-mode loopback handshake, continuous nonce advance, bounded replies, and JSON events")
     return 0
 

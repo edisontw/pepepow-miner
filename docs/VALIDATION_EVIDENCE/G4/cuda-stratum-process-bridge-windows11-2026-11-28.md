@@ -98,3 +98,46 @@ cmd.exe /c '"D:\Dev\vs2022-build-tools\Common7\Tools\VsDevCmd.bat" -arch=x64 -ho
 The tests did not initialize CUDA, allocate VRAM, connect to a pool, or submit
 shares. They validate process control and result integrity only. Physical GPU
 integration and full digest parity remain outstanding.
+
+## Follow-up: live job replacement cancellation (2026-11-28)
+
+The live CUDA-mode loopback test now uses a second CPU-only engine fixture that
+signals when it starts, waits for the adapter's cancel file, and returns a
+valid cancelled-result JSON document. The mock Stratum server sends a
+`clean_jobs=true` replacement while the first child is active, waits for the
+replacement search to start, and closes its loopback connection to end the
+bounded run. The test checks `search_cancel_requested` and `stale_candidate`
+for the old job, confirms the replacement job starts, and rejects candidate
+or submit events.
+
+- Windows 11 Pro x64, MSYS2 UCRT64 GCC 16.2.0, native CPython 3.13.17.
+- Release and Debug native builds passed for `pepepow-live-miner` and both
+  CUDA process fixtures. The focused `live_pool_miner_cuda_product_loopback`
+  CTest passed in both configurations; Release passed five consecutive runs.
+- The cancellation fixture also compiled with VS 2022 MSVC `/std:c++20 /EHsc
+  /W4 /WX`.
+- The first helper compile attempt exposed a `std::string_view`/filesystem
+  path mismatch; the fixture now converts the cancel path to `std::string`.
+  The first MSVC compile also caught the deprecated `getenv` API under `/WX`;
+  the fixture now uses `_dupenv_s` on MSVC. Final GCC and MSVC builds passed.
+- This test uses a local mock pool and does not call CUDA, allocate VRAM,
+  contact a real pool, or submit a share. It is not physical GPU or G4 proof.
+
+Commands for the focused follow-up checks:
+
+```powershell
+cmake --build D:\Dev\pepepow-cuda-stratum-bridge-cmake-20261128 `
+  --target pepepow-live-miner test_cuda_search_engine_cancel `
+  test_cuda_search_engine_failure --parallel 6
+ctest --test-dir D:\Dev\pepepow-cuda-stratum-bridge-cmake-20261128 `
+  --output-on-failure --repeat until-fail:5 `
+  -R '^live_pool_miner_cuda_product_loopback$'
+
+cmake --build D:\Dev\pepepow-cuda-stratum-bridge-debug-20261128 `
+  --target pepepow-live-miner test_cuda_search_engine_cancel `
+  test_cuda_search_engine_failure --parallel 6
+ctest --test-dir D:\Dev\pepepow-cuda-stratum-bridge-debug-20261128 `
+  --output-on-failure -R '^live_pool_miner_cuda_product_loopback$'
+
+cmd.exe /c '"D:\Dev\vs2022-build-tools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 >nul && cl.exe /nologo /std:c++20 /EHsc /W4 /WX /c D:\Dev\pepepow-cuda-stratum-bridge-20261128\tests\test_cuda_search_engine_cancel.cpp /Fo:D:\Dev\pepepow-cuda-stratum-bridge-msvc-20261128\test_cuda_search_engine_cancel.obj'
+```
