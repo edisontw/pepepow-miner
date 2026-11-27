@@ -158,6 +158,12 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
     add_test(NAME native_stratum_search COMMAND test_native_stratum_search)
     set_tests_properties(native_stratum_search PROPERTIES TIMEOUT 10)
 
+    add_executable(test_cuda_search_result_decoder tests/test_cuda_search_result_decoder.cpp)
+    target_compile_features(test_cuda_search_result_decoder PRIVATE cxx_std_20)
+    target_include_directories(test_cuda_search_result_decoder PRIVATE include)
+    add_test(NAME cuda_search_result_decoder COMMAND test_cuda_search_result_decoder)
+    set_tests_properties(cuda_search_result_decoder PROPERTIES TIMEOUT 5)
+
     add_test(NAME offline_stratum_miner_loopback
       COMMAND "${Python3_EXECUTABLE}"
               "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_offline_stratum_miner_e2e.py"
