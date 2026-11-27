@@ -52,7 +52,7 @@ bool parse_u32(std::string_view input, std::uint32_t& output) {
 }
 
 int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest,
-               bool ignore_cancel) {
+               bool ignore_cancel, bool partial_timeout) {
   pepepow::Header header{};
   pepepow::Digest target{};
   std::uint32_t start = 0;
@@ -110,6 +110,10 @@ int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest,
   if (ignore_cancel) {
     std::this_thread::sleep_for(std::chrono::seconds(5));
     return 66;
+  }
+  if (partial_timeout && start == 7 && count >= 2) {
+    emit("cancelled", "timeout", 2, "[]");
+    return 130;
   }
 
   pepepow_header_set_nonce(header.data(), header.size(), start);
@@ -213,6 +217,16 @@ int run_contract_tests(const char* executable) {
     return 1;
   }
 
+  options.engine_prefix_arguments = {"--mock-child-partial-timeout"};
+  options.batch_size = 2;
+  result = pepepow::search_cuda_with_process(cpu, options, header, easy_target,
+      7, 4, pepepow::SearchClock::now() + std::chrono::seconds(3));
+  if (result.status != pepepow::SearchStatus::Found || !result.candidate ||
+      result.candidate->nonce != 9 || result.hashes != 3) {
+    std::cerr << "partial timeout did not resume at the first unprocessed nonce\n";
+    return 1;
+  }
+
   options.engine_prefix_arguments = {"--mock-child-corrupt"};
   result = pepepow::search_cuda_with_process(cpu, options, header, easy_target,
       17, 1, pepepow::SearchClock::now() + std::chrono::seconds(3));
@@ -271,6 +285,7 @@ int run_contract_tests(const char* executable) {
   cancel.store(false, std::memory_order_release);
   options.timeout_ms = 1000;
   options.cancellation_grace = std::chrono::milliseconds(5000);
+  options.batch_size = 128;
   options.engine_prefix_arguments = {"--mock-child-cancel"};
   result = pepepow::search_cuda_with_process(cpu, options, header, easy_target,
       5, 100, pepepow::SearchClock::now() + std::chrono::milliseconds(100));
@@ -294,7 +309,8 @@ int main(int argc, char** argv) {
     const auto mode = std::string_view(argv[1]);
     return mock_child(argc, argv, mode == "--mock-child-cancel",
                       mode == "--mock-child-corrupt",
-                      mode == "--mock-child-ignore-cancel");
+                      mode == "--mock-child-ignore-cancel",
+                      mode == "--mock-child-partial-timeout");
   }
   return run_contract_tests(argv[0]);
 }

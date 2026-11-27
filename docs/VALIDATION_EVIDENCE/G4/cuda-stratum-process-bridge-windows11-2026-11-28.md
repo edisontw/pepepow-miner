@@ -74,6 +74,9 @@ cmd.exe /c '"D:\Dev\vs2022-build-tools\Common7\Tools\VsDevCmd.bat" -arch=x64 -ho
   spaces and verified the CPU-oracle argument with spaces survived intact.
   Temporary-directory assertions are scoped to the test process, so Release
   and Debug runs can execute concurrently without seeing each other's files.
+- A mock engine timed out after processing nonces `7` and `8`; the adapter
+  resumed at nonce `9`, CPU-rechecked its full digest, and reported three total
+  hashes without repeating or skipping a nonce.
 - An expiring parent deadline also caused cooperative child cancellation and
   returned timeout without a candidate.
 - Per-invocation temporary result, stderr, and cancel files were removed after
