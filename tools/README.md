@@ -186,6 +186,53 @@ means the requested number of mock share replies arrived; 1 is transport,
 protocol, or exhausted-work failure; 2 is invalid input or work; 4 is the
 search deadline; 5 is local socket initialization failure; and 130 is signal-driven shutdown.
 
+## Explicitly opt-in live Stratum CPU miner
+
+The public-endpoint executable is separate from the loopback-only tool and is
+not built by default. Configure `PEPEPOW_ENABLE_LIVE_POOL_MINER=ON` together
+with `PEPEPOW_NATIVE_STRATUM_SEARCH=ON` and the pinned Core/OpenLibm reference
+inputs to build `pepepow-live-cpu-miner`. The default CPU build remains free of
+this live-session target. The executable opens an external socket only when
+invoked with the explicit `--mine` subcommand.
+
+Example bounded Pool run (replace the example login with the public payout
+address you intend to use):
+
+```sh
+build/reference/pepepow-live-cpu-miner --mine \
+  --endpoint stratum+tcp://pool.example.net:39333 \
+  --login PUBLIC_ADDRESS.codex-test \
+  --extranonce2 00000000 --mode POOL --threads 1 \
+  --responses 1000 --max-runtime-seconds 1800
+```
+
+The endpoint parser accepts only `stratum+tcp://HOST:PORT`; TLS, URL
+credentials, paths, and query strings are rejected. DNS resolution uses the
+host OS resolver on a detached thread with a one-second deadline, and the
+remaining portion of the two-second connection budget is shared by TCP address
+attempts. A timed-out resolver may finish in the background; only one resolver
+request may remain outstanding at a time.
+Use `--fallback-endpoint` only for a second endpoint of the same explicitly
+selected mode, and pair it with `--retries`.
+
+`--threads` is required and accepts 1–256. `--responses` is required and counts
+answered submit requests, including pool errors or rejections; it is not an
+accepted-share goal. `--max-runtime-seconds` is required and capped at 1,800.
+Search checks bounded batches, advances through the complete 32-bit nonce
+space, then increments the supplied extranonce2 value without wrapping it.
+`--batch-size` accepts 1–10,000,000 (default 10,000). `--submit-interval-ms`
+limits submit frequency (default 250 ms; minimum 100 ms). Ctrl+C, SIGTERM, the
+response goal, and the overall runtime limit stop the session. The CPU hash
+path remains the pinned Core reference; every candidate is computed from the
+complete active 80-byte header. Candidate details and session totals are
+reported as JSONL, but the login/address is not emitted.
+
+This is an experimental single-session feature, not a G1 pass or released
+miner. It does not support TLS, GUI configuration, or unattended operation.
+Run the loopback CTest before using a public endpoint. A live acceptance record
+must retain the full JSONL output, actual OS and toolchain, time/thread caps,
+and the pool's accepted/rejected/error classifications.
+
 ## Opt-in CUDA test tools
 
 The root CPU build remains CUDA-free. The standalone [CUDA tools guide](gpu/README.md)

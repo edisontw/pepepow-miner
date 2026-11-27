@@ -1,5 +1,7 @@
 #pragma once
+#include <algorithm>
 #include <optional>
+#include <string>
 #include <string_view>
 namespace pepepow {
 // Validates one JSON value with bounded nesting, without allocating.
@@ -97,6 +99,7 @@ class JsonValueValidator {
 };
 
 enum class SubmitOutcome { Accepted, Rejected, PoolError };
+enum class SubmitErrorClass { None, Rejected, Invalid, LowDifficulty, Duplicate, Stale, Other };
 // Strict fixed-dialect JSON-RPC response. Never treats malformed input as accepted.
 inline std::optional<SubmitOutcome> decode_submit_reply(std::string_view line,
                                                          std::string_view expected_id) {
@@ -127,5 +130,48 @@ inline std::optional<SubmitOutcome> decode_submit_reply(std::string_view line,
   ws();
   if (i != line.size() || accepted == true) return std::nullopt;
   return SubmitOutcome::PoolError;
+}
+
+inline SubmitErrorClass decode_submit_error_class(std::string_view line,
+                                                   std::string_view expected_id) {
+  const auto outcome = decode_submit_reply(line, expected_id);
+  if (!outcome || *outcome == SubmitOutcome::Accepted) return SubmitErrorClass::None;
+  if (*outcome == SubmitOutcome::Rejected) return SubmitErrorClass::Rejected;
+  const auto marker = line.find("\"error\":");
+  if (marker == std::string_view::npos) return SubmitErrorClass::Other;
+  std::string message;
+  for (std::size_t i = marker + 8; i < line.size();) {
+    if (line[i] != '"') { ++i; continue; }
+    ++i;
+    while (i < line.size() && line[i] != '"') {
+      char ch = line[i++];
+      if (ch == '\\' && i < line.size()) {
+        const char escaped = line[i++];
+        if (escaped == 'u') {
+          i = (std::min)(line.size(), i + 4);
+          message.push_back(' ');
+        } else {
+          message.push_back(escaped);
+        }
+      } else {
+        message.push_back(ch);
+      }
+    }
+    if (i < line.size()) ++i;
+    message.push_back(' ');
+  }
+  std::transform(message.begin(), message.end(), message.begin(), [](unsigned char ch) {
+    return static_cast<char>(ch >= 'A' && ch <= 'Z' ? ch - 'A' + 'a' : ch);
+  });
+  if (message.find("low difficulty") != std::string::npos ||
+      message.find("low-difficulty") != std::string::npos)
+    return SubmitErrorClass::LowDifficulty;
+  if (message.find("duplicate") != std::string::npos)
+    return SubmitErrorClass::Duplicate;
+  if (message.find("stale") != std::string::npos)
+    return SubmitErrorClass::Stale;
+  if (message.find("invalid") != std::string::npos)
+    return SubmitErrorClass::Invalid;
+  return SubmitErrorClass::Other;
 }
 } // namespace pepepow

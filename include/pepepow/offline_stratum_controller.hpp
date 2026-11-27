@@ -49,6 +49,11 @@ class OfflineStratumController {
     std::size_t shares_accepted = 0;
     std::size_t shares_rejected = 0;
     std::size_t shares_pool_errors = 0;
+    std::size_t shares_invalid = 0;
+    std::size_t shares_low_difficulty = 0;
+    std::size_t shares_duplicate = 0;
+    std::size_t shares_stale = 0;
+    std::size_t shares_other_errors = 0;
   };
   WorkEvents receive_work_events(std::string_view bytes,
                                  std::uint64_t generation) {
@@ -63,11 +68,22 @@ class OfflineStratumController {
         ++events.subscribed;
       } else if (authorize_reply(line, generation)) {
         ++events.authorized;
-      } else if (auto outcome = framed_submit_reply(line, generation)) {
-        switch (*outcome) {
+      } else if (auto response = framed_submit_reply(line, generation)) {
+        switch (response->outcome) {
           case SubmitOutcome::Accepted: ++events.shares_accepted; break;
           case SubmitOutcome::Rejected: ++events.shares_rejected; break;
-          case SubmitOutcome::PoolError: ++events.shares_pool_errors; break;
+          case SubmitOutcome::PoolError:
+            ++events.shares_pool_errors;
+            switch (response->error_class) {
+              case SubmitErrorClass::Invalid: ++events.shares_invalid; break;
+              case SubmitErrorClass::LowDifficulty: ++events.shares_low_difficulty; break;
+              case SubmitErrorClass::Duplicate: ++events.shares_duplicate; break;
+              case SubmitErrorClass::Stale: ++events.shares_stale; break;
+              case SubmitErrorClass::Other:
+              case SubmitErrorClass::None:
+              case SubmitErrorClass::Rejected: ++events.shares_other_errors; break;
+            }
+            break;
         }
       } else if (session_.difficulty(line) || session_.notify(line)) {
         ++events.applied;
@@ -171,9 +187,13 @@ class OfflineStratumController {
   }
   const OfflineStratumSession& session() const { return session_; }
  private:
+  struct SubmitResponse {
+    SubmitOutcome outcome;
+    SubmitErrorClass error_class;
+  };
   // Extract only a canonical decimal ID from the fixed-dialect prefix.
   // Full JSON validation and pending-request checks happen in submit_reply.
-  std::optional<SubmitOutcome> framed_submit_reply(
+  std::optional<SubmitResponse> framed_submit_reply(
       std::string_view line, std::uint64_t generation) {
     constexpr std::string_view prefix = "{\"id\":";
     if (line.substr(0, prefix.size()) != prefix) return std::nullopt;
@@ -185,7 +205,10 @@ class OfflineStratumController {
     if (parsed.ec != std::errc{} || parsed.ptr == first ||
         parsed.ptr == last || *parsed.ptr != ',' ||
         (parsed.ptr - first > 1 && *first == '0')) return std::nullopt;
-    return submit_reply(line, id, generation);
+    auto outcome = submit_reply(line, id, generation);
+    if (!outcome) return std::nullopt;
+    return SubmitResponse{*outcome,
+        decode_submit_error_class(line, std::to_string(id))};
   }
   std::optional<std::uint64_t> allocate() {
     if (next_ == 0) return std::nullopt;
