@@ -69,10 +69,11 @@ def serve(listener: socket.socket, errors: list[BaseException], submissions: lis
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: test_live_pool_miner_loopback.py LIVE_MINER", file=sys.stderr)
+    if len(sys.argv) not in (2, 3):
+        print("usage: test_live_pool_miner_loopback.py LIVE_MINER [--supports-cuda]", file=sys.stderr)
         return 2
     binary = str(Path(sys.argv[1]).resolve())
+    supports_cuda = len(sys.argv) == 3 and sys.argv[2] == "--supports-cuda"
     invalid_batch = subprocess.run(
         [
             binary, "--mine", "--endpoint", "stratum+tcp://127.0.0.1:1",
@@ -84,6 +85,55 @@ def main() -> int:
     )
     if invalid_batch.returncode != 2 or "Invalid live-mining arguments" not in invalid_batch.stderr:
         raise AssertionError("live CLI must reject batch sizes above its documented cap")
+    if supports_cuda:
+        cuda_without_oracles = subprocess.run(
+            [
+                binary, "--mine", "--endpoint", "stratum+tcp://127.0.0.1:1",
+                "--login", "mock-wallet.worker", "--extranonce2", "00000000",
+                "--mode", "POOL", "--threads", "1", "--responses", "1",
+                "--max-runtime-seconds", "10", "--device", "cuda",
+            ],
+            capture_output=True, text=True, timeout=5,
+        )
+        if cuda_without_oracles.returncode != 2:
+            raise AssertionError("CUDA mode must require both the engine and pinned-Core CPU oracle")
+        cpu_with_cuda_paths = subprocess.run(
+            [
+                binary, "--mine", "--endpoint", "stratum+tcp://127.0.0.1:1",
+                "--login", "mock-wallet.worker", "--extranonce2", "00000000",
+                "--mode", "POOL", "--threads", "1", "--responses", "1",
+                "--max-runtime-seconds", "10", "--device", "cpu",
+                "--cuda-engine", "unused-engine", "--cpu-oracle", "unused-oracle",
+            ],
+            capture_output=True, text=True, timeout=5,
+        )
+        if cpu_with_cuda_paths.returncode != 2:
+            raise AssertionError("CPU mode must reject unused CUDA engine paths")
+        cuda_with_missing_files = subprocess.run(
+            [
+                binary, "--mine", "--endpoint", "stratum+tcp://127.0.0.1:1",
+                "--login", "mock-wallet.worker", "--extranonce2", "00000000",
+                "--mode", "POOL", "--threads", "1", "--responses", "1",
+                "--max-runtime-seconds", "10", "--device", "cuda",
+                "--cuda-engine", "__missing_cuda_engine__",
+                "--cpu-oracle", "__missing_pinned_core_oracle__",
+            ],
+            capture_output=True, text=True, timeout=5,
+        )
+        if cuda_with_missing_files.returncode != 2:
+            raise AssertionError("CUDA mode must reject missing engine/oracle files before connecting")
+    else:
+        cuda_on_cpu_binary = subprocess.run(
+            [
+                binary, "--mine", "--endpoint", "stratum+tcp://127.0.0.1:1",
+                "--login", "mock-wallet.worker", "--extranonce2", "00000000",
+                "--mode", "POOL", "--threads", "1", "--responses", "1",
+                "--max-runtime-seconds", "10", "--device", "cuda",
+            ],
+            capture_output=True, text=True, timeout=5,
+        )
+        if cuda_on_cpu_binary.returncode != 2:
+            raise AssertionError("the CPU-only executable must not accept CUDA mode")
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listener.bind(("127.0.0.1", 0))

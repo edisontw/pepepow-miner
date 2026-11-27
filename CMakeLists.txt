@@ -146,6 +146,22 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
     else()
       target_compile_options(pepepow-live-cpu-miner PRIVATE -Wall -Wextra -Werror -pedantic)
     endif()
+
+    add_executable(pepepow-live-miner tools/offline_stratum_miner.cpp tools/cpu_benchmark.cpp)
+    target_compile_features(pepepow-live-miner PRIVATE cxx_std_20)
+    target_compile_definitions(pepepow-live-miner PRIVATE
+      PEPEPOW_ENABLE_LIVE_POOL_MINER=1 PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH=1)
+    target_include_directories(pepepow-live-miner PRIVATE include)
+    target_link_libraries(pepepow-live-miner PRIVATE
+      pepepow_core_reference OpenSSL::Crypto Threads::Threads)
+    if(WIN32)
+      target_link_libraries(pepepow-live-miner PRIVATE ws2_32 psapi)
+    endif()
+    if(MSVC)
+      target_compile_options(pepepow-live-miner PRIVATE /W4 /WX)
+    else()
+      target_compile_options(pepepow-live-miner PRIVATE -Wall -Wextra -Werror -pedantic)
+    endif()
   endif()
 
   if(BUILD_TESTING)
@@ -163,6 +179,19 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
     target_include_directories(test_cuda_search_result_decoder PRIVATE include)
     add_test(NAME cuda_search_result_decoder COMMAND test_cuda_search_result_decoder)
     set_tests_properties(cuda_search_result_decoder PROPERTIES TIMEOUT 5)
+
+    add_executable(test_cuda_search_process tests/test_cuda_search_process.cpp)
+    target_compile_features(test_cuda_search_process PRIVATE cxx_std_20)
+    target_include_directories(test_cuda_search_process PRIVATE include)
+    target_link_libraries(test_cuda_search_process PRIVATE
+      pepepow_core_reference Threads::Threads)
+    if(MSVC)
+      target_compile_options(test_cuda_search_process PRIVATE /W4 /WX)
+    else()
+      target_compile_options(test_cuda_search_process PRIVATE -Wall -Wextra -Werror -pedantic)
+    endif()
+    add_test(NAME cuda_search_process_contract COMMAND test_cuda_search_process)
+    set_tests_properties(cuda_search_process_contract PROPERTIES TIMEOUT 20)
 
     add_test(NAME offline_stratum_miner_loopback
       COMMAND "${Python3_EXECUTABLE}"
@@ -189,6 +218,11 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_live_pool_miner_loopback.py"
                 "$<TARGET_FILE:pepepow-live-cpu-miner>")
       set_tests_properties(live_pool_miner_loopback PROPERTIES TIMEOUT 30)
+      add_test(NAME live_pool_miner_cuda_product_loopback
+        COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_live_pool_miner_loopback.py"
+                "$<TARGET_FILE:pepepow-live-miner>" --supports-cuda)
+      set_tests_properties(live_pool_miner_cuda_product_loopback PROPERTIES TIMEOUT 30)
     endif()
   endif()
 

@@ -1,6 +1,9 @@
 #include "pepepow/local_handshake.hpp"
 #include "pepepow/cpu_benchmark.hpp"
 #include "pepepow/cpu_worker_pool.hpp"
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+#include "pepepow/cuda_search_process.hpp"
+#endif
 #include "pepepow/offline_stratum_search.hpp"
 #include "pepepow/stratum_endpoint.hpp"
 
@@ -10,6 +13,7 @@
 #include <cmath>
 #include <cstdint>
 #include <csignal>
+#include <filesystem>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -47,10 +51,14 @@ struct Options {
   std::uint32_t count = 0;
   std::uint32_t timeout_ms = pepepow::default_search_timeout_ms;
   std::uint32_t response_goal = 1;
+  std::uint32_t cuda_batch_size = 128;
   double wire_scale = pepepow::OfflineStratumSearch::default_wire_difficulty_scale;
   bool live_pool = false;
+  bool cuda_device = false;
   std::uint32_t max_runtime_seconds = 0;
   std::uint32_t submit_interval_ms = 250;
+  std::filesystem::path cuda_engine;
+  std::filesystem::path cuda_cpu_oracle;
   std::optional<pepepow::socket_io::StratumTcpEndpoint> endpoint;
   std::optional<pepepow::socket_io::StratumTcpEndpoint> fallback_endpoint;
 };
@@ -61,6 +69,15 @@ bool decimal(std::string_view text, Integer& value) {
       std::from_chars(text.data(), text.data() + text.size(), value);
   return error == std::errc{} && end == text.data() + text.size();
 }
+
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+std::filesystem::path path_from_cli(std::string_view value) {
+  std::u8string utf8;
+  utf8.reserve(value.size());
+  for (const unsigned char byte : value) utf8.push_back(static_cast<char8_t>(byte));
+  return std::filesystem::path(utf8);
+}
+#endif
 
 bool parse_options(int argc, char** argv, Options& options) {
   if (argc < 6) return false;
@@ -135,6 +152,12 @@ bool parse_live_options(int argc, char** argv, Options& options) {
   bool saw_mode = false;
   bool saw_batch = false;
   bool saw_submit_interval = false;
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+  bool saw_device = false;
+  bool saw_cuda_engine = false;
+  bool saw_cuda_oracle = false;
+  bool saw_cuda_batch = false;
+#endif
   bool saw_retries = false;
   bool saw_scale = false;
   options.live_pool = true;
@@ -172,6 +195,24 @@ bool parse_live_options(int argc, char** argv, Options& options) {
       if (saw_mode || (value != "POOL" && value != "SOLO")) return false;
       options.mode = value;
       saw_mode = true;
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+    } else if (name == "--device") {
+      if (saw_device || (value != "cpu" && value != "cuda")) return false;
+      options.cuda_device = value == "cuda";
+      saw_device = true;
+    } else if (name == "--cuda-engine") {
+      if (saw_cuda_engine || value.empty()) return false;
+      options.cuda_engine = path_from_cli(value);
+      saw_cuda_engine = true;
+    } else if (name == "--cpu-oracle") {
+      if (saw_cuda_oracle || value.empty()) return false;
+      options.cuda_cpu_oracle = path_from_cli(value);
+      saw_cuda_oracle = true;
+    } else if (name == "--cuda-batch-size") {
+      if (saw_cuda_batch || !decimal(value, options.cuda_batch_size) ||
+          options.cuda_batch_size == 0 || options.cuda_batch_size > 256) return false;
+      saw_cuda_batch = true;
+#endif
     } else if (name == "--threads") {
       if (saw_threads || !decimal(value, options.workers) || !options.workers ||
           options.workers > pepepow::max_cpu_workers) return false;
@@ -208,6 +249,17 @@ bool parse_live_options(int argc, char** argv, Options& options) {
   if (!saw_endpoint || !saw_login || !saw_extranonce || !saw_threads ||
       !saw_responses || !saw_runtime || !saw_mode ||
       (options.fallback_endpoint && options.retries == 0)) return false;
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+  if (options.cuda_device != (saw_cuda_engine && saw_cuda_oracle) ||
+      saw_cuda_engine != saw_cuda_oracle) return false;
+  if (options.cuda_device) {
+    std::error_code engine_error;
+    std::error_code oracle_error;
+    if (!std::filesystem::is_regular_file(options.cuda_engine, engine_error) ||
+        !std::filesystem::is_regular_file(options.cuda_cpu_oracle, oracle_error))
+      return false;
+  }
+#endif
   if (options.fallback_endpoint && options.endpoint &&
       options.fallback_endpoint->host == options.endpoint->host &&
       options.fallback_endpoint->port == options.endpoint->port) return false;
@@ -453,6 +505,17 @@ int mine_session(Socket socket, OfflineStratumController& controller,
         (std::min)(search_started + std::chrono::milliseconds(options.timeout_ms), runtime_deadline);
     std::thread worker([&] {
       search_status = work->search_with([&](const auto& header, const auto& target) {
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+        if (options.live_pool && options.cuda_device) {
+          pepepow::CudaSearchProcessOptions cuda_options;
+          cuda_options.engine = options.cuda_engine;
+          cuda_options.cpu_oracle = options.cuda_cpu_oracle;
+          cuda_options.batch_size = options.cuda_batch_size;
+          return pepepow::search_cuda_with_process(
+              cpu, cuda_options, header, target, batch_start, batch_count,
+              search_deadline, &cancel);
+        }
+#endif
         if (options.live_pool)
           return search_live_batch(cpu, header, target, batch_start, batch_count,
                                    search_deadline, &cancel);
@@ -759,7 +822,8 @@ int run(const Options& options) {
           std::string(options.mode) + "\",\"threads\":" + std::to_string(options.workers) +
           ",\"response_goal\":" + std::to_string(options.response_goal) +
           ",\"max_runtime_seconds\":" + std::to_string(options.max_runtime_seconds) +
-          ",\"submit_interval_ms\":" + std::to_string(options.submit_interval_ms));
+          ",\"submit_interval_ms\":" + std::to_string(options.submit_interval_ms) +
+          ",\"device\":\"" + (options.cuda_device ? "cuda" : "cpu") + "\"");
   }
   int exit_code = 1;
   auto backoff = std::chrono::milliseconds(options.backoff_ms);
@@ -874,13 +938,26 @@ int main(int argc, char** argv) {
                  "Connects only to IPv4 127.0.0.1; requires a local mock server.\n"
                  "Search uses pinned Core HooHash; no public pool endpoint is accepted.\n";
 #ifdef PEPEPOW_ENABLE_LIVE_POOL_MINER
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
     std::cout << "\nExplicit live mode (public TCP only; no TLS):\n"
+                 "  pepepow-live-miner --mine --endpoint stratum+tcp://HOST:PORT "
+                 "--login ADDRESS[.WORKER] --extranonce2 HEX --mode POOL|SOLO\n"
+                 "      --threads N --responses N --max-runtime-seconds 10..1800\n"
+                 "      [--batch-size N] [--submit-interval-ms 100..10000] [--scale N]\n"
+                 "      [--retries N] [--fallback-endpoint stratum+tcp://HOST:PORT]\n"
+                 "      [--device cpu|cuda --cuda-engine PATH --cpu-oracle PATH]\n"
+                 "      [--cuda-batch-size 1..256]\n"
+                 "CUDA candidates are checked again by the pinned-Core CPU path.\n"
+                 "The public endpoint is contacted only with the explicit --mine command.\n";
+#else
+    std::cout << "\nExplicit live CPU mode (public TCP only; no TLS):\n"
                  "  pepepow-live-cpu-miner --mine --endpoint stratum+tcp://HOST:PORT "
                  "--login ADDRESS[.WORKER] --extranonce2 HEX --mode POOL|SOLO\n"
                  "      --threads N --responses N --max-runtime-seconds 10..1800\n"
                  "      [--batch-size N] [--submit-interval-ms 100..10000] [--scale N]\n"
                  "      [--retries N] [--fallback-endpoint stratum+tcp://HOST:PORT]\n"
                  "The public endpoint is contacted only with the explicit --mine command.\n";
+#endif
 #endif
     return 0;
   }
