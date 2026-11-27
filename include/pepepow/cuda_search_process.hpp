@@ -292,6 +292,15 @@ class CudaChildProcess {
       ::close(output_fd);
       return false;
     }
+    std::vector<std::string> storage;
+    storage.reserve(arguments.size() + 1);
+    storage.push_back(executable.string());
+    storage.insert(storage.end(), arguments.begin(), arguments.end());
+    std::vector<char*> argv;
+    argv.reserve(storage.size() + 1);
+    for (auto& value : storage) argv.push_back(value.data());
+    argv.push_back(nullptr);
+
     pid_ = ::fork();
     if (pid_ == 0) {
       (void)::setpgid(0, 0);
@@ -299,14 +308,6 @@ class CudaChildProcess {
           ::dup2(error_fd, STDERR_FILENO) < 0) _exit(126);
       ::close(output_fd);
       ::close(error_fd);
-      std::vector<std::string> storage;
-      storage.reserve(arguments.size() + 1);
-      storage.push_back(executable.string());
-      storage.insert(storage.end(), arguments.begin(), arguments.end());
-      std::vector<char*> argv;
-      argv.reserve(storage.size() + 1);
-      for (auto& value : storage) argv.push_back(value.data());
-      argv.push_back(nullptr);
       ::execv(executable.c_str(), argv.data());
       _exit(127);
     }
