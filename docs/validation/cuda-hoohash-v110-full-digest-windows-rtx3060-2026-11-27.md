@@ -72,12 +72,14 @@ kernel compiled with `--fmad=false`, `--ftz=false`, `--prec-div=true`, and
 
 - Release build of all opt-in CUDA stages and CPU oracles: passed.
 - Release CTest suite: 8/8 passed, including the live 10,000-nonce parity
-  test; total 4.78 seconds.
+  test; latest total 4.91 seconds.
 - Debug build of all opt-in CUDA stages and CPU oracles: passed.
 - Debug CTest suite excluding the 10,000-nonce stress batch: 7/7 passed;
-  total 4.16 seconds.
+  latest total 4.03 seconds.
 - 10,000-nonce physical CUDA test: nonces 0–9,999, all full 32-byte digests
-  matched pinned Core; CTest time 0.96 seconds.
+  matched pinned Core; latest CTest time 0.97 seconds.
+- Five additional Release 10,000-nonce runs compared each complete digest to
+  pinned Core, with matching CPU/GPU transcript hashes in every run.
 - Boundary/fixed vectors: nonce 0, nonces 6–8, and `UINT32_MAX` all matched.
 - The five fixed digest values were also accepted by the existing native
   UCRT64 `pepepow-kat` executable built against the pinned CPU implementation.
@@ -94,6 +96,24 @@ and Core's final digest-byte reversal on the GPU. The Python comparator
 compares complete digest records; it does not compare prefixes or target
 results.
 
+## CUDA event pipeline timing
+
+The experimental stage emits `gpu_pipeline_ms` and
+`gpu_pipeline_digests_per_second` using CUDA events around
+`prepareHashInputs`, `generateMatrix`, and `calculateDigests`. The timing
+excludes host setup, allocations, host/device transfers, CPU oracle work, and
+output writing. It measures this diagnostic pipeline with one matrix reused
+across the batch; it is not miner hashrate and does not imply pool performance.
+
+Five Release runs each covered nonces 0–9,999 and passed full 32-byte CPU/GPU
+digest comparison. Median event time was 83.914749 ms (range 76.976128–
+83.981316 ms), equivalent to a median 119,168.56 pipeline digests/s. The
+10,000-record CPU and GPU transcript SHA-256 matched in every run:
+`dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47`.
+Per-run timing and transcript details are preserved locally at
+`D:\Dev\pepepow-cuda-digest-evidence-20261127\build-vs331\event-timing-final-10k-repeats.json`
+(SHA-256 `c7f17c38252464813e88a5523aaafd6cddd19abb90401b94102678cafedbc345c`).
+
 ## Static kernel resource snapshot
 
 A separate NVCC/PTXAS resource-usage compile used the same `sm_86` target and
@@ -109,7 +129,8 @@ The 688-byte `calculateDigests` stack frame remains material even though
 PTXAS reports zero register spill loads and stores. This is a follow-up
 optimization target: inspect local stack traffic and measure active-block
 occupancy on the physical GPU while preserving full-digest parity. No GPU
-throughput result is inferred from the CTest wall time.
+mining hashrate is inferred from the CTest wall time; the separately reported
+CUDA-event measurement is limited to this experimental kernel pipeline.
 
 ## Evidence hashes
 
@@ -120,8 +141,9 @@ Evidence is under the local directory
 | --- | --- |
 | 10,000-case CPU transcript | `dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47` |
 | 10,000-case CUDA transcript | `dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47` |
-| 10,000-case JSON report | `b27417178be292b83c0baf5ae8f3b95e8098d92680b70dc1aa5330792a98c27a` |
-| Release CUDA digest executable | `479accf2038eea70fd6d83ef29d7ecba6785c15fc7e60f89fa3c64527762e429` |
+| 10,000-case JSON report | `7f788abfe6ab1161375664de29e27b3e2b5f372e1a9c5972ee230de4c4cfbadd` |
+| Five-run timing JSON | `c7f17c38252464813e88a5523aaafd6cddd19abb90401b94102678cafedbc345c` |
+| Release CUDA digest executable | `1bb156289227ab531f565fd8da807ae24e5f8f34d028e4d288fea5733d65b1e8` |
 | Pinned OpenLibm static archive | `9fb7b4caf1deb2136314508c3116adafd8a192a67d0ca4a95e22744fa0ca5f96` |
 | NVCC/PTXAS resource-usage log | `e504cc264822fe06b8a7a1bfa3fca22d8f1413c2dc85f1976856eaa4777801ff` |
 

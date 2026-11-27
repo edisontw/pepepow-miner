@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 import struct
 import subprocess
@@ -117,13 +118,33 @@ def validate_success(completed, start, count):
         raise DigestStageError(f"CUDA success output is not JSON: {error}") from error
     require(isinstance(payload, dict) and set(payload) == {
         "schema_version", "status", "stage", "nonce_start", "nonce_count",
-        "digest_count", "device", "cuda_versions", "error",
+        "digest_count", "gpu_pipeline_ms", "gpu_pipeline_digests_per_second",
+        "gpu_pipeline_timing_scope", "device", "cuda_versions", "error",
     }, "CUDA success JSON fields changed")
     require(payload["schema_version"] == 1 and payload["status"] == "ok" and
             payload["stage"] == "hoohash_v110_full_digest_experiment" and
             payload["nonce_start"] == start and payload["nonce_count"] == count and
             payload["digest_count"] == count and payload["error"] is None,
             "CUDA success metadata changed")
+    elapsed_ms = payload["gpu_pipeline_ms"]
+    digests_per_second = payload["gpu_pipeline_digests_per_second"]
+    timing_scope = (
+        "CUDA event kernel-only; excludes host setup, allocation, transfer, "
+        "oracle, and output; not miner hashrate"
+    )
+    require(isinstance(elapsed_ms, (int, float)) and
+            not isinstance(elapsed_ms, bool) and math.isfinite(elapsed_ms) and
+            elapsed_ms > 0 and isinstance(digests_per_second, (int, float)) and
+            not isinstance(digests_per_second, bool) and
+            math.isfinite(digests_per_second) and digests_per_second > 0 and
+            math.isclose(digests_per_second, count * 1000.0 / elapsed_ms,
+                         rel_tol=1e-12),
+            f"CUDA event timing must be finite, positive, and self-consistent "
+            f"(elapsed_ms={elapsed_ms!r}, "
+            f"digests_per_second={digests_per_second!r}, "
+            f"expected={count * 1000.0 / elapsed_ms if isinstance(elapsed_ms, (int, float)) and elapsed_ms > 0 else None!r})")
+    require(payload["gpu_pipeline_timing_scope"] == timing_scope,
+            "CUDA event timing scope changed")
     device = payload["device"]
     require(isinstance(device, dict) and set(device) == {
         "index", "name", "compute_capability",
@@ -177,7 +198,10 @@ def run_case(stage, header, start, count, root, cpu):
     print(f"LIVE CUDA: {start}..{start + count - 1}, {count} full 32-byte "
           f"digests match pinned Core on {payload['device']['name']}")
     return {"status": "live", "error": None, "device": payload["device"],
-            "cuda_versions": payload["cuda_versions"], "gpu_path": gpu_path}
+            "cuda_versions": payload["cuda_versions"], "gpu_path": gpu_path,
+            "gpu_pipeline_ms": payload["gpu_pipeline_ms"],
+            "gpu_pipeline_digests_per_second": payload[
+                "gpu_pipeline_digests_per_second"]}
 
 
 def write_report(path, header, cases, result):
@@ -197,6 +221,9 @@ def write_report(path, header, cases, result):
             "complete_digests_compared": len(cpu_digests),
             "status": device_result["status"],
             "device_error": device_result["error"],
+            "gpu_pipeline_ms": device_result.get("gpu_pipeline_ms"),
+            "gpu_pipeline_digests_per_second": device_result.get(
+                "gpu_pipeline_digests_per_second"),
         })
     report = {
         "schema_version": 1,
@@ -209,6 +236,11 @@ def write_report(path, header, cases, result):
         "header_template_hex": header.hex(),
         "nonce_encoding": "little_endian_uint32_at_header_offsets_76_to_79",
         "digest_bytes_compared_per_case": 32,
+        "timing_scope": (
+            "CUDA event time for the three kernel pipeline only; excludes host "
+            "setup, allocations, transfers, oracle work, and output; not miner "
+            "hashrate"
+        ),
         "build_policy": {
             "cuda_compile_flags_required": [
                 "--fmad=false", "--ftz=false", "--prec-div=true",
