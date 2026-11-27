@@ -367,6 +367,10 @@ only the diagnostic kernel pipeline and are not miner hashrate. This does not
 claim a production GPU miner, G4 acceptance, or redistribution clearance.
 The Python contract validates a labeled mock success response before probing
 hardware, so no-GPU CI checks the JSON schema and invalid timing rejection.
+The success JSON also records per-kernel register and local-memory attributes,
+launch dimensions, and CUDA Runtime's theoretical per-SM occupancy estimate.
+The occupancy estimate is not measured achieved occupancy; the matrix
+generator's one-block grid is reported separately.
 
 Enable the full-digest experiment along with all prerequisite diagnostics:
 
@@ -428,7 +432,10 @@ standalone GPU project does not change the default CPU build.
 
 - [CUDA Runtime API: device properties](https://docs.nvidia.com/cuda/cuda-runtime-api/structcudaDeviceProp.html)
 - [CUDA Runtime API: device management](https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__DEVICE.html)
+- [CUDA Runtime API: function resource attributes](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-runtime-api/structcudaFuncAttributes.html)
+- [CUDA Runtime API: occupancy calculation](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-runtime-api/group__CUDART__OCCUPANCY.html)
 - [CUDA Runtime API: versions](https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART____VERSION.html)
+- [CUDA C++ Programming Guide](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-programming-guide/)
 - [CUDA C++ Programming Guide: compute capabilities](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/compute-capabilities.html)
 - [CUDA 13.3.1 Windows Installation Guide](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-installation-guide-microsoft-windows/index.html)
 - [CUDA 13.3.1 Linux Installation Guide](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-installation-guide-linux/index.html)

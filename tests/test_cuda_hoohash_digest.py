@@ -119,7 +119,8 @@ def validate_success(completed, start, count):
     require(isinstance(payload, dict) and set(payload) == {
         "schema_version", "status", "stage", "nonce_start", "nonce_count",
         "digest_count", "gpu_pipeline_ms", "gpu_pipeline_digests_per_second",
-        "gpu_pipeline_timing_scope", "device", "cuda_versions", "error",
+        "gpu_pipeline_timing_scope", "kernel_resource_model", "warp_size",
+        "kernel_resources", "device", "cuda_versions", "error",
     }, "CUDA success JSON fields changed")
     require(payload["schema_version"] == 1 and payload["status"] == "ok" and
             payload["stage"] == "hoohash_v110_full_digest_experiment" and
@@ -145,6 +146,70 @@ def validate_success(completed, start, count):
             f"expected={count * 1000.0 / elapsed_ms if isinstance(elapsed_ms, (int, float)) and elapsed_ms > 0 else None!r})")
     require(payload["gpu_pipeline_timing_scope"] == timing_scope,
             "CUDA event timing scope changed")
+    resource_model = (
+        "CUDA Runtime function attributes and max-active-block calculation; "
+        "theoretical per-SM occupancy, not measured achieved occupancy"
+    )
+    require(payload["kernel_resource_model"] == resource_model and
+            isinstance(payload["warp_size"], int) and
+            not isinstance(payload["warp_size"], bool) and
+            payload["warp_size"] > 0,
+            "CUDA kernel resource model metadata changed")
+    resources = payload["kernel_resources"]
+    kernel_names = {
+        "prepareHashInputs", "generateMatrix", "calculateDigests",
+    }
+    resource_fields = {
+        "threads_per_block", "grid_blocks", "registers_per_thread",
+        "local_memory_bytes_per_thread",
+        "static_shared_memory_bytes_per_block", "warps_per_block",
+        "theoretical_max_active_blocks_per_sm",
+        "theoretical_active_warps_per_sm", "max_warps_per_sm",
+        "theoretical_warp_occupancy_percent",
+    }
+    require(isinstance(resources, dict) and set(resources) == kernel_names,
+            "CUDA kernel resource names changed")
+    for kernel_name, metrics in resources.items():
+        require(isinstance(metrics, dict) and set(metrics) == resource_fields,
+                f"CUDA {kernel_name} resource fields changed")
+        integer_fields = resource_fields - {
+            "theoretical_warp_occupancy_percent",
+        }
+        require(all(isinstance(metrics[field], int) and
+                    not isinstance(metrics[field], bool) and
+                    metrics[field] >= 0 for field in integer_fields) and
+                metrics["threads_per_block"] > 0 and
+                metrics["grid_blocks"] > 0 and
+                metrics["warps_per_block"] > 0 and
+                metrics["theoretical_max_active_blocks_per_sm"] > 0 and
+                metrics["max_warps_per_sm"] > 0 and
+                metrics["theoretical_active_warps_per_sm"] > 0 and
+                metrics["theoretical_active_warps_per_sm"] == min(
+                    metrics["max_warps_per_sm"],
+                    metrics["theoretical_max_active_blocks_per_sm"] *
+                    metrics["warps_per_block"],
+                ), f"CUDA {kernel_name} occupancy counts are inconsistent")
+        occupancy = metrics["theoretical_warp_occupancy_percent"]
+        require(isinstance(occupancy, (int, float)) and
+                not isinstance(occupancy, bool) and math.isfinite(occupancy) and
+                0 < occupancy <= 100 and
+                math.isclose(
+                    occupancy,
+                    100.0 * metrics["theoretical_active_warps_per_sm"] /
+                    metrics["max_warps_per_sm"],
+                    rel_tol=1e-12,
+                ), f"CUDA {kernel_name} occupancy percentage is inconsistent")
+        expected_grid_blocks = (
+            (count + metrics["threads_per_block"] - 1) //
+            metrics["threads_per_block"]
+        )
+        if kernel_name == "generateMatrix":
+            require(metrics["threads_per_block"] == 1 and
+                    metrics["grid_blocks"] == 1,
+                    "matrix generation launch dimensions changed")
+        else:
+            require(metrics["grid_blocks"] == expected_grid_blocks,
+                    f"CUDA {kernel_name} grid coverage is inconsistent")
     device = payload["device"]
     require(isinstance(device, dict) and set(device) == {
         "index", "name", "compute_capability",
@@ -183,6 +248,46 @@ def validate_success_contract_fixture():
             "CUDA event kernel-only; excludes host setup, allocation, transfer, "
             "oracle, and output; not miner hashrate"
         ),
+        "kernel_resource_model": (
+            "CUDA Runtime function attributes and max-active-block calculation; "
+            "theoretical per-SM occupancy, not measured achieved occupancy"
+        ),
+        "warp_size": 32,
+        "kernel_resources": {
+            "prepareHashInputs": {
+                "threads_per_block": 128, "grid_blocks": 1,
+                "registers_per_thread": 72,
+                "local_memory_bytes_per_thread": 64,
+                "static_shared_memory_bytes_per_block": 0,
+                "warps_per_block": 4,
+                "theoretical_max_active_blocks_per_sm": 7,
+                "theoretical_active_warps_per_sm": 28,
+                "max_warps_per_sm": 48,
+                "theoretical_warp_occupancy_percent": 58.333333333333336,
+            },
+            "generateMatrix": {
+                "threads_per_block": 1, "grid_blocks": 1,
+                "registers_per_thread": 38,
+                "local_memory_bytes_per_thread": 0,
+                "static_shared_memory_bytes_per_block": 0,
+                "warps_per_block": 1,
+                "theoretical_max_active_blocks_per_sm": 16,
+                "theoretical_active_warps_per_sm": 16,
+                "max_warps_per_sm": 48,
+                "theoretical_warp_occupancy_percent": 33.333333333333336,
+            },
+            "calculateDigests": {
+                "threads_per_block": 128, "grid_blocks": 1,
+                "registers_per_thread": 80,
+                "local_memory_bytes_per_thread": 688,
+                "static_shared_memory_bytes_per_block": 0,
+                "warps_per_block": 4,
+                "theoretical_max_active_blocks_per_sm": 6,
+                "theoretical_active_warps_per_sm": 24,
+                "max_warps_per_sm": 48,
+                "theoretical_warp_occupancy_percent": 50.0,
+            },
+        },
         "device": {
             "index": 0,
             "name": "mock-device",
@@ -208,6 +313,10 @@ def validate_success_contract_fixture():
     invalid_payloads.append(invalid_rate)
     invalid_scope = dict(payload, gpu_pipeline_timing_scope="total host time")
     invalid_payloads.append(invalid_scope)
+    invalid_occupancy = json.loads(json.dumps(payload))
+    invalid_occupancy["kernel_resources"]["calculateDigests"][
+        "theoretical_warp_occupancy_percent"] = 37.5
+    invalid_payloads.append(invalid_occupancy)
     for invalid in invalid_payloads:
         completed = subprocess.CompletedProcess(
             args=["mock-cuda-stage"], returncode=0,
@@ -251,6 +360,9 @@ def run_case(stage, header, start, count, root, cpu):
           f"digests match pinned Core on {payload['device']['name']}")
     return {"status": "live", "error": None, "device": payload["device"],
             "cuda_versions": payload["cuda_versions"], "gpu_path": gpu_path,
+            "kernel_resource_model": payload["kernel_resource_model"],
+            "warp_size": payload["warp_size"],
+            "kernel_resources": payload["kernel_resources"],
             "gpu_pipeline_ms": payload["gpu_pipeline_ms"],
             "gpu_pipeline_digests_per_second": payload[
                 "gpu_pipeline_digests_per_second"]}
@@ -273,9 +385,11 @@ def write_report(path, header, cases, result):
             "complete_digests_compared": len(cpu_digests),
             "status": device_result["status"],
             "device_error": device_result["error"],
+            "warp_size": device_result.get("warp_size"),
             "gpu_pipeline_ms": device_result.get("gpu_pipeline_ms"),
             "gpu_pipeline_digests_per_second": device_result.get(
                 "gpu_pipeline_digests_per_second"),
+            "kernel_resources": device_result.get("kernel_resources"),
         })
     report = {
         "schema_version": 1,
@@ -293,6 +407,11 @@ def write_report(path, header, cases, result):
             "setup, allocations, transfers, oracle work, and output; not miner "
             "hashrate"
         ),
+        "kernel_resource_model": (
+            "CUDA Runtime function attributes and max-active-block calculation; "
+            "theoretical per-SM occupancy, not measured achieved occupancy"
+        ),
+        "occupancy_is_measured": False,
         "build_policy": {
             "cuda_compile_flags_required": [
                 "--fmad=false", "--ftz=false", "--prec-div=true",

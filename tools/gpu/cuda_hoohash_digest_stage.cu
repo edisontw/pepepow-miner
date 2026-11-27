@@ -272,6 +272,78 @@ __global__ void calculateDigests(const std::uint8_t *first_passes,
   }
 }
 
+struct KernelResources {
+  int threads_per_block = 0;
+  int grid_blocks = 0;
+  int registers_per_thread = 0;
+  std::size_t local_memory_bytes_per_thread = 0;
+  std::size_t static_shared_memory_bytes_per_block = 0;
+  int warps_per_block = 0;
+  int theoretical_max_active_blocks_per_sm = 0;
+  int theoretical_active_warps_per_sm = 0;
+  int max_warps_per_sm = 0;
+  double theoretical_warp_occupancy_percent = 0.0;
+};
+
+template <typename Kernel>
+cudaError_t queryKernelResources(Kernel kernel, int threads_per_block,
+                                 int grid_blocks,
+                                 const cudaDeviceProp &properties,
+                                 KernelResources &resources) {
+  if (threads_per_block <= 0 || grid_blocks <= 0 ||
+      properties.warpSize <= 0 ||
+      properties.maxThreadsPerMultiProcessor <= 0) {
+    return cudaErrorInvalidConfiguration;
+  }
+  cudaFuncAttributes attributes{};
+  cudaError_t error = cudaFuncGetAttributes(&attributes, kernel);
+  if (error != cudaSuccess) return error;
+  int max_active_blocks = 0;
+  error = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+      &max_active_blocks, kernel, threads_per_block, 0U);
+  if (error != cudaSuccess) return error;
+
+  const int max_warps = properties.maxThreadsPerMultiProcessor /
+                        properties.warpSize;
+  const int warps_per_block =
+      (threads_per_block + properties.warpSize - 1) / properties.warpSize;
+  const int theoretical_active_warps =
+      max_active_blocks * warps_per_block < max_warps
+          ? max_active_blocks * warps_per_block : max_warps;
+  resources.threads_per_block = threads_per_block;
+  resources.grid_blocks = grid_blocks;
+  resources.registers_per_thread = attributes.numRegs;
+  resources.local_memory_bytes_per_thread = attributes.localSizeBytes;
+  resources.static_shared_memory_bytes_per_block = attributes.sharedSizeBytes;
+  resources.warps_per_block = warps_per_block;
+  resources.theoretical_max_active_blocks_per_sm = max_active_blocks;
+  resources.theoretical_active_warps_per_sm = theoretical_active_warps;
+  resources.max_warps_per_sm = max_warps;
+  resources.theoretical_warp_occupancy_percent =
+      100.0 * static_cast<double>(theoretical_active_warps) /
+      static_cast<double>(max_warps);
+  return cudaSuccess;
+}
+
+void writeKernelResources(std::ostream &output,
+                          const KernelResources &resources) {
+  output << "{\"threads_per_block\":" << resources.threads_per_block
+         << ",\"grid_blocks\":" << resources.grid_blocks
+         << ",\"registers_per_thread\":" << resources.registers_per_thread
+         << ",\"local_memory_bytes_per_thread\":"
+         << resources.local_memory_bytes_per_thread
+         << ",\"static_shared_memory_bytes_per_block\":"
+         << resources.static_shared_memory_bytes_per_block
+         << ",\"warps_per_block\":" << resources.warps_per_block
+         << ",\"theoretical_max_active_blocks_per_sm\":"
+         << resources.theoretical_max_active_blocks_per_sm
+         << ",\"theoretical_active_warps_per_sm\":"
+         << resources.theoretical_active_warps_per_sm
+         << ",\"max_warps_per_sm\":" << resources.max_warps_per_sm
+         << ",\"theoretical_warp_occupancy_percent\":"
+         << resources.theoretical_warp_occupancy_percent << '}';
+}
+
 const char *errorName(ErrorCode error) {
   switch (error) {
     case ErrorCode::no_device: return "no_device";
@@ -505,6 +577,28 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
     emitError(code, error);
     return exitCode(code);
   }
+  constexpr int digest_threads = 128;
+  const int digest_blocks = static_cast<int>(
+      (count + static_cast<std::uint32_t>(digest_threads) - 1U) /
+      static_cast<std::uint32_t>(digest_threads));
+  KernelResources prepare_resources{};
+  KernelResources matrix_resources{};
+  KernelResources digest_resources{};
+  error = queryKernelResources(prepareHashInputs, digest_threads,
+                               digest_blocks, properties, prepare_resources);
+  if (error == cudaSuccess) {
+    error = queryKernelResources(generateMatrix, 1, 1, properties,
+                                 matrix_resources);
+  }
+  if (error == cudaSuccess) {
+    error = queryKernelResources(calculateDigests, digest_threads,
+                                 digest_blocks, properties, digest_resources);
+  }
+  if (error != cudaSuccess) {
+    const ErrorCode code = classify(error);
+    emitError(code, error);
+    return exitCode(code);
+  }
   int driver_version = 0;
   int runtime_version = 0;
   error = cudaDriverGetVersion(&driver_version);
@@ -527,6 +621,17 @@ int run(const std::uint8_t header[80], std::uint32_t nonce_start,
             << ",\"gpu_pipeline_timing_scope\":\"CUDA event kernel-only; "
                "excludes host setup, allocation, transfer, oracle, and output; "
                "not miner hashrate\""
+            << ",\"kernel_resource_model\":\"CUDA Runtime function attributes "
+               "and max-active-block calculation; theoretical per-SM occupancy, "
+               "not measured achieved occupancy\""
+            << ",\"warp_size\":" << properties.warpSize
+            << ",\"kernel_resources\":{\"prepareHashInputs\":";
+  writeKernelResources(std::cout, prepare_resources);
+  std::cout << ",\"generateMatrix\":";
+  writeKernelResources(std::cout, matrix_resources);
+  std::cout << ",\"calculateDigests\":";
+  writeKernelResources(std::cout, digest_resources);
+  std::cout << '}'
             << ",\"device\":{\"index\":0,\"name\":\""
             << jsonEscape(properties.name) << "\",\"compute_capability\":\""
             << properties.major << '.' << properties.minor << "\"},"

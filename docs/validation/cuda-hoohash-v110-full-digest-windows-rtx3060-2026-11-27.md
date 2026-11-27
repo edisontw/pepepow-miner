@@ -72,14 +72,15 @@ kernel compiled with `--fmad=false`, `--ftz=false`, `--prec-div=true`, and
 
 - Release build of all opt-in CUDA stages and CPU oracles: passed.
 - Release CTest suite: 8/8 passed, including the live 10,000-nonce parity
-  test; total 4.80 seconds.
+  test; total 4.84 seconds.
 - Debug build of all opt-in CUDA stages and CPU oracles: passed.
-- Debug CTest suite excluding the 10,000-nonce stress batch: 7/7 passed;
-  physical-device total 3.97 seconds.
-- No-GPU Debug CTest suite: 7/7 passed in 2.08 seconds with
+- Debug CTest suite: 8/8 passed, including the live 10,000-nonce parity
+  test; physical-device total 4.98 seconds.
+- No-GPU Debug CTest suite: 7/7 passed in 2.00 seconds with
   `CUDA_VISIBLE_DEVICES=-1` and the explicit no-device skip enabled.
 - 10,000-nonce physical CUDA test: nonces 0–9,999, all full 32-byte digests
-  matched pinned Core; CTest time 0.96 seconds.
+  matched pinned Core; CTest time 0.96 seconds in Release and 0.99 seconds in
+  Debug.
 - Five additional Release 10,000-nonce runs compared each complete digest to
   pinned Core, with matching CPU/GPU transcript hashes in every run.
 - The success JSON schema was tested with a labeled mock fixture; zero/NaN,
@@ -115,13 +116,43 @@ before device access, so no-GPU CI validates the success schema and rejects
 invalid timing values without presenting mock data as physical-device output.
 
 Five Release runs each covered nonces 0–9,999 and passed full 32-byte CPU/GPU
-digest comparison. Median event time was 83.914749 ms (range 76.976128–
-83.981316 ms), equivalent to a median 119,168.56 pipeline digests/s. The
+digest comparison. Median event time was 77.307907 ms (range 76.950531–
+83.954689 ms), equivalent to a median 129,352.87 pipeline digests/s. The
 10,000-record CPU and GPU transcript SHA-256 matched in every run:
 `dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47`.
 Per-run timing and transcript details are preserved locally at
-`D:\Dev\pepepow-cuda-digest-evidence-20261127\build-vs331\event-timing-final-10k-repeats.json`
-(SHA-256 `c7f17c38252464813e88a5523aaafd6cddd19abb90401b94102678cafedbc345c`).
+`D:\Dev\pepepow-cuda-digest-evidence-20261127\build-vs331\event-timing-10k-resource-repeats.json`
+(SHA-256 `6756ff548331ac28605346f5a038c0e731568b53997da72ed1460ab478bd8cf6`).
+
+## Runtime kernel resources and occupancy
+
+The success JSON reports `cudaFuncGetAttributes` register, local-memory, and
+static shared-memory values plus `cudaOccupancyMaxActiveBlocksPerMultiprocessor`
+for the configured block size. CUDA defines `localSizeBytes` as local memory
+per thread and the occupancy API as a per-SM active-block capacity
+calculation. These values are theoretical launch-resource estimates, not
+measured achieved occupancy. The report also includes grid size so the one-
+block matrix generator is not confused with a fully occupied GPU.
+
+| Kernel | Grid | Registers/thread | Local bytes/thread | Max active blocks/SM | Theoretical active warps/SM | Per-SM theoretical occupancy |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `prepareHashInputs` | 79 × 128 | 72 | 64 | 7 | 28 / 48 | 58.33% |
+| `generateMatrix` | 1 × 1 | 38 | 0 | 16 | 16 / 48 | 33.33%* |
+| `calculateDigests` | 79 × 128 | 80 | 688 | 6 | 24 / 48 | 50.00% |
+
+* `generateMatrix` launches one block total, so only one SM receives work for
+  that kernel. The 33.33% value is the occupancy calculator's theoretical
+  per-SM capacity for a one-thread block if enough blocks existed; it is not
+  the achieved device-wide occupancy of this one-block launch.
+
+The runtime `calculateDigests` local-memory attribute (688 bytes per thread)
+matches PTXAS's 688-byte stack frame. A separately generated `sm_86` PTX file
+contains a 688-byte local-frame declaration and 416 `ld.local` plus 146
+`st.local` PTX instructions in `calculateDigests`. These are static PTX
+instructions, not dynamic memory-transaction counts. Nsight Compute,
+`cuobjdump`, and `nvdisasm` were not installed, so achieved occupancy and SASS
+local-memory traffic remain unmeasured. PTX SHA-256:
+`b03bb96a4ee8391c86b90b3ec1595837a676ffd1fdfcc0f76b162452405370b0`.
 
 ## Static kernel resource snapshot
 
@@ -150,9 +181,10 @@ Evidence is under the local directory
 | --- | --- |
 | 10,000-case CPU transcript | `dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47` |
 | 10,000-case CUDA transcript | `dc12ac687609af3c33d5099b5d5b344bd8c6a2a69d8f13932484ae6966cd3c47` |
-| 10,000-case JSON report | `fc174eebdaac2c852039b3ef291642d39dfeb2896d89a3eebd2d2fdec3f57d32` |
-| Five-run timing JSON | `c7f17c38252464813e88a5523aaafd6cddd19abb90401b94102678cafedbc345c` |
-| Release CUDA digest executable | `1bb156289227ab531f565fd8da807ae24e5f8f34d028e4d288fea5733d65b1e8` |
+| 10,000-case JSON report | `1b1cc39ca02b93cb578401f3d81ca41a619d492f3440e290aed4268532cf29e1` |
+| Five-run timing/resource JSON | `6756ff548331ac28605346f5a038c0e731568b53997da72ed1460ab478bd8cf6` |
+| Release CUDA digest executable | `372bd2c490f33189d1b4eda69d331306f009b233fcfbfbf746cfd66af6cfce32` |
+| `sm_86` CUDA PTX | `b03bb96a4ee8391c86b90b3ec1595837a676ffd1fdfcc0f76b162452405370b0` |
 | Pinned OpenLibm static archive | `9fb7b4caf1deb2136314508c3116adafd8a192a67d0ca4a95e22744fa0ca5f96` |
 | NVCC/PTXAS resource-usage log | `e504cc264822fe06b8a7a1bfa3fca22d8f1413c2dc85f1976856eaa4777801ff` |
 
