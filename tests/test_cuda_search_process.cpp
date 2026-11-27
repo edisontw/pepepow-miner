@@ -6,6 +6,7 @@
 #include <charconv>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -111,6 +112,28 @@ int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest,
     std::this_thread::sleep_for(std::chrono::seconds(5));
     return 66;
   }
+#if defined(__linux__)
+  if (argc >= 2 && std::string_view(argv[1]) == "--mock-child-spawn-grandchild") {
+    const auto pid_path = argument_value(argc, argv, "--descendant-pid-file");
+    if (pid_path.empty()) return 67;
+    const pid_t descendant = ::fork();
+    if (descendant < 0) return 68;
+    if (descendant == 0) {
+      for (;;) std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+    std::ofstream pid_output{std::filesystem::path(pid_path)};
+    if (!pid_output) return 69;
+    pid_output << descendant << '\n';
+    pid_output.close();
+    emit("exhausted", {}, count, "[]");
+    return 0;
+  }
+#endif
+  if (argc >= 2 && std::string_view(argv[1]) == "--mock-child-error") {
+    std::cerr << "mock CUDA engine: init \"failed\"\n"
+              << std::string(8192, 'x') << '\n';
+    return 42;
+  }
   if (partial_timeout && start == 7 && count >= 2) {
     emit("cancelled", "timeout", 2, "[]");
     return 130;
@@ -178,12 +201,27 @@ class MockEnginePath {
 
   explicit operator bool() const { return ready_; }
   const std::filesystem::path& executable() const { return executable_; }
+  const std::filesystem::path& directory() const { return directory_; }
 
  private:
   std::filesystem::path directory_;
   std::filesystem::path executable_;
   bool ready_ = false;
 };
+
+#if defined(__linux__)
+bool linux_process_is_running(std::uint64_t process_id) {
+  const auto stat_path = std::filesystem::path("/proc") /
+      std::to_string(process_id) / "stat";
+  std::ifstream input(stat_path);
+  std::string line;
+  if (!std::getline(input, line)) return false;
+  const auto command_end = line.rfind(')');
+  if (command_end == std::string::npos || command_end + 2 >= line.size())
+    return false;
+  return line[command_end + 2] != 'Z';
+}
+#endif
 
 int run_contract_tests(const char* executable) {
   MockEnginePath mock_engine(std::filesystem::absolute(executable));
@@ -224,6 +262,42 @@ int run_contract_tests(const char* executable) {
   if (result.status != pepepow::SearchStatus::Found || !result.candidate ||
       result.candidate->nonce != 9 || result.hashes != 3) {
     std::cerr << "partial timeout did not resume at the first unprocessed nonce\n";
+    return 1;
+  }
+
+#if defined(__linux__)
+  const auto descendant_pid_file = mock_engine.directory() / "descendant.pid";
+  options.engine_prefix_arguments = {"--mock-child-spawn-grandchild",
+      "--descendant-pid-file", descendant_pid_file.string()};
+  options.batch_size = 1;
+  result = pepepow::search_cuda_with_process(cpu, options, header, easy_target,
+      23, 1, pepepow::SearchClock::now() + std::chrono::seconds(3));
+  std::uint64_t descendant_pid = 0;
+  std::ifstream pid_input(descendant_pid_file);
+  if (!pid_input || !(pid_input >> descendant_pid) ||
+      result.status != pepepow::SearchStatus::Exhausted || result.hashes != 1) {
+    std::cerr << "mock engine did not complete after spawning a child process\n";
+    return 1;
+  }
+  for (unsigned attempt = 0; attempt < 100 &&
+       linux_process_is_running(descendant_pid); ++attempt)
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  if (linux_process_is_running(descendant_pid)) {
+    std::cerr << "engine child process survived CUDA process cleanup\n";
+    return 1;
+  }
+#endif
+
+  options.engine_prefix_arguments = {"--mock-child-error"};
+  std::string diagnostic;
+  result = pepepow::search_cuda_with_process(cpu, options, header, easy_target,
+      7, 1, pepepow::SearchClock::now() + std::chrono::seconds(3), nullptr,
+      &diagnostic);
+  if (result.status != pepepow::SearchStatus::Invalid || result.candidate ||
+      diagnostic.find("mock CUDA engine: init \"failed\"") == std::string::npos ||
+      diagnostic.find("[stderr truncated]") == std::string::npos ||
+      diagnostic.size() > 4200) {
+    std::cerr << "child stderr diagnostic was not retained on engine failure\n";
     return 1;
   }
 

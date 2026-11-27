@@ -52,12 +52,10 @@ cmd.exe /c '"D:\Dev\vs2022-build-tools\Common7\Tools\VsDevCmd.bat" -arch=x64 -ho
 
 ## Results
 
-- The broader Release set passed `6/6` in `10.99 s`, and the broader Debug
-  set passed `5/5` in `1.13 s`.
-- After adding an explicit Windows inherited-handle allowlist for the child,
-  and bounded descendant cleanup through its Windows Job Object, the final
-  process and CUDA-product loopback tests passed again: Release `2/2`, Debug
-  `2/2`.
+- The latest focused root CTest suite passed `6/6` in Release (`11.40 s`) and
+  `6/6` in Debug (`11.70 s`). It includes the process contract, result decoder,
+  native search, offline loopback, CPU product loopback, and CUDA-capable
+  product loopback tests.
 - Cancellation grace now starts when the parent signals cancellation, rather
   than at the engine invocation deadline. A new uncooperative-child mock was
   terminated within the configured 150 ms grace plus test scheduling overhead;
@@ -77,6 +75,13 @@ cmd.exe /c '"D:\Dev\vs2022-build-tools\Common7\Tools\VsDevCmd.bat" -arch=x64 -ho
 - A mock engine timed out after processing nonces `7` and `8`; the adapter
   resumed at nonce `9`, CPU-rechecked its full digest, and reported three total
   hashes without repeating or skipping a nonce.
+- A child that exited with an initialization error retained a sanitized stderr
+  excerpt capped at 4 KiB; an 8 KiB fixture verified the truncation marker.
+- POSIX cleanup now keeps the process-group leader unreaped until descendants
+  are terminated. A Linux-only test spawns a same-group child and checks that it
+  is no longer running after search cleanup. This Windows local run cannot
+  execute that Linux-only case; it was added to the pinned-Core Linux workflow
+  and awaits exact-head CI.
 - An expiring parent deadline also caused cooperative child cancellation and
   returned timeout without a candidate.
 - Per-invocation temporary result, stderr, and cancel files were removed after

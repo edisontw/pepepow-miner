@@ -500,6 +500,7 @@ int mine_session(Socket socket, OfflineStratumController& controller,
     std::atomic_bool cancel{false};
     std::atomic_bool finished{false};
     SearchStatus search_status = SearchStatus::Invalid;
+    std::string cuda_diagnostic;
     const auto search_started = Clock::now();
     const auto search_deadline = options.live_pool ? runtime_deadline :
         (std::min)(search_started + std::chrono::milliseconds(options.timeout_ms), runtime_deadline);
@@ -513,7 +514,7 @@ int mine_session(Socket socket, OfflineStratumController& controller,
           cuda_options.batch_size = options.cuda_batch_size;
           return pepepow::search_cuda_with_process(
               cpu, cuda_options, header, target, batch_start, batch_count,
-              search_deadline, &cancel);
+              search_deadline, &cancel, &cuda_diagnostic);
         }
 #endif
         if (options.live_pool)
@@ -641,7 +642,10 @@ int mine_session(Socket socket, OfflineStratumController& controller,
     }
     const auto* candidate = work->candidate();
     if (search_status != SearchStatus::Found || !candidate) {
-      std::cerr << "Native CPU search returned an invalid state\n";
+      if (options.cuda_device && !cuda_diagnostic.empty())
+        std::cerr << "CUDA search failed: " << cuda_diagnostic << '\n';
+      else
+        std::cerr << "Native CPU search returned an invalid state\n";
       failed = true;
       break;
     }

@@ -242,6 +242,8 @@ class CudaChildProcess {
     wait_for_job_empty();
   }
 
+  void cleanup() { close(); }
+
  private:
   void wait_for_job_empty() const {
     if (!job_) return;
@@ -320,32 +322,43 @@ class CudaChildProcess {
 
   std::optional<unsigned long> poll() const {
     if (pid_ <= 0) return std::nullopt;
-    int status = 0;
-    const pid_t result = ::waitpid(pid_, &status, WNOHANG);
-    if (result == 0 || (result < 0 && errno == EINTR)) return std::nullopt;
-    if (result < 0) return 127UL;
-    reaped_ = true;
-    if (WIFEXITED(status)) return static_cast<unsigned long>(WEXITSTATUS(status));
-    return 128UL + static_cast<unsigned long>(WTERMSIG(status));
+    siginfo_t info{};
+    if (::waitid(P_PID, static_cast<id_t>(pid_), &info,
+                 WEXITED | WNOHANG | WNOWAIT) != 0) {
+      if (errno == EINTR) return std::nullopt;
+      return 127UL;
+    }
+    if (info.si_pid == 0) return std::nullopt;
+    if (info.si_code == CLD_EXITED)
+      return static_cast<unsigned long>(info.si_status);
+    if (info.si_code == CLD_KILLED || info.si_code == CLD_DUMPED)
+      return 128UL + static_cast<unsigned long>(info.si_status);
+    return 127UL;
   }
 
   void terminate() {
     if (pid_ > 0 && !reaped_) (void)::kill(-pid_, SIGTERM);
   }
 
+  void cleanup() { close(); }
+
  private:
   void close() {
-    if (pid_ > 0 && !reaped_) {
+    if (pid_ > 0) {
+      // An engine may exit after leaving a child in its process group.
+      // Keep the leader unreaped until the group ID is no longer needed.
       (void)::kill(-pid_, SIGKILL);
-      int status = 0;
-      while (::waitpid(pid_, &status, 0) < 0 && errno == EINTR) {}
+      if (!reaped_) {
+        int status = 0;
+        while (::waitpid(pid_, &status, 0) < 0 && errno == EINTR) {}
+      }
     }
     pid_ = -1;
     reaped_ = true;
   }
 
   pid_t pid_ = -1;
-  mutable bool reaped_ = false;
+  bool reaped_ = false;
 };
 #endif
 
@@ -366,6 +379,38 @@ inline bool read_bounded_file(const std::filesystem::path& path,
   input.read(contents.data(), static_cast<std::streamsize>(contents.size()));
   return input.good() || (input.eof() &&
       static_cast<std::size_t>(input.gcount()) == contents.size());
+}
+
+inline std::string read_stderr_excerpt(const std::filesystem::path& path) {
+  constexpr std::size_t maximum = 4096;
+  std::error_code error;
+  const auto size = std::filesystem::file_size(path, error);
+  if (error || size == 0) return {};
+  std::ifstream input(path, std::ios::binary);
+  if (!input) return {};
+  const auto length = static_cast<std::size_t>(
+      (std::min<std::uintmax_t>)(size, maximum));
+  std::string contents(length, '\0');
+  input.read(contents.data(), static_cast<std::streamsize>(contents.size()));
+  contents.resize(static_cast<std::size_t>(input.gcount()));
+  for (auto& character : contents) {
+    const auto byte = static_cast<unsigned char>(character);
+    if (byte < 0x20U || byte == 0x7fU) character = ' ';
+  }
+  if (size > maximum) contents += " [stderr truncated]";
+  return contents;
+}
+
+inline void set_search_diagnostic(std::string* diagnostic,
+                                  std::string_view message,
+                                  const std::filesystem::path& errors) {
+  if (!diagnostic) return;
+  *diagnostic = message;
+  const auto excerpt = read_stderr_excerpt(errors);
+  if (!excerpt.empty()) {
+    diagnostic->append(": ");
+    diagnostic->append(excerpt);
+  }
 }
 
 inline std::vector<std::string> make_cuda_search_arguments(
@@ -400,15 +445,19 @@ inline SearchResult search_cuda_with_process(
     CpuWorkerPool& cpu, const CudaSearchProcessOptions& options,
     const Header& header, const Digest& target, std::uint32_t start,
     std::uint32_t count, SearchClock::time_point deadline,
-    const std::atomic_bool* cancel = nullptr) {
+    const std::atomic_bool* cancel = nullptr,
+    std::string* diagnostic = nullptr) {
   constexpr std::uint32_t maximum_count = 10000000;
   constexpr std::uint64_t nonce_space = std::uint64_t{1} << 32;
+  if (diagnostic) diagnostic->clear();
   if (options.engine.empty() || options.cpu_oracle.empty() ||
       options.batch_size == 0 || options.batch_size > 256 ||
       options.timeout_ms == 0 || options.timeout_ms > max_search_timeout_ms ||
       options.cancellation_grace.count() < 0 || count == 0 ||
-      count > maximum_count || static_cast<std::uint64_t>(count) > nonce_space - start)
+      count > maximum_count || static_cast<std::uint64_t>(count) > nonce_space - start) {
+    if (diagnostic) *diagnostic = "invalid CUDA search request";
     return {SearchStatus::Invalid, std::nullopt};
+  }
 
   const auto cancelled = [cancel] {
     return cancel && cancel->load(std::memory_order_acquire);
@@ -433,6 +482,10 @@ inline SearchResult search_cuda_with_process(
     const auto output_path = temporary.path() / "result.json";
     const auto error_path = temporary.path() / "child.stderr";
     const auto cancel_path = temporary.path() / "cancel.request";
+    const auto invalid = [&](std::string_view message) {
+      detail::set_search_diagnostic(diagnostic, message, error_path);
+      return SearchResult{SearchStatus::Invalid, std::nullopt, completed};
+    };
     auto arguments = options.engine_prefix_arguments;
     auto engine_arguments = detail::make_cuda_search_arguments(header, target,
         nonce, remaining, options.batch_size, invocation_timeout,
@@ -441,7 +494,7 @@ inline SearchResult search_cuda_with_process(
 
     detail::CudaChildProcess child;
     if (!child.start(options.engine, arguments, output_path, error_path))
-      return {SearchStatus::Invalid, std::nullopt, completed};
+      return invalid("failed to launch CUDA search engine");
 
     const auto invocation_deadline = (std::min)(deadline,
         invocation_started + std::chrono::milliseconds(invocation_timeout));
@@ -473,16 +526,19 @@ inline SearchResult search_cuda_with_process(
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    if (!exit_code) return {SearchStatus::Invalid, std::nullopt, completed};
+    if (!exit_code) return invalid("failed to collect CUDA search engine status");
+    child.cleanup();
 
     std::string json;
     if (!detail::read_bounded_file(output_path, json))
-      return {SearchStatus::Invalid, std::nullopt, completed};
+      return invalid("CUDA search engine did not produce bounded result JSON");
     auto result = decode_cuda_search_result(json, header, nonce, remaining);
-    if (!result || (*exit_code != 0 && *exit_code != 130))
-      return {SearchStatus::Invalid, std::nullopt, completed};
+    if (!result) return invalid("CUDA search engine result failed validation");
+    if (*exit_code != 0 && *exit_code != 130)
+      return invalid("CUDA search engine exited with code " +
+                     std::to_string(*exit_code));
     if (result->hashes > remaining)
-      return {SearchStatus::Invalid, std::nullopt, completed};
+      return invalid("CUDA search engine exceeded its requested nonce range");
     completed += result->hashes;
 
     if (result->status == SearchStatus::Found) {
@@ -491,18 +547,22 @@ inline SearchResult search_cuda_with_process(
         return {SearchStatus::Timeout, std::nullopt, completed};
       const auto* gpu_candidate = result->candidate ? &*result->candidate : nullptr;
       if (!gpu_candidate)
-        return {SearchStatus::Invalid, std::nullopt, completed};
+        return invalid("CUDA search engine omitted its found candidate");
       const auto verified = cpu.search(header, target, gpu_candidate->nonce, 1,
                                        deadline, cancel);
       if (verified.status != SearchStatus::Found || !verified.candidate ||
           verified.candidate->digest != gpu_candidate->digest ||
-          verified.candidate->header != gpu_candidate->header)
+          verified.candidate->header != gpu_candidate->header) {
+        if (verified.status == SearchStatus::Invalid)
+          detail::set_search_diagnostic(diagnostic,
+              "pinned-Core CPU recheck rejected CUDA candidate", error_path);
         return {verified.status == SearchStatus::Cancelled || cancelled()
                     ? SearchStatus::Cancelled
                     : verified.status == SearchStatus::Timeout ||
                           SearchClock::now() >= deadline
                         ? SearchStatus::Timeout : SearchStatus::Invalid,
                 std::nullopt, completed};
+      }
       if (cancelled()) return {SearchStatus::Cancelled, std::nullopt, completed};
       if (SearchClock::now() >= deadline)
         return {SearchStatus::Timeout, std::nullopt, completed};
@@ -519,7 +579,7 @@ inline SearchResult search_cuda_with_process(
       continue;
     }
     if (result->status != SearchStatus::Exhausted || result->hashes != remaining)
-      return {SearchStatus::Invalid, std::nullopt, completed};
+      return invalid("CUDA search engine returned inconsistent nonce coverage");
   }
   return {SearchStatus::Exhausted, std::nullopt, completed};
 }
