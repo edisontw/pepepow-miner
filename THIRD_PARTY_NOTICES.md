@@ -1,6 +1,6 @@
 # Third-party notices and distribution decision
 
-**Updated: 2026-11-25.** This is a conservative source and build audit for an offline prototype. It is not legal advice, a grant of rights, or approval to distribute source or binaries. No release package is authorized by this notice.
+**Updated: 2026-11-26.** This is a conservative source and build audit for an offline prototype. It is not legal advice, a grant of rights, or approval to distribute source or binaries. No release package is authorized by this notice.
 
 ## Owner decision
 
@@ -9,6 +9,7 @@
 - Before any source bundle or binary release, generate a notice set and SBOM from that exact release configuration. Include the complete applicable upstream license texts, every notice for compiled or linked components, the source revisions and local patches, and the actual runtime libraries shipped with the package.
 - Block source and binary releases that include material marked `REVIEW_REQUIRED` until the relevant rights and obligations have been clarified in writing and reviewed by the Owner. The current prototype is not cleared for distribution.
 - For a dependency that explicitly offers multiple license choices, preserve the upstream choice text and all corresponding license texts until the Owner and legal reviewer approve the package's treatment. Do not select an upstream license on the authors' behalf.
+- The Owner's 2026-11-26 authorization to integrate PRs, complete G0 sign-off, and begin bounded live-pool validation after G0 does not resolve any third-party license or redistribution question. See [Issue #1 authorization](https://github.com/edisontw/pepepow-miner/issues/1#issuecomment-7192595038).
 
 ## Components and handling
 
