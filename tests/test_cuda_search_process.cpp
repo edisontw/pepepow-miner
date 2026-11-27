@@ -12,6 +12,12 @@
 #include <thread>
 #include <vector>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
 extern "C" void hoohashv110(const void*, std::size_t, std::uint8_t[32]);
 
 namespace {
@@ -59,12 +65,13 @@ int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest,
   const auto count_text = argument_value(argc, argv, "--nonce-count");
   const auto batch_text = argument_value(argc, argv, "--batch-size");
   const auto timeout_text = argument_value(argc, argv, "--timeout-ms");
+  const auto oracle_path = argument_value(argc, argv, "--cpu-oracle");
   const auto cancel_path = argument_value(argc, argv, "--cancel-file");
   if (!decode_hex(header_hex, header.data(), header.size()) ||
       !decode_hex(target_hex, target.data(), target.size()) ||
       !parse_u32(start_text, start) || !parse_u32(count_text, count) ||
       !parse_u32(batch_text, batch_size) || !parse_u32(timeout_text, timeout_ms) ||
-      cancel_path.empty())
+      oracle_path != "mock pinned Core oracle path" || cancel_path.empty())
     return 64;
 
   const auto emit = [&](std::string_view status, std::string_view stop_reason,
@@ -121,19 +128,70 @@ std::vector<std::filesystem::path> temporary_entries() {
   std::error_code error;
   const auto root = std::filesystem::temp_directory_path(error);
   if (error) return found;
+  const auto process_id =
+#ifdef _WIN32
+      static_cast<unsigned long>(GetCurrentProcessId());
+#else
+      static_cast<unsigned long>(::getpid());
+#endif
+  const auto prefix = "pepepow-cuda-search-" + std::to_string(process_id) + "-";
   for (std::filesystem::directory_iterator it(root, error), end; !error && it != end;
        it.increment(error)) {
-    if (it->path().filename().string().starts_with("pepepow-cuda-search-"))
+    if (it->path().filename().string().starts_with(prefix))
       found.push_back(it->path());
   }
   return found;
 }
 
+class MockEnginePath {
+ public:
+  explicit MockEnginePath(const std::filesystem::path& source) {
+    const auto token = std::chrono::steady_clock::now().time_since_epoch().count();
+    directory_ = std::filesystem::temp_directory_path() /
+        ("pepepow cuda mock engine " + std::to_string(token));
+    std::error_code error;
+    if (!std::filesystem::create_directory(directory_, error) || error) return;
+    executable_ = directory_ / source.filename();
+    if (!std::filesystem::copy_file(source, executable_, error) || error) return;
+#ifndef _WIN32
+    std::filesystem::permissions(executable_,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_exec |
+        std::filesystem::perms::group_read | std::filesystem::perms::others_read,
+        std::filesystem::perm_options::replace, error);
+    if (error) return;
+#endif
+    ready_ = true;
+  }
+
+  MockEnginePath(const MockEnginePath&) = delete;
+  MockEnginePath& operator=(const MockEnginePath&) = delete;
+
+  ~MockEnginePath() {
+    if (directory_.empty()) return;
+    std::error_code ignored;
+    std::filesystem::remove_all(directory_, ignored);
+  }
+
+  explicit operator bool() const { return ready_; }
+  const std::filesystem::path& executable() const { return executable_; }
+
+ private:
+  std::filesystem::path directory_;
+  std::filesystem::path executable_;
+  bool ready_ = false;
+};
+
 int run_contract_tests(const char* executable) {
+  MockEnginePath mock_engine(std::filesystem::absolute(executable));
+  if (!mock_engine) {
+    std::cerr << "could not create a mock executable path containing spaces\n";
+    return 1;
+  }
+
   pepepow::CpuWorkerPool cpu(1);
   pepepow::CudaSearchProcessOptions options;
-  options.engine = std::filesystem::absolute(executable);
-  options.cpu_oracle = "mock-pinned-core-oracle";
+  options.engine = mock_engine.executable();
+  options.cpu_oracle = "mock pinned Core oracle path";
   options.engine_prefix_arguments = {"--mock-child-found"};
   options.timeout_ms = 1000;
 

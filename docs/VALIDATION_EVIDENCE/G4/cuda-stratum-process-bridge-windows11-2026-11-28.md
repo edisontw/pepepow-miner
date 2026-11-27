@@ -70,6 +70,10 @@ cmd.exe /c '"D:\Dev\vs2022-build-tools\Common7\Tools\VsDevCmd.bat" -arch=x64 -ho
   cooperatively, with measured test stop time below two seconds.
 - A mock child that deliberately ignored its cancel file was terminated within
   600 ms, proving a user stop does not wait for the longer engine timeout.
+- The process test launched a copied mock executable from a directory with
+  spaces and verified the CPU-oracle argument with spaces survived intact.
+  Temporary-directory assertions are scoped to the test process, so Release
+  and Debug runs can execute concurrently without seeing each other's files.
 - An expiring parent deadline also caused cooperative child cancellation and
   returned timeout without a candidate.
 - Per-invocation temporary result, stderr, and cancel files were removed after
