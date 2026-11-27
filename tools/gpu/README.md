@@ -260,8 +260,16 @@ The report preserves the Core and CUDA binary64 bit patterns for every
 mismatch and records absolute error, relative error, ULP difference, branch
 selection, NaN/Infinity classification, and paired-versus-separate `sincos`
 path comparisons. For the `exp` check it passes the exact OpenLibm sum bits as
-a separate CUDA input, isolating device `exp` from trig differences. Full
-binary transcripts and the input catalog are saved beside the report. The
+a separate CUDA input, isolating device `exp` from trig differences. The CUDA
+transcript also evaluates a diagnostic-only device translation of pinned
+OpenLibm `__ieee754_exp` from `src/e_exp.c` (Git blob
+`639b9fe18dbae273d3182146bb9aebbd59c9e362`) on that same operand. Its source
+copyright and permission notice are retained. This lets the test distinguish
+the CUDA device-math result from a direct translation of the CPU oracle's
+algorithm; it is not a production hash implementation. Full binary transcripts
+and the input catalog are saved beside the report. A live-device run requires
+this diagnostic port to match every CPU/OpenLibm `exp` bit pattern; native CUDA
+math mismatches remain recorded without being treated as transform parity. The
 test does not accept numerical
 mismatches using an epsilon: it reports them as diagnostics, and bitwise
 transform parity remains false until every compared output matches. A
@@ -272,7 +280,10 @@ PEPEPOW_CUDA_REQUIRE_DEVICE=1.
 
 The Windows RTX 3060 experiment found bitwise-identical outputs between paired
 `sincos` and separate `sin`/`cos` calls for both OpenLibm and CUDA across the
-full 29,224-input corpus. CUDA still differs from Core/OpenLibm. See the dated
+full 29,224-input corpus. The diagnostic OpenLibm `exp` translation matched
+all 29,224 CPU outputs, while native CUDA `exp` differed in 2,433 cases. CUDA
+`sin` and `cos` still differ from Core/OpenLibm, so transform and full-digest
+parity remain incomplete. See the dated
 [physical-device evidence](../../docs/validation/cuda-hoohash-v110-fp64-transform-windows-rtx3060-2026-11-27.md)
 for per-function counts, reproducer, compiler caveat, and artifact hashes.
 

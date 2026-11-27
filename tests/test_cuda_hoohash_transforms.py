@@ -32,12 +32,13 @@ INPUT_MAGIC = b"PPWTRIN1"
 OUTPUT_MAGIC = b"PPWTRO1\0"
 CORE_INPUT_RECORD = struct.Struct("<QB")
 INPUT_RECORD = struct.Struct("<QQB")
-OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQQ")
+OUTPUT_RECORD = struct.Struct("<QQQIQQQQQQBQQQQQQQQQQQQQ")
 MAXIMUM_INPUTS = 32768
 MAXIMUM_REPORTED_MISMATCHES = 32768
 MASK64 = (1 << 64) - 1
 CORE_SHA = "bc08108ceccd957c79040dc7fedc1d56d8d47f97"
 OPENLIBM_SHA = "9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d"
+OPENLIBM_EXP_FILE_BLOB_SHA1 = "639b9fe18dbae273d3182146bb9aebbd59c9e362"
 STAGE_NAME = "hoohash_v110_fp64_transform_diagnostic"
 ERROR_EXIT_CODES = {
     "no_device": 2,
@@ -68,6 +69,7 @@ FUNCTIONS = {
     "sincos_sine_plus_cosine": 20,
     "medium_sincos": 21,
     "exp_core_sincos_sum": 22,
+    "exp_core_sincos_sum_openlibm_port": 23,
 }
 PI = 3.14159265358979323846
 EPSILON = 1e-9
@@ -656,6 +658,11 @@ def main():
         ),
         "core_sha": CORE_SHA,
         "openlibm_sha": OPENLIBM_SHA,
+        "openlibm_exp_source": {
+            "path": "src/e_exp.c",
+            "git_blob_sha1": OPENLIBM_EXP_FILE_BLOB_SHA1,
+            "diagnostic_cuda_field": "exp_core_sincos_sum_openlibm_port",
+        },
         "stage": STAGE_NAME,
         "gpu_status": gpu_status,
         "device": payload["device"] if gpu_status == "live" else None,
@@ -745,6 +752,15 @@ def main():
                 f"max_rel={summary['max_relative_error']:.17g}, "
                 f"max_ulp={summary['max_ulp_difference']}"
             )
+        exp_port = comparison["functions"][
+            "exp_core_sincos_sum_openlibm_port"
+        ]
+        require(
+            exp_port["bitwise_mismatches"] == 0,
+            "diagnostic CUDA translation of pinned OpenLibm exp must match "
+            f"all tested operands; found {exp_port['bitwise_mismatches']} "
+            f"mismatches in {exp_port['cases']} cases",
+        )
         print("FP64 TRANSFORM RESULTS ARE DIAGNOSTIC ONLY; no GPU digest parity is claimed")
     else:
         print("NO-GPU CONTRACT: Core/OpenLibm baseline saved; device execution explicitly skipped")
