@@ -53,6 +53,14 @@ bool parse_u32(std::string_view input, std::uint32_t& output) {
   return error == std::errc{} && end == input.data() + input.size();
 }
 
+bool has_unsanitized_byte(std::string_view input) {
+  for (const char character : input) {
+    const auto byte = static_cast<unsigned char>(character);
+    if (byte < 0x20U || byte >= 0x7fU) return true;
+  }
+  return false;
+}
+
 int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest,
                bool ignore_cancel, bool partial_timeout) {
   pepepow::Header header{};
@@ -132,6 +140,7 @@ int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest,
 #endif
   if (argc >= 2 && std::string_view(argv[1]) == "--mock-child-error") {
     std::cerr << "mock CUDA engine: init \"failed\"\n"
+              << '\0' << '\x01' << '\t'
               << std::string(8192, 'x') << '\n';
     return 42;
   }
@@ -313,8 +322,8 @@ int run_contract_tests(const char* executable) {
   if (result.status != pepepow::SearchStatus::Invalid || result.candidate ||
       diagnostic.find("mock CUDA engine: init \"failed\"") == std::string::npos ||
       diagnostic.find("[stderr truncated]") == std::string::npos ||
-      diagnostic.size() > 4200) {
-    std::cerr << "child stderr diagnostic was not retained on engine failure\n";
+      diagnostic.size() > 4200 || has_unsanitized_byte(diagnostic)) {
+    std::cerr << "child stderr diagnostic was not retained, bounded, or sanitized\n";
     return 1;
   }
 
