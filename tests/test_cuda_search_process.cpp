@@ -134,6 +134,10 @@ int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest,
               << std::string(8192, 'x') << '\n';
     return 42;
   }
+  if (argc >= 2 && std::string_view(argv[1]) == "--mock-child-oversized-output") {
+    std::cout << std::string((1U << 20) + 1U, 'x') << std::flush;
+    return 0;
+  }
   if (partial_timeout && start == 7 && count >= 2) {
     emit("cancelled", "timeout", 2, "[]");
     return 130;
@@ -301,6 +305,17 @@ int run_contract_tests(const char* executable) {
     return 1;
   }
 
+  options.engine_prefix_arguments = {"--mock-child-oversized-output"};
+  diagnostic.clear();
+  result = pepepow::search_cuda_with_process(cpu, options, header, easy_target,
+      7, 1, pepepow::SearchClock::now() + std::chrono::seconds(3), nullptr,
+      &diagnostic);
+  if (result.status != pepepow::SearchStatus::Invalid || result.candidate ||
+      diagnostic.find("did not produce bounded result JSON") == std::string::npos) {
+    std::cerr << "oversized CUDA result JSON was not rejected at the process boundary\n";
+    return 1;
+  }
+
   options.engine_prefix_arguments = {"--mock-child-corrupt"};
   result = pepepow::search_cuda_with_process(cpu, options, header, easy_target,
       17, 1, pepepow::SearchClock::now() + std::chrono::seconds(3));
@@ -372,7 +387,8 @@ int run_contract_tests(const char* executable) {
     return 1;
   }
   std::cout << "CUDA search process contract: candidate recheck, full digest and target "
-               "rejection, cancellation, timeout, and temp cleanup passed\n";
+               "rejection, bounded output, cancellation, timeout, and temp cleanup "
+               "passed\n";
   return 0;
 }
 
