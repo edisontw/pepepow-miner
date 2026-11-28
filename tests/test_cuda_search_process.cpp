@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -133,6 +134,18 @@ int mock_child(int argc, char** argv, bool wait_for_cancel, bool corrupt_digest,
     std::cerr << "mock CUDA engine: init \"failed\"\n"
               << std::string(8192, 'x') << '\n';
     return 42;
+  }
+  if (argc >= 2 && std::string_view(argv[1]) == "--mock-child-max-output") {
+    constexpr std::size_t maximum = 1U << 20;
+    std::ostringstream payload;
+    auto* original_buffer = std::cout.rdbuf(payload.rdbuf());
+    emit("exhausted", {}, count, "[]");
+    std::cout.rdbuf(original_buffer);
+    auto json = payload.str();
+    if (!json.empty() && json.back() == '\n') json.pop_back();
+    if (json.size() > maximum) return 70;
+    std::cout << json << std::string(maximum - json.size(), ' ') << std::flush;
+    return 0;
   }
   if (argc >= 2 && std::string_view(argv[1]) == "--mock-child-oversized-output") {
     std::cout << std::string((1U << 20) + 1U, 'x') << std::flush;
@@ -313,6 +326,17 @@ int run_contract_tests(const char* executable) {
   if (result.status != pepepow::SearchStatus::Invalid || result.candidate ||
       diagnostic.find("did not produce bounded result JSON") == std::string::npos) {
     std::cerr << "oversized CUDA result JSON was not rejected at the process boundary\n";
+    return 1;
+  }
+
+  options.engine_prefix_arguments = {"--mock-child-max-output"};
+  diagnostic.clear();
+  result = pepepow::search_cuda_with_process(cpu, options, header, easy_target,
+      7, 1, pepepow::SearchClock::now() + std::chrono::seconds(3), nullptr,
+      &diagnostic);
+  if (result.status != pepepow::SearchStatus::Exhausted || result.hashes != 1 ||
+      result.candidate || !diagnostic.empty()) {
+    std::cerr << "maximum-sized valid CUDA result JSON was rejected\n";
     return 1;
   }
 
