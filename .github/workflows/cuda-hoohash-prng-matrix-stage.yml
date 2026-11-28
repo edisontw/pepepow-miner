@@ -7,6 +7,8 @@ on:
       - "tools/gpu/**"
       - "tests/test_cuda_core_matrix_oracle.py"
       - "tests/test_cuda_matrix_stage.py"
+      - "tests/test_cuda_hoohash_digest.py"
+      - "tests/test_cuda_hoohash_transforms.py"
   push:
     branches: [main]
     paths:
@@ -14,6 +16,8 @@ on:
       - "tools/gpu/**"
       - "tests/test_cuda_core_matrix_oracle.py"
       - "tests/test_cuda_matrix_stage.py"
+      - "tests/test_cuda_hoohash_digest.py"
+      - "tests/test_cuda_hoohash_transforms.py"
   workflow_dispatch:
 
 concurrency:
@@ -113,14 +117,15 @@ jobs:
             -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON \
             -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON \
             -DPEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS=ON \
+            -DPEPEPOW_CUDA_FULL_DIGEST_TESTS=ON \
+            -DPEPEPOW_CUDA_FULL_DIGEST_10000_TESTS=ON \
             -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
             -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
             -DPEPEPOW_OPENLIBM_SOURCE_DIR="$GITHUB_WORKSPACE/openlibm" \
             -DPEPEPOW_OPENLIBM_LIBRARY="$GITHUB_WORKSPACE/build/openlibm/libopenlibm.a" \
-            -DPEPEPOW_TRANSFORM_ORACLE_COMPILER="$(command -v gcc)" \
             -DPEPEPOW_CUDA_TEST_ARCHITECTURE=75
 
-      - name: Build FP64 transform diagnostic and CPU oracles
+      - name: Build FP64 diagnostics, full-digest experiment, and CPU oracles
         if: steps.fp64-transform.outputs.enabled == 'true'
         run: cmake --build build/cuda-hoohash-fp64-transform --parallel 2
 
@@ -136,7 +141,7 @@ jobs:
             exit 1
           fi
 
-      - name: Run CPU contracts and explicit no-GPU FP64 policy
+      - name: Run CPU contracts and explicit no-GPU CUDA policy
         if: steps.fp64-transform.outputs.enabled == 'true'
         env:
           PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP: "1"
@@ -151,4 +156,6 @@ jobs:
           path: |
             build/cuda-hoohash-fp64-transform/cuda-transform-diagnostic-report.json
             build/cuda-hoohash-fp64-transform/cuda-transform-evidence/
+            build/cuda-hoohash-fp64-transform/cuda-full-digest-evidence/
+            build/cuda-hoohash-fp64-transform/cuda-full-digest-10000-evidence/
             build/openlibm/libopenlibm.a

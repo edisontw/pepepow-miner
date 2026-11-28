@@ -238,6 +238,181 @@ Passing this stage establishes exact matrix-generation parity for the tested
 seeds only. FP64 nonlinear transforms, full HooHash V110 digest parity, GPU
 candidate CPU recheck, and G4 acceptance remain incomplete.
 
+## FP64 transform diagnostic stage
+
+The opt-in transform diagnostic invokes the unmodified pinned Core functions
+through a test-only C wrapper and links that CPU oracle to the pinned OpenLibm
+static library. A bounded CUDA kernel evaluates the same inputs with CUDA
+device math. It records binary64 inputs and outputs for
+MediumComplexNonLinear, IntermediateComplexNonLinear,
+HighComplexNonLinear, ComplexNonLinear, SafeComplexTransform, and
+TransformFactor, along with both transform factors, the selected branch,
+the selected branch argument, and the underlying sine, cosine, sum, and square-root intermediates. It also compares CUDA's paired `sincos` operation with separate CUDA calls and repeated pinned-Core/OpenLibm controls.
+
+The deterministic input corpus includes Core-generated matrix values used
+with seven nonce/header cases, the singularity and branch boundaries,
+finite extremes, signed zero, subnormals, and NaN/Infinity cases. Non-finite
+values are not passed to SafeComplexTransform; the pinned Core loop has no
+NaN/Infinity escape. Inputs are capped at 32,768 records, the kernel uses one
+bounded launch, and CTest has a 180-second timeout.
+
+The report preserves the Core and CUDA binary64 bit patterns for every
+mismatch and records absolute error, relative error, ULP difference, branch
+selection, NaN/Infinity classification, and paired-versus-separate `sincos`
+path comparisons. For the `exp` check it passes the exact OpenLibm sum bits as
+a separate CUDA input, isolating device `exp` from trig differences. The CUDA
+transcript also evaluates a diagnostic-only device translation of pinned
+OpenLibm `__ieee754_exp` from `src/e_exp.c` (Git blob
+`639b9fe18dbae273d3182146bb9aebbd59c9e362`) on that same operand. Its source
+copyright and permission notice are retained. This lets the test distinguish
+the CUDA device-math result from a direct translation of the CPU oracle's
+algorithm; it is not a production hash implementation. Full binary transcripts
+and the input catalog are saved beside the report. A live-device run requires
+this diagnostic port to match every CPU/OpenLibm `exp` bit pattern; native CUDA
+math mismatches remain recorded without being treated as transform parity. The
+test does not accept numerical
+mismatches using an epsilon: it reports them as diagnostics, and bitwise
+transform parity remains false until every compared output matches. A
+no-GPU CI job may skip only recognized no-device, driver, or initialization
+errors after setting PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1; runtime and kernel
+failures remain failures. Physical acceptance sets
+PEPEPOW_CUDA_REQUIRE_DEVICE=1.
+
+The CUDA diagnostic also translates pinned OpenLibm `sincos`,
+`__ieee754_rem_pio2`, and `__kernel_rem_pio2` from `src/s_sincos.c`,
+`src/e_rem_pio2.c`, and `src/k_rem_pio2.c` (source blobs
+`8628235644aa8e996cbecd37f1b220a74d269a08`,
+`c09e38a3640f8b8b91faf69444db529542727671`, and
+`9555d3ab5257717a20b33151db47d7d495582f00`). The original permission notices
+are retained. It compares both remainder components and the quadrant as well
+as sine, cosine, their sum, and `exp(sin + cos)`. All these port fields matched
+the pinned Core/OpenLibm outputs bit-for-bit across the 29,224-input physical
+corpus. This includes `MediumComplexNonLinear`,
+`IntermediateComplexNonLinear`, and every finite-input `ComplexNonLinear`
+result when computed through the OpenLibm ports; the intermediate port
+preserves Core's singularity guard. The tested `SafeComplexTransform` output
+also matches for all records (nonfinite records are safe-disabled). Three
+nonfinite `ComplexNonLinear` NaN bit patterns differ, but their classifications
+match. An initial mismatch
+exposed a missing `z = q[jz]` at entry to the reducer's recompute loop; that
+source operation is now present and both a strict UCRT64 host translation and
+the RTX 3060 device run match. The port remains diagnostic-only. Native CUDA
+device-math fields still differ, and this does not establish full HooHash
+digest parity.
+
+The Windows RTX 3060 experiment found bitwise-identical outputs between paired
+`sincos` and separate `sin`/`cos` calls for both OpenLibm and CUDA across the
+full 29,224-input corpus. The diagnostic OpenLibm `exp` translation matched
+all 29,224 CPU outputs, while native CUDA `exp` differed in 2,433 cases. The
+new OpenLibm `sincos` translation and its composed `MediumComplexNonLinear`
+result also match all 29,224 CPU outputs. The port-composed complex path matches
+all finite inputs; native CUDA `sin` and `cos` still differ from Core/OpenLibm,
+so the complete GPU hash path remains unvalidated. See the dated
+[physical-device evidence](../../docs/validation/cuda-hoohash-v110-fp64-transform-windows-rtx3060-2026-11-27.md)
+for per-function counts, the corrected intermediate result, reproducer,
+compiler caveat, and artifact hashes.
+
+The CUDA target compiles with --fmad=false, --ftz=false, --prec-div=true, and
+--prec-sqrt=true; fast math is not enabled. The CI workflow inspects the
+generated build commands to verify these flags. This is a diagnostic stage,
+not a production hash path. It does not claim full digest parity, GPU mining
+readiness, G4 acceptance, or permission to publish a GPU miner.
+
+Configure the pinned sources and OpenLibm build explicitly:
+
+```powershell
+cmake -S tools/gpu -B build/cuda-hoohash-transform `
+  -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON `
+  -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS=ON `
+  -DPEPEPOW_CORE_SOURCE_DIR=D:/Dev/pepepow-deps/PePe-core `
+  -DPEPEPOW_OPENLIBM_SOURCE_DIR=D:/Dev/pepepow-deps/openlibm `
+  -DPEPEPOW_OPENLIBM_LIBRARY=D:/path/to/libopenlibm.a `
+  -DPEPEPOW_TRANSFORM_ORACLE_COMPILER=D:/Dev/msys64/ucrt64/bin/gcc.exe `
+  -DPEPEPOW_CUDA_TEST_ARCHITECTURE=86
+cmake --build build/cuda-hoohash-transform --config Release
+$env:PEPEPOW_CUDA_REQUIRE_DEVICE = "1"
+ctest --test-dir build/cuda-hoohash-transform -C Release --output-on-failure
+```
+
+See the [Windows RTX 3060 transform diagnostic evidence](../../docs/validation/cuda-hoohash-v110-fp64-transform-windows-rtx3060-2026-11-27.md)
+for the measured OpenLibm/libdevice differences. The transform diagnostic by
+itself does not establish full-digest GPU correctness.
+
+## Experimental full-digest stage
+
+The separate `PEPEPOW_CUDA_FULL_DIGEST_TESTS` option connects the GPU BLAKE3
+header passes, the already compared 4,096-element matrix generator, the
+OpenLibm FP64 diagnostic translations, the pinned Core row/nonce reduction,
+and the final BLAKE3 digest. A batch accepts one 80-byte header template and a
+bounded inclusive uint32 nonce range; nonce bytes are written little-endian
+at offsets 76–79. The matrix seed is computed once with those bytes zeroed and
+the resulting 32 KiB matrix is reused across the batch. Each output record is
+the complete 32-byte digest in the byte order returned by pinned Core.
+
+The CPU oracle includes the unmodified pinned Core HooHash source and links
+that Core's BLAKE3 implementation with the pinned OpenLibm static library. The
+Python contract checks fixed Core digest fixtures, nonce zero, adjacent
+nonces, `UINT32_MAX`, overflow rejection, and every digest byte. Generic CUDA
+runtime and kernel failures fail the test; only recognized no-device/driver/
+initialization errors may skip in an explicitly configured no-GPU CI job. A
+physical-device run sets `PEPEPOW_CUDA_REQUIRE_DEVICE=1`. Passing a bounded
+batch is evidence for those tested inputs only: this remains an experimental
+correctness test. The Windows RTX 3060 record below includes a 10,000-nonce
+full-digest parity run and five separately checked timing repetitions. The
+stage's CUDA event JSON reports `gpu_pipeline_ms`,
+`gpu_pipeline_digests_per_second`, per-stage `kernel_event_intervals_ms`, and
+the timing scope. Per-stage event brackets may include device idle time while
+the host queues the next launch; they are not isolated instruction timings.
+These values describe this diagnostic pipeline and are not miner hashrate. This
+does not claim a production GPU miner, G4 acceptance, or redistribution
+clearance.
+The Python contract validates a labeled mock success response before probing
+hardware, so no-GPU CI checks the JSON schema and invalid timing rejection.
+The success JSON also records per-kernel register and local-memory attributes,
+launch dimensions, and CUDA Runtime's theoretical per-SM occupancy estimate.
+The occupancy estimate is not measured achieved occupancy; the matrix
+generator's one-block grid is reported separately.
+
+Enable the full-digest experiment along with all prerequisite diagnostics:
+
+```powershell
+cmake -S tools/gpu -B build/cuda-hoohash-transform `
+  -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON `
+  -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS=ON `
+  -DPEPEPOW_CUDA_FULL_DIGEST_TESTS=ON `
+  -DPEPEPOW_CUDA_FULL_DIGEST_10000_TESTS=ON `
+  -DPEPEPOW_CORE_SOURCE_DIR=D:/Dev/pepepow-deps/PePe-core `
+  -DPEPEPOW_OPENLIBM_SOURCE_DIR=D:/Dev/pepepow-deps/openlibm `
+  -DPEPEPOW_OPENLIBM_LIBRARY=D:/path/to/libopenlibm.a `
+  -DPEPEPOW_TRANSFORM_ORACLE_COMPILER=D:/Dev/msys64/ucrt64/bin/gcc.exe `
+  -DPEPEPOW_CUDA_TEST_ARCHITECTURE=86
+cmake --build build/cuda-hoohash-transform --config Release
+$env:PEPEPOW_CUDA_REQUIRE_DEVICE = "1"
+ctest --test-dir build/cuda-hoohash-transform -C Release --output-on-failure
+```
+
+The 10,000-nonce case is bounded to nonce 0 through 9,999 and has a 30-minute
+CTest timeout. On systems without an NVIDIA device, set
+`PEPEPOW_CUDA_ALLOW_NO_DEVICE_SKIP=1` for the run; recognized unavailable-
+device errors may skip the GPU execution after all pinned CPU fixtures pass.
+The opt-in 10,000-case CTest splits its batch evenly across four deterministic
+80-byte header templates: the base fixture and one-bit variants in the version,
+previous-hash, and merkle-root fields. Each template gets 2,500 nonces and
+covers all 256 low-byte values. The CPU oracle and physical GPU compare every
+complete 32-byte digest for every template/nonce pair. A CTest invocation of
+the stage still accepts one header template; the harness invokes it once per
+template and records each template and transcript hash in the JSON evidence.
+The exact Windows physical-device result is recorded in the dated
+[full-digest validation report](../../docs/validation/cuda-hoohash-v110-full-digest-windows-rtx3060-2026-11-27.md).
+
+The digest transcript starts with `PPWDIG1\0`, a little-endian count, and
+exactly 32 bytes per nonce. The stage makes no network connection and does
+not submit shares or benchmark mining throughput.
+
 Build and run the stage contract with CUDA Toolkit 13.3.x and a pinned Core
 checkout:
 
@@ -267,7 +442,10 @@ standalone GPU project does not change the default CPU build.
 
 - [CUDA Runtime API: device properties](https://docs.nvidia.com/cuda/cuda-runtime-api/structcudaDeviceProp.html)
 - [CUDA Runtime API: device management](https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__DEVICE.html)
+- [CUDA Runtime API: function resource attributes](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-runtime-api/structcudaFuncAttributes.html)
+- [CUDA Runtime API: occupancy calculation](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-runtime-api/group__CUDART__OCCUPANCY.html)
 - [CUDA Runtime API: versions](https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART____VERSION.html)
+- [CUDA C++ Programming Guide](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-programming-guide/)
 - [CUDA C++ Programming Guide: compute capabilities](https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/compute-capabilities.html)
 - [CUDA 13.3.1 Windows Installation Guide](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-installation-guide-microsoft-windows/index.html)
 - [CUDA 13.3.1 Linux Installation Guide](https://docs.nvidia.com/cuda/archive/13.3.1/cuda-installation-guide-linux/index.html)
