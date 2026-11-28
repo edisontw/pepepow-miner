@@ -1,23 +1,46 @@
-# Third-party notices and distribution decision
+# Distribution license compliance and third-party notices
 
-**Updated: 2026-11-28.** This records source provenance and distribution notice work. It is not legal advice or approval to distribute a package. G0 technical validation is tracked separately from distribution license compliance.
+**Updated: 2026-11-27.** This document tracks package-specific distribution
+notices and provenance. It is not a legal opinion or a grant of rights. Its
+open items do not block local development, offline tests, or G0 Technical
+Validation. No source bundle or binary package has been released.
 
-## Owner decision
+## Development baseline
 
-- This repository currently declares no project-wide license. Keep that status; do not add an umbrella license until project authorship, rights, and the boundary between project code and dependencies have been reviewed.
-- The Owner accepts the Hoosat root MIT license change at commit `9634f11410a2d71be21086e813263fa007fb6810` and PEPEPOW Core HooHash V110 MIT markings as the current development basis. Preserve the earlier GPL license/header state as source history, together with the current MIT notices, copyright, pins, checksums, and provenance.
-- Keep each pinned source's copyright, license, attribution, and file-header text intact. Record historical and current license evidence without rewriting upstream headers.
-- Before any source bundle or binary release, generate a notice set and SBOM from that exact release configuration. Include the complete applicable upstream license texts, every notice for compiled or linked components, the source revisions and local patches, and the actual runtime libraries shipped with the package.
-- Block a source or binary package containing material marked `REVIEW_REQUIRED` until its applicable terms and notices are resolved for that package. This distribution gate is separate from local development and G0 technical validation.
-- For a dependency that explicitly offers multiple license choices, preserve the upstream choice text and all corresponding license texts until the Owner and legal reviewer approve the package's treatment. Do not select an upstream license on the authors' behalf.
-- The Owner's 2026-11-28 development direction authorizes use of the cited MIT evidence for development; it does not replace the package-specific notice and SBOM work described here. The separate [2026-11-26 Issue #1 decision](https://github.com/edisontw/pepepow-miner/issues/1#issuecomment-7192595038) records earlier integration and gate authorization.
+- The Owner adopts the public Hoosat MIT `LICENSE` at commit
+  [`9634f11410a2d71be21086e813263fa007fb6810`](https://github.com/HoosatNetwork/hoohash/commit/9634f11410a2d71be21086e813263fa007fb6810)
+  together with the MIT HooHash file headers in the pinned PePe-core source as
+  the current basis for continued local development and technical validation.
+- That Hoosat commit changes the root `LICENSE` from GPLv3 to MIT and records
+  the stated intent in its commit message. The older GPL-3.0-or-later headers
+  on the upstream `hoohash.c` and `hoohash.h` remain part of the source
+  history. Preserve the commit, headers, copyright notices, MIT license text,
+  source SHA, checksums, and provenance; do not erase or rewrite those records.
+- This development basis is not a determination that every third-party
+  component in a future package is cleared for distribution. No additional
+  written clarification about the HooHash transition is required before local
+  coding, builds, or offline tests.
+
+## Distribution release gate
+
+- Before each source or binary release, generate the notices and SBOM for that
+  exact release configuration. Include the applicable upstream license texts,
+  attribution and copyright notices, compiled and linked components, bundled
+  and required runtime libraries, source revisions, checksums, and patches.
+- Keep any package-specific notice or provenance item that is not yet
+  established marked pending for that package. Resolve it before distribution;
+  this does not retroactively block development or technical acceptance.
+- The project has no root `LICENSE`. Do not add a project-wide license as part
+  of this dependency notice update.
+- Owner approval governs project work and is not itself a third-party license
+  grant. See the [current Owner authorization](https://github.com/edisontw/pepepow-miner/issues/1#issuecomment-7239984084).
 
 ## Components and handling
 
 | Component | Observed source or build evidence | Notice and distribution handling |
 | --- | --- | --- |
 | PEPEPOW Core | `COPYING` at [`bc08108ceccd957c79040dc7fedc1d56d8d47f97`](https://github.com/MattF42/PePe-core/tree/bc08108ceccd957c79040dc7fedc1d56d8d47f97); the Linux reference build compiled four Core crypto translation units. | Preserve the complete Core `COPYING`, each source header, and the source pin. The Core root MIT notice does not resolve notices of included or adapted components. |
-| HooHash V110 | Pinned Core HooHash V110 files are marked MIT and cite Hoosat commit `9634f11410a2d71be21086e813263fa007fb6810`, where the root `LICENSE` changed from GPLv3 to MIT. Historical upstream HooHash GPL headers remain in the record. | Use the cited MIT evidence as the current development basis. Preserve the MIT copyright and license texts, older GPL header state, source SHA, and provenance. Do not alter upstream markings or describe this record as a legal opinion. |
+| HooHash V110 | Pinned Core `hoohash.c` and `hoohash.h` have MIT headers and cite Hoosat commit `9634f11410a2d71be21086e813263fa007fb6810`. That upstream commit changes the root `LICENSE` from GPLv3 to MIT; the historical upstream file headers retain GPL-3.0-or-later wording. | Use the public MIT evidence as the current development basis. Preserve the MIT text, Core attribution, source pin, and historical GPL headers/transition provenance. For each release, include notices applicable to the exact distributed Core and HooHash files; this notice record does not claim that technical G0 acceptance clears other package components. Additional written clarification is not a prerequisite for local work. |
 | BLAKE3 1.5.1 | The pinned Core build compiled `blake3.c`, `blake3_dispatch.c`, and `blake3_portable.c`; it included BLAKE3 headers. Core's copies contain reviewed changes relative to upstream. Upstream source is at [`54930c95227daaac4dcf1eb3028e2f4e0768d139`](https://github.com/BLAKE3-team/BLAKE3/tree/54930c95227daaac4dcf1eb3028e2f4e0768d139). | Preserve the upstream CC0-1.0 or Apache-2.0 license choice text, copyright/attribution notices, Core modifications, and patch/source provenance. The Core root MIT notice alone does not settle BLAKE3's terms. Keep distribution blocked pending review. |
 | OpenLibm v0.8.7 | Pinned at [`9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d`](https://github.com/JuliaMath/openlibm/tree/9fbeafcd4f1b6ef6aa3946c1c8faead50f38a94d). The Linux Debug and Release builds each compiled 256 library translation units. The offline miner link map selects eleven OpenLibm members in Debug and ten in Release. | Retain the complete pinned `LICENSE.md` and notices for the exact compiled and linked source files. Do not assume that the root MIT text covers every file. Header-signal classifications in the inventories are evidence for review, not license determinations. Include additional components if a later target's link map selects them. |
 | OpenSSL | This Linux build used Debian `libssl-dev` and `libssl3t64` version `3.5.7-1~deb13u3`; `libcrypto.so.3` is dynamically linked. Its Debian copyright file identifies Apache-2.0. | Record the exact OpenSSL package, runtime library, headers, and copyright text for each release target. Include the Apache-2.0 license and applicable notices if an OpenSSL runtime is bundled. OS-provided shared libraries must be listed as runtime requirements and included in the notice set if later redistributed with the package. |
@@ -33,4 +56,9 @@ The historical Windows Server 2022 OpenLibm artifacts contain compile databases 
 
 ## Status
 
-The project currently has no root `LICENSE` and no redistributable package. Distribution compliance remains pending package-specific review of all applicable third-party terms and notices. G0 technical status is recorded in [`docs/G0_TECHNICAL_VALIDATION.md`](docs/G0_TECHNICAL_VALIDATION.md) and must not be treated as a distribution approval.
+G0 Technical Validation is tracked separately in
+[`docs/G0_TECHNICAL_VALIDATION.md`](docs/G0_TECHNICAL_VALIDATION.md). This
+distribution gate remains pending until the applicable notices and SBOM are
+complete for an exact source or binary package. The current project has no root
+`LICENSE` and no redistributable package. A G0 Technical Validation PASS does
+not mean that all third-party distribution requirements have been completed.

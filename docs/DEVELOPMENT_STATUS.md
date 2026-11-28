@@ -1,6 +1,6 @@
 # PEPEPOW Miner — Current development status
 
-**Main snapshot: 2026-11-26 (Asia/Taipei).** Current `main` at that snapshot is `a505730696936117b2fa67c7a02b7ae4f1443856`. PR #30 integrated #27–#29 with merge ancestry; PRs #31–#33 were merged in dependency order. Main push workflows for the CUDA device probe, correctness contract, and BLAKE3 stage all passed on that exact head. The Owner's 2026-11-28 direction separates G0 technical validation from distribution license compliance and adopts the cited MIT HooHash evidence for development. The public README remains the product-facing overview.
+**Status snapshot: 2026-11-28 (Asia/Taipei), main before the CUDA Stratum bridge integration.** Main at `634146739c154c0cfb7558991a6e3436e9b2dff2` includes PR #39, #35–#38, and #40, each merged with normal merge ancestry after its applicable review and exact-head checks. G0 Technical Validation is PASS. Distribution License Compliance is a separate pre-release gate. The CUDA Stratum bridge has physical Windows 11 RTX 3060 loopback evidence; no real CUDA pool share is recorded.
 
 ## Integrated implementation
 
@@ -8,16 +8,19 @@
 - [PR #23](https://github.com/edisontw/pepepow-miner/pull/23) was closed after its frame-deadline patch was incorporated into PR #22. Original commit `fad8e1ba49cdf50a34114e2a22f8fa5cf7ab9319` and replacement cherry-pick `3aa4ca702c1c720ee13e76ea1210ee3e14123446` have identical stable patch IDs. The PR branch and review history remain available.
 - [PR #24](https://github.com/edisontw/pepepow-miner/pull/24) merged as `238e5342bfd3d2825339f65464b45c244432bbf3`. Loopback-only reconnect uses bounded attempts, interruptible exponential backoff, fresh subscribe/authorize, connection generations, stale-response rejection, duplicate-submit prevention, and same-mode failover across two configured loopback ports.
 - [PR #25](https://github.com/edisontw/pepepow-miner/pull/25) merged as `9c6f34f51a9f70d45e454eacbf1fe3388e61cf27`; PR #30 subsequently integrated the offline benchmark, worker limit of 1–256, `--threads all`, nonce range partitioning, and benchmark CLI. One worker remains the default. The [HooHash worker audit](VALIDATION_EVIDENCE/G1/hoohash-v110-worker-audit-2026-11-25.md) records source inspection and concurrency limits.
-- [Issue #1](https://github.com/edisontw/pepepow-miner/issues/1) remains open as the G0 acceptance tracker.
+- PR #39 merged as `ad432a7f6bbe640cc1e645f258691fff8151b8c4`, recording G0 Technical Validation PASS and keeping exact-package notices/SBOM in the separate distribution gate.
+- CUDA PR #35 merged as `3c91dbce7ea5bb0ca243ebdc4c62f9e1216a223d`, #36 as `cd02a41d917b98fdabc074f1ac4525afc34272a5`, #37 as `c3109df901c9c4ef4b05828dd7f83f84029fdac3`, and #38 as `9a4f95492d32d47660734b9dce9a6f3650d7ca85`. These add staged CUDA matrix/full-digest validation and offline bounded search with mandatory full-digest CPU candidate recheck; they do not pass G4.
+- PR #40 merged as `634146739c154c0cfb7558991a6e3436e9b2dff2`, adding the explicit opt-in bounded CPU live-session CLI and its sanitized historical Windows 11 POOL evidence. The single run had 1,000 answered replies, 992 accepted, 8 generic rejects, and 0 Pool errors; it is not a G1 pass.
+- [Issue #1](https://github.com/edisontw/pepepow-miner/issues/1) remains open for G1 and the remaining product/release gates.
 
-All socket integration tests use numeric IPv4 loopback endpoints and local mock servers. No production pool was contacted and no real share was submitted.
+The integrated socket suite uses numeric IPv4 loopback endpoints and local mock servers. PR #40 adds the explicitly started public CPU session; the historical 1,000-reply result is preserved in its sanitized report and is not repeated. This one Windows 11 POOL configuration is not G1 acceptance.
 
 ## Current owner acceptance and integrated main
 
 - Physical Windows 11 Pro technical acceptance remains 84/84 on its documented historical head `7284aa22cafd79e3521291307eca8f5b9a575744`. The Owner accepts Windows 10 by equivalence; no separate physical Windows 10 execution was performed. Do not repeat the completed Windows acceptance absent a relevant regression.
 - PR #30 merged as `78664ab5c7a5d560cfc9b0f833189379e6fdcf32`, preserving the #27–#29 merge ancestry. PR #31 merged as `0e262b67ae7c25f85e8c0b010235bf1beb2e4d1c`, PR #32 as `f2b08f9239dd6b45b49c4efc150b9f7b597913e1`, and PR #33 as `a505730696936117b2fa67c7a02b7ae4f1443856`.
 - Main exact-head Actions all passed: Linux parity [45824850621](https://github.com/edisontw/pepepow-miner/actions/runs/45824850621), Windows Server parity/dependency evidence [45824850719](https://github.com/edisontw/pepepow-miner/actions/runs/45824850719), frontend [45824850726](https://github.com/edisontw/pepepow-miner/actions/runs/45824850726), CUDA device probe [45846602967](https://github.com/edisontw/pepepow-miner/actions/runs/45846602967), CUDA correctness contract [45846603147](https://github.com/edisontw/pepepow-miner/actions/runs/45846603147), and CUDA BLAKE3 stage [45846602978](https://github.com/edisontw/pepepow-miner/actions/runs/45846602978).
-- The [formal G0 evidence reconciliation](VALIDATION_EVIDENCE/G0/formal-g0-audit-2026-11-26.md) preserves the Windows 11 84/84 result and Windows 10 equivalence. The current Owner direction separates technical G0 sign-off from package distribution compliance; Issue #1 remains open.
+- The [formal G0 Technical Validation sign-off](VALIDATION_EVIDENCE/G0/formal-g0-technical-validation-2026-11-27.md) reconciles CPU evidence and preserves Windows 11 84/84 plus Windows 10 Owner equivalence. Distribution notices are tracked separately in [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md); a technical PASS is not package clearance. Issue #1 remains open for G1 and later gates.
 
 ## Offline CPU benchmark development
 
@@ -47,45 +50,14 @@ Detailed fault coverage and exact-head links are in [G1 transport and reconnect 
 
 ## Formal gates and remaining decisions
 
-**G0 Technical Validation — NOT YET SIGNED OFF.** Linux x86-64 Debug/Release dependency records are in the [Debug inventory](sources/linux-debug-build-dependency-inventory.json) and [Release inventory](sources/linux-reference-build-dependency-inventory.json). Existing platform and digest evidence is preserved; reconcile the technical checklist and record formal sign-off without repeating unaffected acceptance tests. Distribution license compliance is a separate release gate described in [third-party notices](../THIRD_PARTY_NOTICES.md); it is not a G0 technical blocker.
+**G0 Technical Validation — PASS.** Pinned-source provenance, Linux dependency inventories, full-digest parity, negative controls, Ubuntu 22.04/24.04 Debug/Release, and the preserved Windows 11 84/84 result are recorded in the [formal sign-off](VALIDATION_EVIDENCE/G0/formal-g0-technical-validation-2026-11-27.md). Windows 10 is Owner equivalence, with no separate physical run.
 
-**G1 — OFFLINE PROTOTYPE ONLY; NOT PASSED.** Local mocks now cover deadlines, reconnect, failover, worker ranges, cancellation, stale results, and bounded shutdown. Authorized production-pool interoperability and real accepted shares remain untested. One synchronous Core hash cannot be interrupted after it starts, so cancellation is cooperative between hashes.
+**Distribution License Compliance — PENDING before distribution.** The Owner adopts the public Hoosat MIT commit and pinned Core MIT HooHash headers as the current HooHash development basis. Preserve the old GPL headers and license-change history. Complete applicable notices and an SBOM for the exact release package; this gate does not block local development or technical G0. See [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
+
+**G1 — NOT PASSED.** Main's local mocks cover deadlines, reconnect, failover, worker ranges, cancellation, stale results, and bounded shutdown. The integrated opt-in CPU CLI has one historical Owner-authorized Windows 11 CPU/POOL run: 1,000 answered replies in 1,008.07 seconds, one CPU thread, a 1,800-second cap, 992 accepted, 8 generic rejected (`result=false,error=null`), and 0 Pool error replies. The generic rejections cannot be classified. Preserve this result without repeating it. Linux, SOLO, live reconnect/failover, and the remaining required configurations are not validated. See the [sanitized report and full JSONL evidence](VALIDATION_EVIDENCE/G1/windows11-cpu-pool-acceptance-2026-11-27.md). One synchronous Core hash cannot be interrupted after it starts, so CPU cancellation is cooperative between hashes.
 
 **G2–G5 — NOT ACCEPTED.** GUI work and distributable Windows/Linux packages are deferred. No binaries were released.
 
-The Owner decisions record Windows 11 physical acceptance as PASS (84/84) on the previously validated main head and Windows 10 as PASS by equivalence; no separate physical Windows 10 run was performed. This does not validate the combined integration tree. Formal G0/G1 sign-off, production pool/share testing, and Windows/Linux package release remain pending their applicable gates. Distribution compliance and package notices remain separate from technical G0. Keep Issue #1 open until its established closure conditions are met.
+The CUDA Stratum bridge's physical Windows 11 RTX 3060 loopback validates local CUDA initialization, bounded search, full-digest CPU recheck, and mock submission. It is not a real-pool GPU test. CUDA POOL/SOLO shares, Linux native GPU evidence, broader CPU/CUDA CLI acceptance, and stability/soak remain pending.
 
-## Active CUDA session integration (2026-11-28)
-
-Draft [PR #41](https://github.com/edisontw/pepepow-miner/pull/41) is stacked on the reviewed live-session and bounded-search branches. The integration adds an opt-in CUDA child-process search path, strict bounded-search JSON decoding, pinned-Core CPU recheck of each complete candidate digest and target, cancel-file handling, process-tree cleanup, and CPU-only mock contract tests. The Windows 11 native UCRT64 loopback replaces a job during CUDA-mode search and exercises disconnect/reconnect to a configured fallback endpoint. Tests verify child cancellation, stale classification, fresh fallback job startup, stable POOL mode, and no candidate or share submission. The expanded product loopback passed in Debug and Release, including three consecutive Release runs. No GPU was used, no pool was contacted, and G4 is not accepted. See [CUDA Stratum integration](CUDA_STRATUM_INTEGRATION.md) and the [process-bridge evidence](VALIDATION_EVIDENCE/G4/cuda-stratum-process-bridge-windows11-2026-11-28.md).
-## CUDA candidate-to-submit mock path (2026-11-28)
-
-Draft [PR #41](https://github.com/edisontw/pepepow-miner/pull/41) now tests a
-successful CUDA-mode product flow against a local Stratum mock. A pinned-Core
-CPU child fixture returns a complete digest for a nonzero nonce; the adapter
-performs its existing full-digest and target CPU recheck, then submits the
-matching job fields. The mock accepts exactly one request and the JSONL summary
-counts exactly one accepted response. Windows 11 Release passed three repeated
-runs and Debug passed once. No GPU was initialized and no public pool or real
-share was involved. CUDA digest parity and G4 remain unaccepted; G1 remains
-unpassed.
-
-## Stale candidate suppression after cancellation (2026-11-28)
-
-The CUDA-mode product loopback now includes a child fixture that reports a
-valid found candidate after receiving the cancel-file signal for a replaced
-job. Release passed three consecutive runs and Debug passed once. The test
-observed stale classification for the old job and no candidate or submit event.
-This validates the CPU-only process/session race contract, not physical CUDA,
-G4 acceptance, G1 acceptance, or pool interoperability.
-
-## Live Stratum nonce cursor boundary contract (2026-11-28)
-
-The live session now uses a directly testable 64-bit cursor for bounded
-32-bit nonce ranges. The final reservation at `UINT32_MAX` contains exactly
-one nonce, and exhausting or finding that nonce advances to the `2^32`
-sentinel without wrapping to zero. Extranonce2 rollover is atomic: malformed
-hex and all-`f` overflow leave the input unchanged. Windows 11 Release and
-Debug both passed the new cursor contract and the existing CPU-only live
-Stratum/CUDA-mode product loopback. No GPU or pool was used. G4 and G1 remain
-unpassed. See [nonce cursor validation evidence](VALIDATION_EVIDENCE/G4/cuda-stratum-nonce-cursor-windows11-2026-11-28.md).
+The Owner's platform decisions preserve Windows 11 physical technical acceptance as PASS (84/84) on its documented head and Windows 10 as PASS by equivalence; no separate physical Windows 10 run was performed. G0 Technical Validation is signed off on the recorded CPU evidence. Distribution License Compliance, LAB Pool/share acceptance, and later product gates remain open. Linux Debug/Release inventories and hosted Windows Server dependency artifacts remain provenance evidence, not package clearance. Keep Issue #1 open until its remaining acceptance conditions are met.

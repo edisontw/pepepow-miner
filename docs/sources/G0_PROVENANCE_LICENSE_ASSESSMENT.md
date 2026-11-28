@@ -1,21 +1,20 @@
 # G0 source provenance and notice assessment
 
-Date: 2026-11-25. Status: conservative handling policy adopted; rights and redistribution review remain pending.
+Source snapshot: 2026-11-25. Owner policy update: 2026-11-27. Distribution License Compliance remains a separate pre-release gate.
 
-This document separates reproducible build provenance from legal conclusions. A matching digest, a successful build, or a license keyword does not establish permission to redistribute a source file or binary.
+This document records reproducible build provenance and source notices; it does not make legal conclusions. A matching digest or successful build is technical evidence, not package distribution clearance. The current Owner policy separates G0 Technical Validation from Distribution License Compliance.
 
-## Owner's conservative handling decision
+## Current Owner development and distribution policy
 
-The Owner has chosen the following distribution policy. It preserves the existing source evidence and does not resolve the legal questions described below:
+The 2026-11-27 policy update preserves the evidence below while changing how it gates work:
 
 - The repository currently declares no project-wide license. Keep that status; do not add an umbrella license until project authorship, rights, and dependency boundaries have been reviewed.
-- Preserve all upstream root licenses, file headers, attribution, copyright, and patch/source provenance. A root license is not treated as overriding a conflicting file header or a dependency's own notices.
-- For HooHash release gating, treat the GPL-3.0-or-later source headers as applicable until the relevant rightsholders provide written clarification about the MIT root-license change.
-- Do not distribute source bundles or binaries containing components still marked `REVIEW_REQUIRED`. Resolve the rights questions first or remove/replace the component with independently created material.
-- For future packages, create a notice set and SBOM from each exact release build. Include all relevant license texts and notices for compiled sources, selected linked archive members, bundled libraries, and runtime files. Record versions, source commits, hashes, changes, and build configuration. For an explicitly multi-license upstream dependency, preserve its license-choice text and all available license texts until package treatment is reviewed.
+- Preserve all upstream root licenses, file headers, attribution, copyright, and patch/source provenance. A root license is not treated as overriding a dependency's own notices.
+- Use Hoosat commit `9634f11410a2d71be21086e813263fa007fb6810` and the MIT headers in the pinned PePe-core HooHash files as the current basis for local development and G0 Technical Validation. Preserve the upstream GPL header and MIT transition history. Additional written clarification is not a prerequisite for local work.
+- Keep Distribution License Compliance separate from G0. Before each package release, create a notice set and SBOM from that exact build. Include applicable license texts and notices for compiled sources, selected linked archive members, bundled libraries, and runtime files. Record versions, source commits, hashes, changes, and build configuration.
 - Keep pool-derived candidate/test material out of release packages and source bundles until its redistribution permission is established or the fixture has been replaced with independently created material.
 
-The adopted policy is recorded in [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md). It is a conservative project decision, not legal clearance or a conclusion that any specific license is compatible with another.
+The current gates are recorded in [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md) and [`G0_TECHNICAL_VALIDATION.md`](../G0_TECHNICAL_VALIDATION.md). The development policy is not a blanket distribution clearance for every dependency.
 
 Actual Linux x86-64 Debug and Release compile/include/link inventories are [`linux-debug-build-dependency-inventory.json`](linux-debug-build-dependency-inventory.json) and [`linux-reference-build-dependency-inventory.json`](linux-reference-build-dependency-inventory.json). They record pinned inputs, compiler dependency paths and hashes, static archive members, per-executable linker maps, selected members, and dynamic runtime libraries. The updated Windows Server workflow passed in both configurations on PR #27 head `7fc8cfe7775bcc0a31f520b039b0ff45f519dd4c`; its [Debug](https://github.com/edisontw/pepepow-miner/actions/runs/45600133198/artifacts/15015372150) and [Release](https://github.com/edisontw/pepepow-miner/actions/runs/45600133198/artifacts/15015885919) artifacts contain compiler dependency paths, archive members, per-executable linker maps, imported DLLs, and executable hashes. These are Windows Server CI records, not physical Windows 10/11 tests. None of these records establishes redistribution permission.
 
@@ -68,16 +67,9 @@ The pinned root [LICENSE.md](https://github.com/JuliaMath/openlibm/blob/9fbeafcd
 
 The pinned reference is [PePe-core](https://github.com/MattF42/PePe-core/tree/bc08108ceccd957c79040dc7fedc1d56d8d47f97), commit `bc08108ceccd957c79040dc7fedc1d56d8d47f97`. Its `COPYING` is MIT. Core's `src/crypto/hoohash/hoohash.c` and `.h` have MIT headers crediting Hoosat Oy and PePe-core developers and cite Hoosat commit `9634f11410a2d71be21086e813263fa007fb6810`.
 
-At that Hoosat commit, authored by Toni Lukkaroinen on 2025-10-14, the message is “Change GPLv3 to MIT for more permissive algorithm usage.” The complete file list for the commit is just `LICENSE`: a 674-line GPLv3 text was replaced by a 21-line MIT text. `hoohash.c` and `hoohash.h` were byte-identical to their parent at this commit (Git blobs `bddc52cb4cd92064398d5eb5e3f1d4a2798a2f4c` and `c276493cf512a6a9919aeecfcf73141328188014`), and both still contain GPL-3.0-or-later header wording. The public commit search on 2026-11-24 returned this as the repository's latest commit; no later public header correction was found. The source history includes multiple contributors; the public history by path lists Toni Lukkaroinen, TMKCodes, and Tonto, which is not itself evidence of the scope of any grant.
+At that Hoosat commit, authored by Toni Lukkaroinen on 2025-10-14, the message is “Change GPLv3 to MIT for more permissive algorithm usage.” The complete file list for the commit is just `LICENSE`: a 674-line GPLv3 text was replaced by a 21-line MIT text. `hoohash.c` and `hoohash.h` were byte-identical to their parent at this commit (Git blobs `bddc52cb4cd92064398d5eb5e3f1d4a2798a2f4c` and `c276493cf512a6a9919aeecfcf73141328188014`), and both still contain GPL-3.0-or-later header wording. The source history includes multiple contributors; the public history by path lists Toni Lukkaroinen, TMKCodes, and Tonto. Keep this historical source record and Core/Hoosat attribution intact.
 
-Core's HooHash implementation is an adaptation, not a byte-for-byte copy: a static diff against the pinned Hoosat `hoohash.c` reports 497 changed lines (154 insertions, 343 deletions). This does not resolve the upstream header/root-license mismatch or establish that the MIT change was authorized by every relevant rightsholder. Keep the Core and Hoosat attribution and permission notices intact. Before product redistribution, obtain answers from the relevant rightsholders to these questions:
-
-1. Does the MIT `LICENSE` change at `9634f11410a2d71be21086e813263fa007fb6810` expressly apply to `hoohash.c` and `hoohash.h` despite their unchanged GPL-3.0-or-later headers?
-2. Was that relicensing authorized for all copyrighted contributions in those files, including contributions by other listed authors?
-3. Are the GPL headers stale, and will the upstream project update them or provide a written clarification identifying the intended license for each file?
-4. Does PePe-core have permission to distribute its adapted HooHash files under the MIT headers present at the pinned Core revision?
-
-No upstream contact was made and no legal conclusion is recorded.
+The Owner's 2026-11-27 policy adopts the public MIT commit and the pinned PePe-core MIT HooHash headers as the basis for continued development and technical validation. The prior conservative treatment of the old headers as a blocker for local work is superseded. No additional written clarification is required before local development, builds, or offline tests. Distribution remains a separate exact-package task: preserve source pins and notices, and do not describe G0 Technical Validation PASS as package clearance.
 
 ## BLAKE3 and pool candidate
 
@@ -95,6 +87,6 @@ Core raw digest = 6b0aed0c0261dc9539b9dfc0b36c6a8d9048889352ca3f97825a89fb010000
 
 The run verified the full 32-byte reversed display/raw mapping and rejected direct display-order bytes. This is a pinned-Core mapping check, not independent consensus parity or a claim about redistribution rights.
 
-## Redistribution review status
+## Distribution License Compliance status
 
-The source manifest and file inventory are technical provenance records. The conservative notice and release-gating policy is now adopted, while redistribution review remains pending for OpenLibm per-file notices, HooHash lineage, BLAKE3 attribution and modifications, pool-derived test material, the final product notice set, and Owner sign-off. Windows Server compile/link evidence has been collected, but its artifact records do not resolve source redistribution rights. Linux Debug and Release dependency inventories are available; they cover one platform and are not an all-platform package manifest. Do not treat a green CI run as legal clearance. No third-party source was copied into this assessment, and no release binary was produced or published.
+The source manifest and file inventory are technical provenance records. Before distribution, complete the applicable notices and SBOM for the exact package, including BLAKE3 attribution/modifications, OpenLibm per-file notices, pool-derived test material if included, runtime dependencies, and source hashes. HooHash's public MIT evidence is the current development basis and does not require another written clarification for local work. Windows Server compile/link evidence and Linux Debug/Release inventories support provenance but are not an all-platform package manifest. No third-party source was copied into this assessment, and no release binary was produced or published.
