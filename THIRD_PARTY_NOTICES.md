@@ -33,7 +33,7 @@ Validation. No source bundle or binary package has been released.
 - The project has no root `LICENSE`. Do not add a project-wide license as part
   of this dependency notice update.
 - Owner approval governs project work and is not itself a third-party license
-  grant. See the [Owner authorization](https://github.com/edisontw/pepepow-miner/issues/1#issuecomment-7192595038).
+  grant. See the [current Owner authorization](https://github.com/edisontw/pepepow-miner/issues/1#issuecomment-7239984084).
 
 ## Components and handling
 

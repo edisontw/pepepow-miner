@@ -6,10 +6,13 @@ on:
       - '.github/workflows/g0-core-reference-build.yml'
       - 'CMakeLists.txt'
       - 'include/pepepow/bounded_cpu_search.hpp'
+      - 'include/pepepow/cuda_search_process.hpp'
+      - 'include/pepepow/cuda_search_result_decoder.hpp'
       - 'include/pepepow/cpu_worker_pool.hpp'
       - 'include/pepepow/offline_stratum_search.hpp'
       - 'include/pepepow/offline_stratum_controller.hpp'
       - 'include/pepepow/stratum_socket_io.hpp'
+      - 'include/pepepow/stratum_nonce_cursor.hpp'
       - 'include/pepepow/stratum_loopback_transport.hpp'
       - 'include/pepepow/local_handshake.hpp'
       - 'tools/offline_stratum_miner.cpp'
@@ -17,6 +20,10 @@ on:
       - 'tools/cpu_benchmark_accounting.hpp'
       - 'tools/cpu_benchmark_main.cpp'
       - 'tests/test_native_stratum_search.cpp'
+      - 'tests/test_stratum_nonce_cursor.cpp'
+      - 'tests/test_cuda_search_process.cpp'
+      - 'tests/test_cuda_search_engine_cancel.cpp'
+      - 'tests/test_cuda_search_engine_candidate.cpp'
       - 'tests/test_cpu_worker_pool.cpp'
       - 'tests/test_cpu_benchmark_accounting.cpp'
       - 'tests/test_cpu_benchmark_cli.py'
@@ -105,11 +112,12 @@ jobs:
             -DOPENLIBM_LIBRARY="$GITHUB_WORKSPACE/openlibm-build/libopenlibm.a" \
             -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
             -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
-            -DPEPEPOW_NATIVE_STRATUM_SEARCH=ON
+            -DPEPEPOW_NATIVE_STRATUM_SEARCH=ON \
+            -DPEPEPOW_ENABLE_LIVE_POOL_MINER=ON
       - name: Build and link real Core reference
         run: cmake --build build --config Release --parallel 2
       - name: Run native CPU Stratum and loopback integration tests
-        run: ctest --test-dir build --output-on-failure -R 'native_stratum_search|offline_stratum_miner_loopback'
+        run: ctest --test-dir build --output-on-failure -R 'native_stratum_search|offline_stratum_miner_loopback|cuda_search_process_contract|live_pool_miner_loopback|live_pool_miner_cuda_product_loopback'
       - name: Check reference executable exists without invoking hashing
         run: test -x build/pepepow-kat
       - name: Execute real reference binary and verify invalid-input exit codes

@@ -10,7 +10,7 @@ PEPEPOW Miner aims to make mining on Windows and Linux easier to start, understa
 
 [PEPEPOW website](https://pepepow.net/) · [Development progress](docs/DEVELOPMENT_STATUS.md) · [Report an issue](https://github.com/edisontw/pepepow-miner/issues)
 
-> **Pre-release:** This project is currently an offline testing prototype. It is not ready for live mining, and no supported downloadable miner is available yet.
+> **Pre-release:** The repository includes an explicitly invoked, bounded CPU live-pool validation mode and experimental CUDA components. They are not a supported production miner; no downloadable binary is available.
 
 ## What makes it different?
 
@@ -27,20 +27,20 @@ The following features describe the intended product, not functionality already 
 
 | Component | Status |
 | --- | --- |
-| HooHash V110 validation | 10,000-case full-digest and native platform evidence recorded; formal G0 is not passed while the source-rights review remains unresolved |
+| HooHash V110 validation | G0 Technical Validation is signed off on existing 10,000-case and native-platform evidence. Distribution License Compliance remains a separate pre-release gate. |
 | CPU mining engine | Bounded offline nonce search implemented |
-| Pool connectivity | Offline and local Stratum testing; authorized live acceptance has not been run |
+| Pool connectivity | PR #40 integrates an opt-in bounded CPU CLI. Its historical Windows 11 CPU/POOL run recorded 1,000 answered replies: 992 accepted and 8 generic rejects. G1 remains unaccepted. |
 | Windows 10/11 and Linux desktop miner | Planned; full platform acceptance pending |
-| NVIDIA GPU (CUDA) | Offline device probe and partial correctness stages exist; full HooHash GPU digest parity is not implemented |
+| NVIDIA GPU (CUDA) | CUDA stages #35–#38 and the Stratum bridge have experimental full-digest bounded-search coverage. A native Windows RTX 3060 Stratum loopback is recorded; no real GPU pool shares are recorded, and G4 remains unaccepted. |
 | AMD GPU (HIP or OpenCL) | Planned |
 
 CPU support comes first. GPU acceleration and desktop packaging will follow separate validation stages. See the [roadmap](docs/ROADMAP.md) for the full plan.
 
 ## Download and testing
 
-There is no supported public binary release at this stage. The repository currently provides source code and developer tools for offline validation only.
+There is no supported public binary release at this stage. Live-pool validation requires explicit CLI flags and bounded settings; the experimental tools are not for production mining.
 
-Developers can find reproducible build and offline test instructions in the [CLI tools guide](tools/README.md). Do not connect these experimental tools to a live pool or use them for production mining.
+Developers can find reproducible build and offline test instructions in the [CLI tools guide](tools/README.md). Follow the bounded validation instructions for explicitly authorized live-pool tests; do not use these experimental tools for production mining.
 
 ## User privacy and trust
 

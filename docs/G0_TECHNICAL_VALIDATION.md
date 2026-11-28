@@ -1,11 +1,13 @@
 # G0 Native CPU Technical Validation
 
-Updated 2026-11-27 (Taipei time).
+Updated 2026-11-28 (Taipei time).
 
 **Status: G0 Technical Validation — PASS.** This is a technical acceptance for
 the pinned CPU implementation and evidence listed below; it is not a statement
-that all third-party package distribution requirements are complete. The
-current main head is `dfccd6fd2aeb3525cc41e27428537571642da6b7`. Native Ubuntu
+that all third-party package distribution requirements are complete. At the
+time this sign-off was prepared, main was `dfccd6fd2aeb3525cc41e27428537571642da6b7`.
+PR #39 subsequently recorded the checklist reconciliation and merged as
+`ad432a7f6bbe640cc1e645f258691fff8151b8c4`. Native Ubuntu
 22.04/24.04 Debug/Release parity and negative controls passed on the #30
 integration head; the independent 10,000-case full-digest corpus is preserved
 from its exact feature-head validation. The Owner's Windows 11 physical
@@ -15,9 +17,10 @@ equivalence, without a separate physical run. Subsequent #31–#33 main changes
 were CUDA-only and did not change the CPU hash path; the completed Windows
 acceptance is not repeated.
 
-The Owner authorized formal G0 sign-off in [Issue #1 comment
-7192595038](https://github.com/edisontw/pepepow-miner/issues/1#issuecomment-7192595038).
-That sign-off is recorded for **G0 Technical Validation only**. Distribution
+The Owner's formal approval in [Issue #1 comment
+7239984084](https://github.com/edisontw/pepepow-miner/issues/1#issuecomment-7239984084)
+authorizes this sign-off using the existing accepted evidence. Earlier policy
+language is superseded. The sign-off is for **G0 Technical Validation only**. Distribution
 License Compliance remains a separate release gate in
 [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). Do not interpret this
 technical PASS as confirmation that every third-party component is cleared for

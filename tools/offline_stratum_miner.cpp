@@ -1,7 +1,11 @@
 #include "pepepow/local_handshake.hpp"
 #include "pepepow/cpu_benchmark.hpp"
 #include "pepepow/cpu_worker_pool.hpp"
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+#include "pepepow/cuda_search_process.hpp"
+#endif
 #include "pepepow/offline_stratum_search.hpp"
+#include "pepepow/stratum_nonce_cursor.hpp"
 #include "pepepow/stratum_endpoint.hpp"
 
 #include <atomic>
@@ -10,6 +14,7 @@
 #include <cmath>
 #include <cstdint>
 #include <csignal>
+#include <filesystem>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -47,10 +52,14 @@ struct Options {
   std::uint32_t count = 0;
   std::uint32_t timeout_ms = pepepow::default_search_timeout_ms;
   std::uint32_t response_goal = 1;
+  std::uint32_t cuda_batch_size = 128;
   double wire_scale = pepepow::OfflineStratumSearch::default_wire_difficulty_scale;
   bool live_pool = false;
+  bool cuda_device = false;
   std::uint32_t max_runtime_seconds = 0;
   std::uint32_t submit_interval_ms = 250;
+  std::filesystem::path cuda_engine;
+  std::filesystem::path cuda_cpu_oracle;
   std::optional<pepepow::socket_io::StratumTcpEndpoint> endpoint;
   std::optional<pepepow::socket_io::StratumTcpEndpoint> fallback_endpoint;
 };
@@ -61,6 +70,15 @@ bool decimal(std::string_view text, Integer& value) {
       std::from_chars(text.data(), text.data() + text.size(), value);
   return error == std::errc{} && end == text.data() + text.size();
 }
+
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+std::filesystem::path path_from_cli(std::string_view value) {
+  std::u8string utf8;
+  utf8.reserve(value.size());
+  for (const unsigned char byte : value) utf8.push_back(static_cast<char8_t>(byte));
+  return std::filesystem::path(utf8);
+}
+#endif
 
 bool parse_options(int argc, char** argv, Options& options) {
   if (argc < 6) return false;
@@ -135,6 +153,12 @@ bool parse_live_options(int argc, char** argv, Options& options) {
   bool saw_mode = false;
   bool saw_batch = false;
   bool saw_submit_interval = false;
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+  bool saw_device = false;
+  bool saw_cuda_engine = false;
+  bool saw_cuda_oracle = false;
+  bool saw_cuda_batch = false;
+#endif
   bool saw_retries = false;
   bool saw_scale = false;
   options.live_pool = true;
@@ -172,6 +196,24 @@ bool parse_live_options(int argc, char** argv, Options& options) {
       if (saw_mode || (value != "POOL" && value != "SOLO")) return false;
       options.mode = value;
       saw_mode = true;
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+    } else if (name == "--device") {
+      if (saw_device || (value != "cpu" && value != "cuda")) return false;
+      options.cuda_device = value == "cuda";
+      saw_device = true;
+    } else if (name == "--cuda-engine") {
+      if (saw_cuda_engine || value.empty()) return false;
+      options.cuda_engine = path_from_cli(value);
+      saw_cuda_engine = true;
+    } else if (name == "--cpu-oracle") {
+      if (saw_cuda_oracle || value.empty()) return false;
+      options.cuda_cpu_oracle = path_from_cli(value);
+      saw_cuda_oracle = true;
+    } else if (name == "--cuda-batch-size") {
+      if (saw_cuda_batch || !decimal(value, options.cuda_batch_size) ||
+          options.cuda_batch_size == 0 || options.cuda_batch_size > 256) return false;
+      saw_cuda_batch = true;
+#endif
     } else if (name == "--threads") {
       if (saw_threads || !decimal(value, options.workers) || !options.workers ||
           options.workers > pepepow::max_cpu_workers) return false;
@@ -208,6 +250,17 @@ bool parse_live_options(int argc, char** argv, Options& options) {
   if (!saw_endpoint || !saw_login || !saw_extranonce || !saw_threads ||
       !saw_responses || !saw_runtime || !saw_mode ||
       (options.fallback_endpoint && options.retries == 0)) return false;
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+  if (options.cuda_device != (saw_cuda_engine && saw_cuda_oracle) ||
+      saw_cuda_engine != saw_cuda_oracle) return false;
+  if (options.cuda_device) {
+    std::error_code engine_error;
+    std::error_code oracle_error;
+    if (!std::filesystem::is_regular_file(options.cuda_engine, engine_error) ||
+        !std::filesystem::is_regular_file(options.cuda_cpu_oracle, oracle_error))
+      return false;
+  }
+#endif
   if (options.fallback_endpoint && options.endpoint &&
       options.fallback_endpoint->host == options.endpoint->host &&
       options.fallback_endpoint->port == options.endpoint->port) return false;
@@ -219,6 +272,32 @@ void event(std::string_view name, std::string_view fields = {}) {
   std::cout << "{\"event\":\"" << name << "\"";
   if (!fields.empty()) std::cout << ',' << fields;
   std::cout << "}\n" << std::flush;
+}
+
+std::string json_escape(std::string_view value) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string escaped;
+  escaped.reserve(value.size());
+  for (const unsigned char character : value) {
+    switch (character) {
+      case '"': escaped += "\\\""; break;
+      case '\\': escaped += "\\\\"; break;
+      case '\b': escaped += "\\b"; break;
+      case '\f': escaped += "\\f"; break;
+      case '\n': escaped += "\\n"; break;
+      case '\r': escaped += "\\r"; break;
+      case '\t': escaped += "\\t"; break;
+      default:
+        if (character < 0x20U) {
+          escaped += "\\u00";
+          escaped.push_back(digits[character >> 4]);
+          escaped.push_back(digits[character & 0x0fU]);
+        } else {
+          escaped.push_back(static_cast<char>(character));
+        }
+    }
+  }
+  return escaped;
 }
 
 template <typename Bytes>
@@ -241,21 +320,6 @@ std::string nonce_hex(std::uint32_t nonce) {
     nonce >>= 4;
   }
   return out;
-}
-
-bool increment_hex_nonce(std::string& value) {
-  constexpr char digits[] = "0123456789abcdef";
-  for (auto it = value.rbegin(); it != value.rend(); ++it) {
-    const auto ch = *it;
-    unsigned nibble = 0;
-    if (ch >= '0' && ch <= '9') nibble = static_cast<unsigned>(ch - '0');
-    else if (ch >= 'a' && ch <= 'f') nibble = static_cast<unsigned>(ch - 'a' + 10);
-    else if (ch >= 'A' && ch <= 'F') nibble = static_cast<unsigned>(ch - 'A' + 10);
-    else return false;
-    *it = digits[(nibble + 1) & 15];
-    if (nibble != 15) return true;
-  }
-  return false;
 }
 
 bool clean_events(const OfflineStratumController::WorkEvents& received) {
@@ -384,7 +448,7 @@ int mine_session(Socket socket, OfflineStratumController& controller,
   int exit_code = 1;
   std::optional<std::uint64_t> attempted_job_generation;
   std::optional<std::uint64_t> cursor_job_generation;
-  std::uint64_t nonce_cursor = options.start;
+  pepepow::StratumNonceCursor nonce_cursor;
   std::string extranonce2 = options.extranonce2;
   const std::string initial_extranonce2 = options.extranonce2;
   auto next_submit_at = Clock::time_point::min();
@@ -413,27 +477,32 @@ int mine_session(Socket socket, OfflineStratumController& controller,
 
     if (options.live_pool && cursor_job_generation != job->generation) {
       cursor_job_generation = job->generation;
-      nonce_cursor = 0;
+      nonce_cursor.reset();
       extranonce2 = initial_extranonce2;
     }
-    if (options.live_pool && nonce_cursor == (std::uint64_t{1} << 32)) {
-      if (!increment_hex_nonce(extranonce2)) {
+    if (options.live_pool && nonce_cursor.exhausted()) {
+      if (!pepepow::increment_stratum_extranonce2(extranonce2)) {
         event("nonce_space_exhausted", "\"job_id\":\"" + job->id + "\"");
         exit_code = 3;
         failed = true;
         break;
       }
-      nonce_cursor = 0;
+      nonce_cursor.reset();
       event("extranonce2_advanced", "\"job_id\":\"" + job->id + "\"");
     }
 
     std::uint32_t batch_start = options.start;
     std::uint32_t batch_count = options.count;
     if (options.live_pool) {
-      const auto remaining = (std::uint64_t{1} << 32) - nonce_cursor;
-      batch_start = static_cast<std::uint32_t>(nonce_cursor);
-      batch_count = static_cast<std::uint32_t>((std::min)(
-          static_cast<std::uint64_t>(options.count), remaining));
+      const auto batch = nonce_cursor.reserve(options.count);
+      if (!batch) {
+        event("nonce_cursor_error", "\"job_id\":\"" + job->id + "\"");
+        exit_code = 3;
+        failed = true;
+        break;
+      }
+      batch_start = batch->start;
+      batch_count = batch->count;
     }
 
     auto work = pepepow::OfflineStratumSearch::capture(
@@ -448,11 +517,23 @@ int mine_session(Socket socket, OfflineStratumController& controller,
     std::atomic_bool cancel{false};
     std::atomic_bool finished{false};
     SearchStatus search_status = SearchStatus::Invalid;
+    std::string cuda_diagnostic;
     const auto search_started = Clock::now();
     const auto search_deadline = options.live_pool ? runtime_deadline :
         (std::min)(search_started + std::chrono::milliseconds(options.timeout_ms), runtime_deadline);
     std::thread worker([&] {
       search_status = work->search_with([&](const auto& header, const auto& target) {
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
+        if (options.live_pool && options.cuda_device) {
+          pepepow::CudaSearchProcessOptions cuda_options;
+          cuda_options.engine = options.cuda_engine;
+          cuda_options.cpu_oracle = options.cuda_cpu_oracle;
+          cuda_options.batch_size = options.cuda_batch_size;
+          return pepepow::search_cuda_with_process(
+              cpu, cuda_options, header, target, batch_start, batch_count,
+              search_deadline, &cancel, &cuda_diagnostic);
+        }
+#endif
         if (options.live_pool)
           return search_live_batch(cpu, header, target, batch_start, batch_count,
                                    search_deadline, &cancel);
@@ -566,10 +647,15 @@ int mine_session(Socket socket, OfflineStratumController& controller,
     }
     if (search_status == SearchStatus::Exhausted) {
       if (options.live_pool) {
-        nonce_cursor += batch_count;
+        if (!nonce_cursor.advance_exhausted_batch(batch_count)) {
+          event("nonce_cursor_error", "\"job_id\":\"" + job->id + "\"");
+          exit_code = 3;
+          failed = true;
+          break;
+        }
         event("nonce_batch_exhausted", "\"job_id\":\"" + job->id +
                                          "\",\"next_nonce\":" +
-                                         std::to_string(nonce_cursor));
+                                         std::to_string(nonce_cursor.next_nonce()));
       } else {
         attempted_job_generation = job->generation;
         event("range_exhausted", "\"job_id\":\"" + job->id + "\"");
@@ -578,17 +664,27 @@ int mine_session(Socket socket, OfflineStratumController& controller,
     }
     const auto* candidate = work->candidate();
     if (search_status != SearchStatus::Found || !candidate) {
-      std::cerr << "Native CPU search returned an invalid state\n";
+      if (options.cuda_device && !cuda_diagnostic.empty()) {
+        event("search_error", "\"device\":\"cuda\",\"code\":\"engine_failure\",\"message\":\"" +
+                                  json_escape(cuda_diagnostic) + "\"");
+        std::cerr << "CUDA search failed: " << cuda_diagnostic << '\n';
+      } else {
+        std::cerr << "Native CPU search returned an invalid state\n";
+      }
       failed = true;
       break;
     }
+    if (options.live_pool && !nonce_cursor.advance_after_candidate(candidate->nonce)) {
+      event("nonce_cursor_error", "\"job_id\":\"" + job->id + "\"");
+      exit_code = 3;
+      failed = true;
+      break;
+    }
+
     event("candidate", "\"job_id\":\"" + job->id + "\",\"nonce\":\"" +
                        nonce_hex(candidate->nonce) + "\",\"header_hex\":\"" +
                        hex(candidate->header) + "\",\"digest_raw\":\"" +
                        hex(candidate->digest) + "\"");
-
-    if (options.live_pool)
-      nonce_cursor = static_cast<std::uint64_t>(candidate->nonce) + 1;
 
     // A failed/ambiguous write must never be replayed after reconnect.
     const auto key = job->id + ':' + hex(candidate->header);
@@ -759,7 +855,8 @@ int run(const Options& options) {
           std::string(options.mode) + "\",\"threads\":" + std::to_string(options.workers) +
           ",\"response_goal\":" + std::to_string(options.response_goal) +
           ",\"max_runtime_seconds\":" + std::to_string(options.max_runtime_seconds) +
-          ",\"submit_interval_ms\":" + std::to_string(options.submit_interval_ms));
+          ",\"submit_interval_ms\":" + std::to_string(options.submit_interval_ms) +
+          ",\"device\":\"" + (options.cuda_device ? "cuda" : "cpu") + "\"");
   }
   int exit_code = 1;
   auto backoff = std::chrono::milliseconds(options.backoff_ms);
@@ -874,13 +971,26 @@ int main(int argc, char** argv) {
                  "Connects only to IPv4 127.0.0.1; requires a local mock server.\n"
                  "Search uses pinned Core HooHash; no public pool endpoint is accepted.\n";
 #ifdef PEPEPOW_ENABLE_LIVE_POOL_MINER
+#ifdef PEPEPOW_ENABLE_CUDA_PROCESS_SEARCH
     std::cout << "\nExplicit live mode (public TCP only; no TLS):\n"
+                 "  pepepow-live-miner --mine --endpoint stratum+tcp://HOST:PORT "
+                 "--login ADDRESS[.WORKER] --extranonce2 HEX --mode POOL|SOLO\n"
+                 "      --threads N --responses N --max-runtime-seconds 10..1800\n"
+                 "      [--batch-size N] [--submit-interval-ms 100..10000] [--scale N]\n"
+                 "      [--retries N] [--fallback-endpoint stratum+tcp://HOST:PORT]\n"
+                 "      [--device cpu|cuda --cuda-engine PATH --cpu-oracle PATH]\n"
+                 "      [--cuda-batch-size 1..256]\n"
+                 "CUDA candidates are checked again by the pinned-Core CPU path.\n"
+                 "The public endpoint is contacted only with the explicit --mine command.\n";
+#else
+    std::cout << "\nExplicit live CPU mode (public TCP only; no TLS):\n"
                  "  pepepow-live-cpu-miner --mine --endpoint stratum+tcp://HOST:PORT "
                  "--login ADDRESS[.WORKER] --extranonce2 HEX --mode POOL|SOLO\n"
                  "      --threads N --responses N --max-runtime-seconds 10..1800\n"
                  "      [--batch-size N] [--submit-interval-ms 100..10000] [--scale N]\n"
                  "      [--retries N] [--fallback-endpoint stratum+tcp://HOST:PORT]\n"
                  "The public endpoint is contacted only with the explicit --mine command.\n";
+#endif
 #endif
     return 0;
   }
