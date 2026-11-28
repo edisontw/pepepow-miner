@@ -1,6 +1,6 @@
 # PEPEPOW Miner documentation index
 
-**Main snapshot: 2026-11-26.** Current `main` is `a505730696936117b2fa67c7a02b7ae4f1443856`. PR #30 integrated the reviewed #27, #28, and #29 heads with merge ancestry; PRs #31, #32, and #33 were then merged in dependency order. The project remains a pre-release validation prototype, not a supported miner.
+**Main snapshot: 2026-11-27.** Current `main` is `dfccd6fd2aeb3525cc41e27428537571642da6b7`. PR #30 integrated the reviewed #27, #28, and #29 heads with merge ancestry; PRs #31, #32, and #33 were then merged in dependency order. PRs #35–#37 are open and stacked; draft PR #38 adds offline bounded CUDA search and has exact-head Actions 4/4. Draft PR #39 records the G0/distribution-gate split; draft PR #40 adds bounded live CPU Pool support and one Windows 11 Pool test. The project remains a pre-release validation prototype, not a supported miner.
 
 ## Canonical reading order
 
@@ -9,7 +9,7 @@
 | [Project README](../README.md) | Product scope and release safety boundary |
 | [Development handoff](DEVELOPMENT_STATUS.md) | Current implementation, evidence, and acceptance blockers |
 | [Roadmap](ROADMAP.md) | G0–G5 acceptance criteria and phase status |
-| [G0 validation plan](G0_TECHNICAL_VALIDATION.md) | Full-digest parity and platform acceptance gates |
+| [G0 validation plan](G0_TECHNICAL_VALIDATION.md) | G0 Technical Validation acceptance and its separate distribution boundary |
 | [Source audit](G0_SOURCE_AUDIT.md) | Pinned sources, candidate provenance, and license review |
 | [Implementation notes](G0_IMPLEMENTATION_NOTES.md) | Historical G0 harness and test records |
 | [Research ledger](RESEARCH_LEDGER.md) | Source review and unresolved assumptions |
@@ -22,7 +22,7 @@
 | [Windows 11 native G0/G1 evidence](VALIDATION_EVIDENCE/G0/windows11-native-g0-g1-2026-11-24.md) | Native Windows 11 Debug/Release parity and offline G1 test record |
 | [G1 transport, reconnect, and worker evidence](VALIDATION_EVIDENCE/G1/transport-reconnect-cpu-workers-2026-11-25.md) | Exact-head Linux/Windows Server CI and local regression record for PRs #22, #24, and #25 |
 | [HooHash worker audit](VALIDATION_EVIDENCE/G1/hoohash-v110-worker-audit-2026-11-25.md) | Pinned-source concurrency inspection, targeted digest parity, TSan scope, and local benchmark |
-| [Third-party notices and distribution decision](../THIRD_PARTY_NOTICES.md) | Conservative notice handling, per-dependency release gates, and current package status |
+| [Distribution License Compliance](../THIRD_PARTY_NOTICES.md) | Exact-package notices, provenance, SBOM, and pre-release status |
 | [Linux Debug dependency inventory](sources/linux-debug-build-dependency-inventory.json) | Actual Debug compile inputs, included headers, linked archive members, and dynamic dependencies |
 | [Linux Release dependency inventory](sources/linux-reference-build-dependency-inventory.json) | Actual Release compile inputs, included headers, linked archive members, and dynamic dependencies |
 | [Windows 11 CPU benchmark evidence](VALIDATION_EVIDENCE/G1/cpu-benchmark-windows11-2026-11-25.md) | Reproducible offline hashrate, resource measurements, worker parity, and current integration limits |
@@ -33,10 +33,10 @@
 
 ## Current boundaries
 
-- **G0 — NOT PASSED.** Main-head Linux Debug/Release parity ran natively on Ubuntu 22.04 and 24.04 in [Actions run 45824850621](https://github.com/edisontw/pepepow-miner/actions/runs/45824850621); Windows Server 2022 Debug/Release validation passed in [run 45824850719](https://github.com/edisontw/pepepow-miner/actions/runs/45824850719). The previously recorded Windows 11 physical acceptance remains 84/84 on its documented head, and Windows 10 remains Owner equivalence without a separate physical run. The source/notice audit and conservative handling policy are recorded, but HooHash/BLAKE3/OpenLibm and pool-fixture rights questions remain unresolved; Owner approval is not a third-party grant. See the [formal G0 evidence reconciliation](VALIDATION_EVIDENCE/G0/formal-g0-audit-2026-11-26.md) and [distribution decision](../THIRD_PARTY_NOTICES.md). Issue #1 stays open.
-- **G1 — OFFLINE PROTOTYPE ONLY; NOT PASSED.** CPU loopback, reconnect, failover, worker, and benchmark evidence is integrated from PR #30. Owner-authorized live pool/share acceptance remains gated on G0 and has not been run.
+- **G0 Technical Validation — PASS.** Ubuntu 22.04/24.04 native Debug/Release parity and Windows Server validation passed; the prior Windows 11 physical acceptance remains 84/84 and Windows 10 remains Owner equivalence without a separate physical run. See the [formal technical sign-off](VALIDATION_EVIDENCE/G0/formal-g0-technical-validation-2026-11-27.md). **Distribution License Compliance remains pending before any package release**, as described in the separate [distribution gate](../THIRD_PARTY_NOTICES.md); technical PASS is not package clearance.
+- **G1 — NOT PASSED.** Main contains CPU loopback, reconnect, failover, worker, and benchmark coverage. Draft PR #40 adds opt-in bounded public-session support and records one Windows 11 CPU/POOL run with 1,000 answered replies (992 accepted, 8 generic rejected). This is one configuration only; the generic rejections cannot be classified from the Pool replies. Linux, SOLO, live reconnect/failover, and the other required configurations remain unvalidated. The evidence is [recorded on PR #40](https://github.com/edisontw/pepepow-miner/blob/929d8b9f40cccfb8be6bde45c3213c4ac31bac55/docs/VALIDATION_EVIDENCE/G1/windows11-cpu-pool-acceptance-2026-11-27.md); it is not integrated into main.
 - [PR #22](https://github.com/edisontw/pepepow-miner/pull/22), [#24](https://github.com/edisontw/pepepow-miner/pull/24), and [#25](https://github.com/edisontw/pepepow-miner/pull/25) are merged. [PR #23](https://github.com/edisontw/pepepow-miner/pull/23) was closed after its frame-deadline change was verified in #22.
 - [PR #21](https://github.com/edisontw/pepepow-miner/pull/21) carries the Core source reconciliation and OpenLibm source inventory. It does not approve redistribution or close Issue #1. [PR #19](https://github.com/edisontw/pepepow-miner/pull/19) added Windows-native parity CI. Earlier PRs #5, #7, #9, #10, #14, #16, #17, and #18 are also merged.
-- **G2–G5 — NOT ACCEPTED.** GUI and packaging remain unstarted. CUDA PRs [#31](https://github.com/edisontw/pepepow-miner/pull/31), [#32](https://github.com/edisontw/pepepow-miner/pull/32), and [#33](https://github.com/edisontw/pepepow-miner/pull/33) add an offline probe, a batch-correctness harness, and BLAKE3-only stage parity; they do not implement the full HooHash V110 GPU digest or pass G4. AMD remains unstarted.
+- **G2–G5 — NOT ACCEPTED.** GUI and packaging remain unstarted. CUDA PRs #35–#37 add pinned-Core PRNG/matrix and experimental full-digest parity; draft PR #38 adds bounded offline search with CPU candidate recheck. They do not implement a Stratum-integrated production GPU miner or pass G4. AMD remains unstarted.
 
 The original chronological handoff is retained in [Git history at the pre-cleanup main commit](https://github.com/edisontw/pepepow-miner/blob/ebe03bed5ced88c4e11070b2e87eca57c05fce7b/docs/DEVELOPMENT_STATUS.md). Research notes and citation tokens are not independent consensus evidence.
