@@ -147,6 +147,18 @@ int main() {
              "{\"nonce\":10,\"nonce\":10,\"digest_hex\":\"" + digest + "\"}");
   require(!decode_cuda_search_result(duplicate_nonce_field, header, 10, 1),
           "candidate with a duplicate nonce field was accepted");
+  constexpr std::string_view invalid_nonce_tokens[] = {"-1", "10.0", "1e1"};
+  for (const auto nonce_token : invalid_nonce_tokens) {
+    std::string candidate_json = "{\"nonce\":";
+    candidate_json += nonce_token;
+    candidate_json += ",\"digest_hex\":\"";
+    candidate_json += digest;
+    candidate_json += "\"}";
+    const auto invalid_nonce = result("ok", "found", "null", 10, 1, 1,
+                                      11, 1, 1, candidate_json);
+    require(!decode_cuda_search_result(invalid_nonce, header, 10, 1),
+            "non-integer candidate nonce was accepted");
+  }
   const auto cancelled_with_candidate =
       result("cancelled", "cancelled", "\"timeout\"", 10, 2, 1, 11, 1, 1,
              candidate(10, digest));
