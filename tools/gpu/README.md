@@ -149,6 +149,45 @@ pinned PEPEPOW Core source; nonce 6 and `UINT32_MAX` vectors cover the boundary.
 This stage does not generate the HooHash matrix, perform its FP64 transforms,
 or produce a HooHash V110 digest. It has no mining, pool, or benchmarking path.
 
+## Pinned-Core PRNG and matrix oracle
+
+The matrix-oracle option includes the unmodified pinned Core
+`src/crypto/hoohash/hoohash.c` in a test-only wrapper. It exposes the file-local
+PRNG and matrix generator without patching the Core checkout or changing the
+production CPU hash path. The wrapper records the 32-byte seed, four initial
+little-endian `uint64` state words, each of the 4096 PRNG outputs and post-step
+states, each lower 32-bit value, and every row-major binary64 matrix bit
+pattern. The binary transcript uses explicit little-endian fields and is
+compared against an independent Python transcription of the pinned operations.
+
+The pinned Core source labels its generator `xoshiro256**`, while the actual
+output expression is `rotl64(s0 + s3, 23) + s0` followed by the xoshiro state
+transition. The wrapper preserves the implementation as written. Matrix
+values use the Core expression `(double)lower_4_bytes / (double)UINT32_MAX *
+1000000.0` in row-major order; the oracle does not substitute a reciprocal or
+change the operation order.
+
+The CPU contract checks 32 distinct seeds, including the matrix seed for the
+nonce-6 Explorer header and 31 deterministic header templates. It confirms
+that nonce 6 and `UINT32_MAX` for the same template produce the same Core seed,
+and checks all 131,072 PRNG values, post-step states, and matrix binary64 bit
+patterns. This stage is a CPU oracle only; the following CUDA matrix stage
+must compare the full transcript on a physical GPU before any FP64 transform
+work begins.
+
+Enable the standalone pinned-Core oracle together with the existing Core
+BLAKE3 test stage:
+
+```powershell
+cmake -S tools/gpu -B build/cuda-hoohash-matrix `
+  -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON `
+  -DPEPEPOW_CORE_SOURCE_DIR=D:/Dev/pepepow-deps/PePe-core `
+  -DCUDAToolkit_ROOT="$env:CUDA_PATH"
+cmake --build build/cuda-hoohash-matrix --config Release
+ctest --test-dir build/cuda-hoohash-matrix -C Release --output-on-failure
+```
+
 Build and run the stage contract with CUDA Toolkit 13.3.x and a pinned Core
 checkout:
 

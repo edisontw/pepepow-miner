@@ -22,6 +22,8 @@ option(PEPEPOW_CUDA_CORRECTNESS_TESTS
   "Build the CUDA batch contract and pinned-Core CPU recheck tests" OFF)
 option(PEPEPOW_CUDA_HOOHASH_STAGE_TESTS
   "Build the first HooHash CUDA stage and pinned-Core BLAKE3 oracle" OFF)
+option(PEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS
+  "Build the pinned-Core HooHash PRNG and matrix intermediate oracle" OFF)
 set(PEPEPOW_CPU_ORACLE "" CACHE FILEPATH
   "Path to pepepow-kat built against the pinned PEPEPOW Core/OpenLibm reference")
 set(PEPEPOW_CORE_SOURCE_DIR "" CACHE PATH
@@ -169,6 +171,42 @@ if(PEPEPOW_CUDA_HOOHASH_STAGE_TESTS)
             --device-stage "$<TARGET_FILE:pepepow-cuda-hoohash-blake3-stage>")
   set_tests_properties(hoohash_blake3_stage_full_digest_parity
     PROPERTIES TIMEOUT 30)
+endif()
+
+if(PEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS)
+  if(NOT BUILD_TESTING OR NOT PEPEPOW_CUDA_HOOHASH_STAGE_TESTS)
+    message(FATAL_ERROR
+      "PEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS requires BUILD_TESTING and PEPEPOW_CUDA_HOOHASH_STAGE_TESTS")
+  endif()
+
+  add_executable(pepepow-hoohash-matrix-core-oracle
+    hoohash_matrix_core_oracle.c)
+  target_compile_definitions(pepepow-hoohash-matrix-core-oracle PRIVATE
+    "PEPEPOW_CORE_HOOHASH_C_PATH=\"${PEPEPOW_CORE_SOURCE_DIR}/src/crypto/hoohash/hoohash.c\"")
+  target_include_directories(pepepow-hoohash-matrix-core-oracle PRIVATE
+    "${PEPEPOW_CORE_SOURCE_DIR}/src")
+  target_link_libraries(pepepow-hoohash-matrix-core-oracle PRIVATE
+    pepepow-core-blake3-reference)
+  set_target_properties(pepepow-hoohash-matrix-core-oracle PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED ON)
+  if(MSVC)
+    target_compile_options(pepepow-hoohash-matrix-core-oracle PRIVATE /fp:strict)
+  else()
+    target_compile_options(pepepow-hoohash-matrix-core-oracle PRIVATE
+      -fno-fast-math -ffp-contract=off)
+  endif()
+  if(UNIX)
+    target_link_libraries(pepepow-hoohash-matrix-core-oracle PRIVATE m)
+  endif()
+
+  add_test(NAME hoohash_pinned_core_matrix_oracle_contract
+    COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../../tests/test_cuda_core_matrix_oracle.py"
+            --oracle "$<TARGET_FILE:pepepow-hoohash-matrix-core-oracle>"
+            --blake3-oracle "$<TARGET_FILE:pepepow-hoohash-blake3-cpu-oracle>")
+  set_tests_properties(hoohash_pinned_core_matrix_oracle_contract
+    PROPERTIES TIMEOUT 90)
 endif()
 
 if(BUILD_TESTING)
