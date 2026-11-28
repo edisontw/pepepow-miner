@@ -73,3 +73,10 @@ The test verifies that the old job is classified as stale, the replacement
 job starts, and no candidate or submit event is emitted. The mock pool closes
 the connection after the replacement search starts to bound the test. This
 covers the live session-to-child cancellation path without a GPU.
+
+The same contract starts a fresh CUDA child after a local primary endpoint
+drops the connection, then retries the configured fallback endpoint. It checks
+that both children observe cancellation, the new Stratum handshake starts a
+search for the fallback job, the mode remains `POOL`, and no candidate or
+share is sent. The pinned-Core Linux workflow and Windows native workflow run
+these CPU-only product loopback cases without a CUDA toolkit or device.

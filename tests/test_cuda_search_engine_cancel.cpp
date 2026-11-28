@@ -41,6 +41,14 @@ std::string ready_file_path() {
 #endif
 }
 
+bool append_marker(const std::string& path, std::string_view marker) {
+  std::ofstream output(path, std::ios::app);
+  if (!output) return false;
+  output << marker << '\n';
+  output.flush();
+  return output.good();
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -59,13 +67,7 @@ int main(int argc, char** argv) {
 
   const auto ready_path = ready_file_path();
   if (ready_path.empty()) return 65;
-  {
-    std::ofstream ready(ready_path, std::ios::app);
-    if (!ready) return 66;
-    ready << "ready\n";
-    ready.flush();
-    if (!ready) return 67;
-  }
+  if (!append_marker(ready_path, "ready")) return 66;
 
   const auto cancel_file = std::filesystem::path(std::string(cancel_path));
   const auto wait_deadline = std::chrono::steady_clock::now() +
@@ -77,6 +79,7 @@ int main(int argc, char** argv) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }
   if (!std::filesystem::exists(cancel_file, error) || error) return 68;
+  if (!append_marker(ready_path, "cancelled")) return 69;
 
   std::cout << "{\"schema_version\":1,\"status\":\"cancelled\","
             "\"engine\":\"cuda_hoohash_v110_bounded_search\","
@@ -89,5 +92,5 @@ int main(int argc, char** argv) {
             "\"cpu_recheck\":\"pinned_core_full_digest_and_target\","
             "\"candidates\":[],\"error\":null}\n";
   std::cout.flush();
-  return std::cout ? 130 : 69;
+  return std::cout ? 130 : 70;
 }

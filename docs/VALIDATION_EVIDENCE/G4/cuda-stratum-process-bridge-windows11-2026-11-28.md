@@ -110,10 +110,19 @@ bounded run. The test checks `search_cancel_requested` and `stale_candidate`
 for the old job, confirms the replacement job starts, and rejects candidate
 or submit events.
 
+The test also runs two local POOL endpoints. The primary endpoint drops the
+socket after the first CUDA child starts; the miner observes the disconnect,
+cancels that child, and reconnects with a fresh handshake to the configured
+fallback. The fallback endpoint supplies a second job and also closes during
+search. The test verifies that both mock children observed cancel files,
+connected events preserve POOL mode and endpoint order, the fallback job
+starts, and no candidate or submit event is emitted.
+
 - Windows 11 Pro x64, MSYS2 UCRT64 GCC 16.2.0, native CPython 3.13.17.
 - Release and Debug native builds passed for `pepepow-live-miner` and both
   CUDA process fixtures. The focused `live_pool_miner_cuda_product_loopback`
-  CTest passed in both configurations; Release passed five consecutive runs.
+  CTest passed in both configurations; the expanded Release test passed three
+  consecutive runs.
 - The cancellation fixture also compiled with VS 2022 MSVC `/std:c++20 /EHsc
   /W4 /WX`.
 - The first helper compile attempt exposed a `std::string_view`/filesystem
@@ -122,6 +131,9 @@ or submit events.
   the fixture now uses `_dupenv_s` on MSVC. Final GCC and MSVC builds passed.
 - This test uses a local mock pool and does not call CUDA, allocate VRAM,
   contact a real pool, or submit a share. It is not physical GPU or G4 proof.
+- The Ubuntu pinned-Core and Windows native workflows are configured to build
+  the opt-in live miner and run CUDA-mode loopback tests with CPU-only child
+  fixtures; exact-head results for this follow-up are pending.
 
 Commands for the focused follow-up checks:
 
@@ -130,7 +142,7 @@ cmake --build D:\Dev\pepepow-cuda-stratum-bridge-cmake-20261128 `
   --target pepepow-live-miner test_cuda_search_engine_cancel `
   test_cuda_search_engine_failure --parallel 6
 ctest --test-dir D:\Dev\pepepow-cuda-stratum-bridge-cmake-20261128 `
-  --output-on-failure --repeat until-fail:5 `
+  --output-on-failure --repeat until-fail:3 `
   -R '^live_pool_miner_cuda_product_loopback$'
 
 cmake --build D:\Dev\pepepow-cuda-stratum-bridge-debug-20261128 `

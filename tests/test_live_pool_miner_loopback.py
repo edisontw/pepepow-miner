@@ -213,15 +213,22 @@ def wait_for_ready_lines(path: Path, expected: int, process: subprocess.Popen[st
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            lines = path.read_text(encoding="ascii").splitlines()
+            lines = read_marker_lines(path)
         except FileNotFoundError:
             lines = []
-        if len(lines) >= expected:
+        if lines.count("ready") >= expected:
             return True
         if process.poll() is not None:
             return False
         time.sleep(0.01)
     return False
+
+
+def read_marker_lines(path: Path) -> list[str]:
+    try:
+        return path.read_text(encoding="ascii").splitlines()
+    except FileNotFoundError:
+        return []
 
 
 def run_cuda_job_replacement(binary: str, cancel_engine: str) -> None:
@@ -234,6 +241,7 @@ def run_cuda_job_replacement(binary: str, cancel_engine: str) -> None:
     replacement_engine_ready = threading.Event()
     abort = threading.Event()
     errors: list[BaseException] = []
+    markers: list[str] = []
     with tempfile.TemporaryDirectory(prefix="pepepow-cuda-replace-") as directory:
         ready_file = Path(directory) / "engine-ready.txt"
         server = threading.Thread(
@@ -276,6 +284,7 @@ def run_cuda_job_replacement(binary: str, cancel_engine: str) -> None:
                 process.kill()
                 stdout, stderr = process.communicate()
                 raise AssertionError("CUDA job replacement loopback did not stop") from None
+            markers = read_marker_lines(ready_file)
         finally:
             abort.set()
             if process.poll() is None:
@@ -289,6 +298,8 @@ def run_cuda_job_replacement(binary: str, cancel_engine: str) -> None:
         raise AssertionError("CUDA job replacement loopback server did not stop")
     if errors:
         raise errors[0]
+    if markers.count("ready") != 2 or markers.count("cancelled") != 2:
+        raise AssertionError(f"both CUDA mock searches must observe cancellation: {markers}")
     if process.returncode == 0:
         raise AssertionError("the mock transport closure should end the bounded test run")
     events = [json.loads(line) for line in stdout.splitlines() if line.startswith("{")]
@@ -304,6 +315,155 @@ def run_cuda_job_replacement(binary: str, cancel_engine: str) -> None:
         raise AssertionError(f"replacement CUDA job was not started: {events}")
     if any(item.get("event") in {"candidate", "submit_sent"} for item in events):
         raise AssertionError(f"a stale CUDA candidate reached submission: {events}")
+
+
+def serve_cuda_failover_endpoint(listener: socket.socket,
+                                 errors: list[BaseException],
+                                 job_id: str,
+                                 engine_ready: threading.Event,
+                                 abort: threading.Event) -> None:
+    try:
+        listener.settimeout(10)
+        peer, _ = listener.accept()
+        with peer:
+            peer.settimeout(10)
+            subscribe = read_line(peer)
+            assert subscribe["method"] == "mining.subscribe"
+            send_line(peer, {"id": subscribe["id"], "result": [[
+                ["mining.set_difficulty", "mock"], ["mining.notify", "mock"]
+            ], "aabbccdd", 4], "error": None})
+
+            authorize = read_line(peer)
+            assert authorize["method"] == "mining.authorize"
+            send_line(peer, {"id": authorize["id"], "result": True, "error": None})
+            send_line(peer, {"id": None, "method": "mining.set_difficulty",
+                             "params": [0.0000015]})
+            send_line(peer, {"id": None, "method": "mining.notify", "params": [
+                job_id,
+                "0000000000000000000000000000000000000000000000000000000000000000",
+                "01000000", "ffffffff", [], "20000000", "1d00ffff", "65a0bc00", True,
+            ]})
+            if not wait_for_signal_or_abort(engine_ready, abort, 8):
+                if not abort.is_set():
+                    raise AssertionError(f"CUDA engine did not start for {job_id}")
+                return
+            # Closing each local session forces the child process to observe the
+            # transport cancellation before the next endpoint is attempted.
+    except BaseException as exc:  # Preserve server-thread assertions for the caller.
+        errors.append(exc)
+    finally:
+        listener.close()
+
+
+def run_cuda_reconnect_failover(binary: str, cancel_engine: str) -> None:
+    primary = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    primary.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    primary.bind(("127.0.0.1", 0))
+    primary.listen(1)
+    primary_port = primary.getsockname()[1]
+    fallback = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    fallback.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    fallback.bind(("127.0.0.1", 0))
+    fallback.listen(1)
+    fallback_port = fallback.getsockname()[1]
+
+    primary_engine_ready = threading.Event()
+    fallback_engine_ready = threading.Event()
+    abort = threading.Event()
+    errors: list[BaseException] = []
+    stdout = ""
+    stderr = ""
+    markers: list[str] = []
+    process: subprocess.Popen[str] | None = None
+    servers: list[threading.Thread] = []
+    with tempfile.TemporaryDirectory(prefix="pepepow-cuda-failover-") as directory:
+        ready_file = Path(directory) / "engine-ready.txt"
+        servers = [
+            threading.Thread(target=serve_cuda_failover_endpoint,
+                             args=(primary, errors, "cuda-primary-job",
+                                   primary_engine_ready, abort), daemon=True),
+            threading.Thread(target=serve_cuda_failover_endpoint,
+                             args=(fallback, errors, "cuda-fallback-job",
+                                   fallback_engine_ready, abort), daemon=True),
+        ]
+        for server in servers:
+            server.start()
+        environment = os.environ.copy()
+        environment["PEPEPOW_TEST_CUDA_READY_FILE"] = str(ready_file)
+        command = [
+            binary, "--mine", "--endpoint", f"stratum+tcp://127.0.0.1:{primary_port}",
+            "--fallback-endpoint", f"stratum+tcp://127.0.0.1:{fallback_port}",
+            "--login", "mock-wallet.worker", "--extranonce2", "00000000",
+            "--mode", "POOL", "--threads", "1", "--responses", "1",
+            "--max-runtime-seconds", "10", "--retries", "1",
+            "--device", "cuda", "--cuda-engine", cancel_engine,
+            "--cpu-oracle", binary,
+        ]
+        process = subprocess.Popen(command, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True, env=environment)
+        try:
+            if not wait_for_ready_lines(ready_file, 1, process, 8):
+                if process.poll() is None:
+                    raise AssertionError("CUDA engine did not start on the primary endpoint before timeout")
+                stdout, stderr = process.communicate()
+                raise AssertionError(
+                    "CUDA primary session exited before engine startup: "
+                    f"code={process.returncode}; stdout={stdout}; stderr={stderr}")
+            primary_engine_ready.set()
+            if not wait_for_ready_lines(ready_file, 2, process, 8):
+                if process.poll() is None:
+                    raise AssertionError("CUDA engine did not restart on the fallback endpoint before timeout")
+                stdout, stderr = process.communicate()
+                raise AssertionError(
+                    "CUDA run exited before fallback engine startup: "
+                    f"code={process.returncode}; stdout={stdout}; stderr={stderr}")
+            fallback_engine_ready.set()
+            try:
+                stdout, stderr = process.communicate(timeout=8)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                stdout, stderr = process.communicate()
+                raise AssertionError("CUDA reconnect/failover loopback did not stop") from None
+            markers = read_marker_lines(ready_file)
+        finally:
+            abort.set()
+            if process.poll() is None:
+                process.kill()
+                process.communicate()
+            for server in servers:
+                server.join(timeout=2)
+            for listener in (primary, fallback):
+                listener.close()
+            for server in servers:
+                if server.is_alive():
+                    server.join(timeout=2)
+
+    if process is None or process.returncode == 0:
+        raise AssertionError("the two closed mock sessions should end before any share reply")
+    if any(server.is_alive() for server in servers):
+        raise AssertionError("CUDA reconnect/failover mock servers did not stop")
+    if errors:
+        raise errors[0]
+    if markers.count("ready") != 2 or markers.count("cancelled") != 2:
+        raise AssertionError(f"both CUDA session children must observe cancellation: {markers}")
+
+    events = [json.loads(line) for line in stdout.splitlines() if line.startswith("{")]
+    connected = [item for item in events if item.get("event") == "connected"]
+    expected_transports = [
+        f"stratum+tcp://127.0.0.1:{primary_port}",
+        f"stratum+tcp://127.0.0.1:{fallback_port}",
+    ]
+    if [item.get("transport") for item in connected] != expected_transports or \
+            [item.get("mode") for item in connected] != ["POOL", "POOL"]:
+        raise AssertionError(f"CUDA reconnect changed endpoints or pool mode: {connected}; stderr={stderr}")
+    if not any(item.get("event") == "retry_wait" for item in events):
+        raise AssertionError(f"CUDA reconnect skipped its bounded retry transition: {events}")
+    started_jobs = [item.get("job_id") for item in events
+                    if item.get("event") == "search_started"]
+    if started_jobs != ["cuda-primary-job", "cuda-fallback-job"]:
+        raise AssertionError(f"CUDA session did not restart on the fallback job: {started_jobs}")
+    if any(item.get("event") in {"candidate", "submit_sent"} for item in events):
+        raise AssertionError(f"closed mock sessions emitted a share candidate: {events}")
 
 
 def main() -> int:
@@ -432,6 +592,7 @@ def main() -> int:
         run_cuda_error_event(binary, error_engine)
     if cancel_engine:
         run_cuda_job_replacement(binary, cancel_engine)
+        run_cuda_reconnect_failover(binary, cancel_engine)
     print("PASS: opt-in live-mode loopback handshake, continuous nonce advance, bounded replies, and JSON events")
     return 0
 
