@@ -142,6 +142,11 @@ int main() {
                          "\"nonce\":4294967296");
   require(!decode_cuda_search_result(nonce_overflow, header, 10, 1),
           "candidate nonce above uint32 was accepted");
+  const auto duplicate_nonce_field =
+      result("ok", "found", "null", 10, 1, 1, 11, 1, 1,
+             "{\"nonce\":10,\"nonce\":10,\"digest_hex\":\"" + digest + "\"}");
+  require(!decode_cuda_search_result(duplicate_nonce_field, header, 10, 1),
+          "candidate with a duplicate nonce field was accepted");
   const auto cancelled_with_candidate =
       result("cancelled", "cancelled", "\"timeout\"", 10, 2, 1, 11, 1, 1,
              candidate(10, digest));
