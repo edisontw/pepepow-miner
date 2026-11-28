@@ -231,7 +231,8 @@ def read_marker_lines(path: Path) -> list[str]:
         return []
 
 
-def run_cuda_job_replacement(binary: str, cancel_engine: str) -> None:
+def run_cuda_job_replacement(binary: str, cancel_engine: str,
+                             terminal_marker: str = "cancelled") -> None:
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listener.bind(("127.0.0.1", 0))
@@ -298,8 +299,8 @@ def run_cuda_job_replacement(binary: str, cancel_engine: str) -> None:
         raise AssertionError("CUDA job replacement loopback server did not stop")
     if errors:
         raise errors[0]
-    if markers.count("ready") != 2 or markers.count("cancelled") != 2:
-        raise AssertionError(f"both CUDA mock searches must observe cancellation: {markers}")
+    if markers.count("ready") != 2 or markers.count(terminal_marker) != 2:
+        raise AssertionError(f"both CUDA mock searches missed {terminal_marker}: {markers}")
     if process.returncode == 0:
         raise AssertionError("the mock transport closure should end the bounded test run")
     events = [json.loads(line) for line in stdout.splitlines() if line.startswith("{")]
@@ -581,6 +582,7 @@ def main() -> int:
     error_engine = None
     cancel_engine = None
     candidate_engine = None
+    stale_candidate_engine = None
     index = 0
     while index < len(args):
         if args[index] == "--supports-cuda" and not supports_cuda:
@@ -595,9 +597,12 @@ def main() -> int:
         elif args[index] == "--cuda-candidate-engine" and candidate_engine is None and index + 1 < len(args):
             candidate_engine = str(Path(args[index + 1]).resolve())
             index += 2
+        elif args[index] == "--cuda-stale-candidate-engine" and stale_candidate_engine is None and index + 1 < len(args):
+            stale_candidate_engine = str(Path(args[index + 1]).resolve())
+            index += 2
         else:
             raise SystemExit("invalid live miner loopback test arguments")
-    if (error_engine or cancel_engine or candidate_engine) and not supports_cuda:
+    if (error_engine or cancel_engine or candidate_engine or stale_candidate_engine) and not supports_cuda:
         raise SystemExit("CUDA engine fixtures require --supports-cuda")
     invalid_batch = subprocess.run(
         [
@@ -707,7 +712,9 @@ def main() -> int:
         run_cuda_reconnect_failover(binary, cancel_engine)
     if candidate_engine:
         run_cuda_candidate_submission(binary, candidate_engine)
-    print("PASS: opt-in live-mode and CUDA candidate loopback contracts")
+    if stale_candidate_engine:
+        run_cuda_job_replacement(binary, stale_candidate_engine, "candidate_after_cancel")
+    print("PASS: opt-in live-mode, CUDA candidate submission, and stale-candidate loopback contracts")
     return 0
 
 

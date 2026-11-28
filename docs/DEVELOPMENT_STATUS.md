@@ -69,3 +69,12 @@ counts exactly one accepted response. Windows 11 Release passed three repeated
 runs and Debug passed once. No GPU was initialized and no public pool or real
 share was involved. CUDA digest parity and G4 remain unaccepted; G1 remains
 unpassed.
+
+## Stale candidate suppression after cancellation (2026-11-28)
+
+The CUDA-mode product loopback now includes a child fixture that reports a
+valid found candidate after receiving the cancel-file signal for a replaced
+job. Release passed three consecutive runs and Debug passed once. The test
+observed stale classification for the old job and no candidate or submit event.
+This validates the CPU-only process/session race contract, not physical CUDA,
+G4 acceptance, G1 acceptance, or pool interoperability.

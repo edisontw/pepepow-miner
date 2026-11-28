@@ -98,3 +98,13 @@ Windows 11 Release passed the expanded product loopback three consecutive
 times; Debug passed once. This is a local TCP mock using CPU code only. It did
 not initialize CUDA, allocate VRAM, contact a public pool, or submit a real
 share. It is not physical GPU validation or G4 acceptance.
+
+## Candidate returned after cancellation (2026-11-28)
+
+A dedicated CPU-only child fixture waits for the live adapter's cancel-file
+signal, then deliberately returns a syntactically valid, target-meeting
+candidate instead of a cancelled result. The Stratum loopback replaces the
+active job with clean_jobs=true while this child is running. The product must
+classify the old work as stale and suppress both candidate and submit events;
+the replacement job starts with a fresh child. The test uses a valid pinned-
+Core digest and exercises the cancellation/result race without CUDA.

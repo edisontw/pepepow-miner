@@ -14,7 +14,7 @@
 | [Implementation notes](G0_IMPLEMENTATION_NOTES.md) | Historical G0 harness and test records |
 | [Research ledger](RESEARCH_LEDGER.md) | Source review and unresolved assumptions |
 | [Architecture decisions](ARCHITECTURE.md) | CPU/Stratum/GUI/GPU architecture |
-| [CUDA Stratum integration](CUDA_STRATUM_INTEGRATION.md) | Opt-in bounded CUDA child process, cancellation, and full-digest CPU candidate recheck |
+| [CUDA Stratum integration](CUDA_STRATUM_INTEGRATION.md) | Opt-in bounded CUDA child process, cancellation, full-digest CPU candidate recheck, and stale-result suppression |
 | [Source manifest](sources/g0-source-manifest.json) | Source revision and blob inventory |
 | [OpenLibm Windows compile inventory](sources/openlibm-windows-compile-inventory.json) | Full pinned Windows portable-C translation-unit and header-signal records |
 | [Provenance and license assessment](sources/G0_PROVENANCE_LICENSE_ASSESSMENT.md) | Technical source evidence separated from unresolved redistribution review |
