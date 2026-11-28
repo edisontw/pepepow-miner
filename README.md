@@ -27,7 +27,7 @@ The following features describe the intended product, not functionality already 
 
 | Component | Status |
 | --- | --- |
-| HooHash V110 validation | 10,000-case full-digest and native platform evidence recorded; formal G0 is not passed while the source-rights review remains unresolved |
+| HooHash V110 validation | 10,000-case full-digest and native platform evidence recorded; formal G0 technical sign-off is pending checklist reconciliation. Distribution license review is a separate pre-release gate. |
 | CPU mining engine | Bounded offline nonce search implemented |
 | Pool connectivity | Offline and local Stratum testing; authorized live acceptance has not been run |
 | Windows 10/11 and Linux desktop miner | Planned; full platform acceptance pending |

@@ -1,6 +1,6 @@
 # PEPEPOW Miner documentation index
 
-**Main snapshot: 2026-11-26.** Current `main` is `a505730696936117b2fa67c7a02b7ae4f1443856`. PR #30 integrated the reviewed #27, #28, and #29 heads with merge ancestry; PRs #31, #32, and #33 were then merged in dependency order. The project remains a pre-release validation prototype, not a supported miner.
+**Main snapshot: 2026-11-28.** Current `main` is `dfccd6fd2aeb3525cc41e27428537571642da6b7`. PR #30 integrated the reviewed #27, #28, and #29 heads with merge ancestry; PRs #31, #32, and #33 were then merged in dependency order. The project remains a pre-release validation prototype, not a supported miner.
 
 ## Canonical reading order
 

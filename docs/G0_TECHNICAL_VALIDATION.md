@@ -1,9 +1,9 @@
 # G0 Native CPU Technical Validation
 
-Updated 2026-11-26 (Taipei time).
+Updated 2026-11-28 (Taipei time).
 
 **Status: G0 technical sign-off is pending checklist reconciliation.** The current main head is
-`a505730696936117b2fa67c7a02b7ae4f1443856`. The native Linux and Windows
+`dfccd6fd2aeb3525cc41e27428537571642da6b7`. The native Linux and Windows
 Server Debug/Release parity evidence is complete on the #30 integration head;
 the Owner's prior Windows 11 physical acceptance remains 84/84 on
 `7284aa22cafd79e3521291307eca8f5b9a575744`, and Windows 10 remains accepted by
