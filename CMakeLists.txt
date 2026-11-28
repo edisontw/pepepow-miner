@@ -6,12 +6,16 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 option(HARNESS_CONTRACT_TESTS_ONLY "Build synthetic harness contract test (NOT HooHash)" OFF)
 option(PEPEPOW_NATIVE_STRATUM_SEARCH "Build the offline Stratum replay with pinned Core search" OFF)
+option(PEPEPOW_ENABLE_LIVE_POOL_MINER "Build the explicitly opt-in public Stratum CPU miner" OFF)
 set(PEPEPOW_REFERENCE_LIBRARY "" CACHE FILEPATH "Reviewed library exporting hoohashv110")
 set(PEPEPOW_CORE_SOURCE_DIR "" CACHE PATH "Pinned external PePe-core checkout root (not vendored)")
 set(PEPEPOW_CORE_EXPECTED_SHA "" CACHE STRING "Full 40-hex reviewed Core commit SHA (required with source checkout)")
 
 if(PEPEPOW_NATIVE_STRATUM_SEARCH AND (HARNESS_CONTRACT_TESTS_ONLY OR NOT PEPEPOW_CORE_SOURCE_DIR))
   message(FATAL_ERROR "Native Stratum replay requires the pinned Core source build")
+endif()
+if(PEPEPOW_ENABLE_LIVE_POOL_MINER AND NOT PEPEPOW_NATIVE_STRATUM_SEARCH)
+  message(FATAL_ERROR "The live Pool CPU miner requires the pinned Core native Stratum build")
 endif()
 
 if(HARNESS_CONTRACT_TESTS_ONLY)
@@ -127,6 +131,23 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
     target_compile_options(offline_stratum_miner PRIVATE -Wall -Wextra -Werror -pedantic)
   endif()
 
+  if(PEPEPOW_ENABLE_LIVE_POOL_MINER)
+    add_executable(pepepow-live-cpu-miner tools/offline_stratum_miner.cpp tools/cpu_benchmark.cpp)
+    target_compile_features(pepepow-live-cpu-miner PRIVATE cxx_std_20)
+    target_compile_definitions(pepepow-live-cpu-miner PRIVATE PEPEPOW_ENABLE_LIVE_POOL_MINER=1)
+    target_include_directories(pepepow-live-cpu-miner PRIVATE include)
+    target_link_libraries(pepepow-live-cpu-miner PRIVATE
+      pepepow_core_reference OpenSSL::Crypto Threads::Threads)
+    if(WIN32)
+      target_link_libraries(pepepow-live-cpu-miner PRIVATE ws2_32 psapi)
+    endif()
+    if(MSVC)
+      target_compile_options(pepepow-live-cpu-miner PRIVATE /W4 /WX)
+    else()
+      target_compile_options(pepepow-live-cpu-miner PRIVATE -Wall -Wextra -Werror -pedantic)
+    endif()
+  endif()
+
   if(BUILD_TESTING)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_executable(test_native_stratum_search tests/test_native_stratum_search.cpp)
@@ -142,6 +163,27 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
               "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_offline_stratum_miner_e2e.py"
               "$<TARGET_FILE:offline_stratum_miner>")
     set_tests_properties(offline_stratum_miner_loopback PROPERTIES TIMEOUT 30)
+
+    add_executable(test_stratum_endpoint tests/test_stratum_endpoint.cpp)
+    target_compile_features(test_stratum_endpoint PRIVATE cxx_std_20)
+    target_include_directories(test_stratum_endpoint PRIVATE include)
+    if(WIN32)
+      target_link_libraries(test_stratum_endpoint PRIVATE ws2_32)
+    endif()
+    if(MSVC)
+      target_compile_options(test_stratum_endpoint PRIVATE /W4 /WX)
+    else()
+      target_compile_options(test_stratum_endpoint PRIVATE -Wall -Wextra -Werror -pedantic)
+    endif()
+    add_test(NAME stratum_endpoint_contract COMMAND test_stratum_endpoint)
+
+    if(PEPEPOW_ENABLE_LIVE_POOL_MINER)
+      add_test(NAME live_pool_miner_loopback
+        COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_live_pool_miner_loopback.py"
+                "$<TARGET_FILE:pepepow-live-cpu-miner>")
+      set_tests_properties(live_pool_miner_loopback PROPERTIES TIMEOUT 30)
+    endif()
   endif()
 
 endif()

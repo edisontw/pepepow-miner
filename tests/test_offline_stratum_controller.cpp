@@ -120,8 +120,9 @@ int main() {
   CHECK(handshake.receive_work_events(
       R"({"id":4,"result":false,"error":null})" "\n", hg).shares_rejected == 1);
   CHECK(handshake.begin_submit(*current) == 5);
-  CHECK(handshake.receive_work_events(
-      R"({"id":5,"result":null,"error":[23,"low difficulty",null]})" "\n", hg).shares_pool_errors == 1);
+  auto low_difficulty = handshake.receive_work_events(
+      R"({"id":5,"result":null,"error":[23,"low difficulty",null]})" "\n", hg);
+  CHECK(low_difficulty.shares_pool_errors == 1 && low_difficulty.shares_low_difficulty == 1);
   CHECK(handshake.begin_submit(*current) == 6);
   CHECK(handshake.receive_work_events(
       R"({"id":18446744073709551616,"result":true,"error":null})" "\n", hg).ignored == 1);
@@ -129,6 +130,18 @@ int main() {
       R"({"id":6,"result":true,"error":null})" "\n", hg + 1).shares_accepted == 0);
   CHECK(handshake.receive_work_events(
       R"({"id":6,"result":true,"error":null})" "\n", hg).shares_accepted == 1);
+  CHECK(handshake.begin_submit(*current) == 7);
+  auto invalid_share = handshake.receive_work_events(
+      R"({"id":7,"result":null,"error":[23,"invalid nonce",null]})" "\n", hg);
+  CHECK(invalid_share.shares_invalid == 1 && invalid_share.shares_pool_errors == 1);
+  CHECK(handshake.begin_submit(*current) == 8);
+  auto duplicate_share = handshake.receive_work_events(
+      R"({"id":8,"result":null,"error":[23,"duplicate share",null]})" "\n", hg);
+  CHECK(duplicate_share.shares_duplicate == 1 && duplicate_share.shares_pool_errors == 1);
+  CHECK(handshake.begin_submit(*current) == 9);
+  auto stale_share = handshake.receive_work_events(
+      R"({"id":9,"result":null,"error":[23,"stale job",null]})" "\n", hg);
+  CHECK(stale_share.shares_stale == 1 && stale_share.shares_pool_errors == 1);
   handshake.disconnected();
   handshake.connected();
   CHECK(handshake.receive_work_events(auth + "\n", hg).authorized == 0);

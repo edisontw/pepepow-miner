@@ -4,10 +4,20 @@
 #define CHECK(x) do { if (!(x)) return EXIT_FAILURE; } while (false)
 int main() {
   using pepepow::SubmitOutcome;
+  using pepepow::SubmitErrorClass;
   using pepepow::decode_submit_reply;
+  using pepepow::decode_submit_error_class;
   CHECK(decode_submit_reply(R"({"id":3,"result":true,"error":null})", "3") == SubmitOutcome::Accepted);
   CHECK(decode_submit_reply(R"({"id":3,"result":false,"error":null})", "3") == SubmitOutcome::Rejected);
   CHECK(decode_submit_reply(R"({"id":3,"result":false,"error":[23,"low difficulty",null]})", "3") == SubmitOutcome::PoolError);
+  CHECK(decode_submit_error_class(R"({"id":3,"result":false,"error":[23,"low difficulty",null]})", "3") == SubmitErrorClass::LowDifficulty);
+  CHECK(decode_submit_error_class(R"({"id":3,"result":false,"error":[23,"duplicate share",null]})", "3") == SubmitErrorClass::Duplicate);
+  CHECK(decode_submit_error_class(R"({"id":3,"result":false,"error":[23,"stale job",null]})", "3") == SubmitErrorClass::Stale);
+  CHECK(decode_submit_error_class(R"({"id":3,"result":false,"error":{"code":23,"message":"invalid nonce"}})", "3") == SubmitErrorClass::Invalid);
+  CHECK(decode_submit_error_class(R"({"id":3,"result":false,"error":null})", "3") == SubmitErrorClass::Rejected);
+  CHECK(decode_submit_error_class(R"({"id":3,"result":false,"error":[23,"other",null]})", "3") == SubmitErrorClass::Other);
+  CHECK(decode_submit_error_class(R"({"id":3,"result":false,"error" :[23,"invalid nonce",null]})", "3") == SubmitErrorClass::Invalid);
+  CHECK(decode_submit_error_class("{\"id\":3,\"result\":false,\"error\"\t:\r\n[23,\"low difficulty\",null]}", "3") == SubmitErrorClass::LowDifficulty);
   CHECK(!decode_submit_reply(R"({"id":3,"result":true,"error":[23,"bad",null]})", "3"));
   CHECK(!decode_submit_reply(R"({"id":4,"result":true,"error":null})", "3"));
   CHECK(!decode_submit_reply(R"({"id":3,"result":true,"error":null,"extra":1})", "3"));

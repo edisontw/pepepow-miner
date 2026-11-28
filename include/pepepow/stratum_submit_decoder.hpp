@@ -1,5 +1,7 @@
 #pragma once
+#include <algorithm>
 #include <optional>
+#include <string>
 #include <string_view>
 namespace pepepow {
 // Validates one JSON value with bounded nesting, without allocating.
@@ -97,6 +99,7 @@ class JsonValueValidator {
 };
 
 enum class SubmitOutcome { Accepted, Rejected, PoolError };
+enum class SubmitErrorClass { None, Rejected, Invalid, LowDifficulty, Duplicate, Stale, Other };
 // Strict fixed-dialect JSON-RPC response. Never treats malformed input as accepted.
 inline std::optional<SubmitOutcome> decode_submit_reply(std::string_view line,
                                                          std::string_view expected_id) {
@@ -104,7 +107,8 @@ inline std::optional<SubmitOutcome> decode_submit_reply(std::string_view line,
       (expected_id.size() > 1 && expected_id.front() == '0')) return std::nullopt;
   for (char c : expected_id) if (c < '0' || c > '9') return std::nullopt;
   std::size_t i = 0;
-  auto ws = [&] { while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) ++i; };
+  auto ws = [&] { while (i < line.size() && (line[i] == ' ' || line[i] == '\t' ||
+                                             line[i] == '\r' || line[i] == '\n')) ++i; };
   auto take = [&](char c) { ws(); if (i >= line.size() || line[i] != c) return false; ++i; return true; };
   auto lit = [&](std::string_view s) { ws(); if (line.substr(i, s.size()) != s) return false; i += s.size(); return true; };
   if (!take('{') || !lit("\"id\"") || !take(':') || !lit(expected_id) ||
@@ -127,5 +131,57 @@ inline std::optional<SubmitOutcome> decode_submit_reply(std::string_view line,
   ws();
   if (i != line.size() || accepted == true) return std::nullopt;
   return SubmitOutcome::PoolError;
+}
+
+inline SubmitErrorClass decode_submit_error_class(std::string_view line,
+                                                   std::string_view expected_id) {
+  const auto outcome = decode_submit_reply(line, expected_id);
+  if (!outcome || *outcome == SubmitOutcome::Accepted) return SubmitErrorClass::None;
+  if (*outcome == SubmitOutcome::Rejected) return SubmitErrorClass::Rejected;
+  const auto key = line.find("\"error\"");
+  if (key == std::string_view::npos) return SubmitErrorClass::Other;
+  std::size_t value = key + 7;
+  auto ws = [&] {
+    while (value < line.size() && (line[value] == ' ' || line[value] == '\t' ||
+                                   line[value] == '\r' || line[value] == '\n')) ++value;
+  };
+  ws();
+  if (value == line.size() || line[value] != ':') return SubmitErrorClass::Other;
+  ++value;
+  ws();
+  std::string message;
+  for (std::size_t i = value; i < line.size();) {
+    if (line[i] != '"') { ++i; continue; }
+    ++i;
+    while (i < line.size() && line[i] != '"') {
+      char ch = line[i++];
+      if (ch == '\\' && i < line.size()) {
+        const char escaped = line[i++];
+        if (escaped == 'u') {
+          i = (std::min)(line.size(), i + 4);
+          message.push_back(' ');
+        } else {
+          message.push_back(escaped);
+        }
+      } else {
+        message.push_back(ch);
+      }
+    }
+    if (i < line.size()) ++i;
+    message.push_back(' ');
+  }
+  std::transform(message.begin(), message.end(), message.begin(), [](unsigned char ch) {
+    return static_cast<char>(ch >= 'A' && ch <= 'Z' ? ch - 'A' + 'a' : ch);
+  });
+  if (message.find("low difficulty") != std::string::npos ||
+      message.find("low-difficulty") != std::string::npos)
+    return SubmitErrorClass::LowDifficulty;
+  if (message.find("duplicate") != std::string::npos)
+    return SubmitErrorClass::Duplicate;
+  if (message.find("stale") != std::string::npos)
+    return SubmitErrorClass::Stale;
+  if (message.find("invalid") != std::string::npos)
+    return SubmitErrorClass::Invalid;
+  return SubmitErrorClass::Other;
 }
 } // namespace pepepow

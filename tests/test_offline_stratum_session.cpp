@@ -23,6 +23,12 @@ int main() {
   CHECK(session.notify(job));
   auto old = session.jobs().active();
   CHECK(old && old->difficulty == 2.0 && session.jobs().can_submit(*old));
+  auto repeated_nonclean = job;
+  repeated_nonclean.replace(repeated_nonclean.rfind("true"), 4, "false");
+  CHECK(session.notify(repeated_nonclean));
+  auto unchanged = session.jobs().active();
+  CHECK(unchanged && unchanged->generation == old->generation &&
+        session.jobs().can_submit(*old));
   CHECK(!session.track_submit(std::string(21, '9'), *old));
   CHECK(session.track_submit("3", *old));
   CHECK(!session.track_submit("3", *old));
@@ -60,6 +66,14 @@ int main() {
   CHECK(session.submit_reply(R"({"id":4106,"result":false,"error":null})", "4106", first_generation) == pepepow::SubmitOutcome::Rejected);
   CHECK(session.share_counters().rejected == 2);
   CHECK(session.track_submit("4107", *fresh));
+  const std::string changed_difficulty =
+      R"({"id":null,"method":"mining.set_difficulty","params":[3]})";
+  CHECK(session.difficulty(changed_difficulty));
+  CHECK(session.notify(repeated_nonclean));
+  auto difficulty_job = session.jobs().active();
+  CHECK(difficulty_job && difficulty_job->difficulty == 3.0 &&
+        difficulty_job->generation != fresh->generation &&
+        !session.jobs().can_submit(*fresh) && session.jobs().can_submit(*difficulty_job));
   session.disconnected();
   CHECK(!session.submit_reply(R"({"id":7,"result":true,"error":null})", "7", first_generation));
   CHECK(!session.jobs().can_submit(*fresh));
