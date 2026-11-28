@@ -62,9 +62,9 @@ the live miner emits a JSON `search_error` event with `device: "cuda"`,
 The same diagnostic is written to stderr for interactive use. The Windows and
 Linux loopback contract test injects a child process that exits with an error;
 it verifies the event parses, quotes and backslashes survive JSON decoding,
-the run fails, and no candidate or share submission is produced. This test
-uses only a local mock Stratum peer and does not initialize CUDA or contact a
-pool.
+control bytes are sanitized, the run fails, and no candidate or share
+submission is produced. This test uses only a local mock Stratum peer and does
+not initialize CUDA or contact a pool.
 
 The CUDA-capable loopback contract also replaces a job with `clean_jobs=true`
 while the first mock engine is active. The mock waits for the adapter's

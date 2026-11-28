@@ -133,6 +133,8 @@ def run_cuda_error_event(binary: str, error_engine: str) -> None:
     message = failure.get("message", "")
     if 'mock CUDA engine: init "failed" at C:\\gpu\\driver' not in message:
         raise AssertionError(f"CUDA error message lost quoting or backslashes: {failure}")
+    if any(ord(character) < 0x20 for character in message):
+        raise AssertionError(f"CUDA error message contains unsanitized control bytes: {failure}")
     if not message.endswith("invalid=?"):
         raise AssertionError(f"non-ASCII diagnostic bytes were not sanitized: {failure}")
     if any(item.get("event") in {"candidate", "submit_sent"} for item in events):
