@@ -139,6 +139,10 @@ int main() {
                                 candidate(10, digest) + "," + candidate(10, digest));
   require(!decode_cuda_search_result(duplicate, header, 10, 2),
           "duplicate candidate nonce was accepted");
+  const auto unsorted = result("ok", "found", "null", 10, 3, 3, 13, 2, 2,
+                               candidate(12, digest) + "," + candidate(10, digest));
+  require(!decode_cuda_search_result(unsorted, header, 10, 3),
+          "unsorted candidate nonces were accepted");
   const auto out_of_range = result("ok", "found", "null", 10, 2, 1, 11, 1, 1,
                                    candidate(11, digest));
   require(!decode_cuda_search_result(out_of_range, header, 10, 2),
