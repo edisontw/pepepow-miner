@@ -108,3 +108,26 @@ active job with clean_jobs=true while this child is running. The product must
 classify the old work as stale and suppress both candidate and submit events;
 the replacement job starts with a fresh child. The test uses a valid pinned-
 Core digest and exercises the cancellation/result race without CUDA.
+
+## Native Windows RTX 3060 loopback (2026-11-28)
+
+The strict opt-in [`test_native_cuda_stratum_loopback.py`](../tests/test_native_cuda_stratum_loopback.py)
+first invokes the real bounded CUDA engine directly and requires a successful
+device result naming an NVIDIA GPU. It then runs `pepepow-live-miner` in
+`POOL` mode against a loopback-only Stratum peer, using the same built CUDA
+engine and pinned-Core oracle. The test fails on missing device initialization;
+it does not replace the engine with a mock or accept a no-device skip.
+
+On Windows 11 with an RTX 3060, compute capability 8.6, CUDA 13.3.1, the engine
+found nonce `00000000`. The miner emitted the candidate only after its complete
+32-byte CPU recheck. A separate pinned-Core oracle invocation independently
+recomputed the candidate digest, then the loopback peer received the matching
+`mining.submit` request and returned a mock accepted response. The run searched
+one 128-nonce batch and stopped at the one-response cap. The nonce, full header,
+digest, submit fields, device preflight, and event stream are recorded in the
+[native loopback evidence report](VALIDATION_EVIDENCE/G4/cuda-stratum-loopback-windows11-2026-11-28.md).
+
+This is local mock evidence only. It did not contact a public or production
+pool, use a payout address, or submit a real share. It covers the successful
+candidate path; separate Windows/Linux acceptance and authorized live-pool
+testing remain pending.

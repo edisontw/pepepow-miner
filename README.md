@@ -29,9 +29,9 @@ The following features describe the intended product, not functionality already 
 | --- | --- |
 | HooHash V110 validation | 10,000-case full-digest and native platform evidence recorded; formal G0 technical sign-off is pending checklist reconciliation. Distribution license review is a separate pre-release gate. |
 | CPU mining engine | Bounded offline nonce search implemented |
-| Pool connectivity | Offline and local Stratum testing; authorized live acceptance has not been run |
+| Pool connectivity | A bounded Windows 11 CPU/POOL run is documented in [draft PR #40 evidence](docs/VALIDATION_EVIDENCE/G1/windows11-cpu-pool-acceptance-2026-11-27.md): 1,000 answered replies, 992 accepted, and 8 generic rejects in one configuration. G1 remains unaccepted. |
 | Windows 10/11 and Linux desktop miner | Planned; full platform acceptance pending |
-| NVIDIA GPU (CUDA) | Offline device probe and partial correctness stages exist; full HooHash GPU digest parity is not implemented |
+| NVIDIA GPU (CUDA) | CUDA PRs #35–#38 and draft PR #41 provide an experimental full-digest bounded search and Stratum bridge. A native Windows RTX 3060 loopback is recorded; broad platform parity and G4 acceptance remain pending. |
 | AMD GPU (HIP or OpenCL) | Planned |
 
 CPU support comes first. GPU acceleration and desktop packaging will follow separate validation stages. See the [roadmap](docs/ROADMAP.md) for the full plan.
