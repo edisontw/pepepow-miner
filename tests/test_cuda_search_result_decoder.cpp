@@ -115,6 +115,15 @@ int main() {
 
   require(!decode_cuda_search_result(found_json, header, first, 2),
           "request nonce-count mismatch was accepted");
+  auto wrong_start = found_json;
+  const auto start_field = wrong_start.find("\"nonce_start\":");
+  require(start_field != std::string::npos, "test payload nonce_start missing");
+  const auto start_value = start_field + std::string("\"nonce_start\":").size();
+  const auto start_end = wrong_start.find(',', start_value);
+  require(start_end != std::string::npos, "test payload nonce_start terminator missing");
+  wrong_start.replace(start_value, start_end - start_value, std::to_string(first - 1));
+  require(!decode_cuda_search_result(wrong_start, header, first, 3),
+          "result for a different requested nonce start was accepted");
   auto wrong_next = found_json;
   const auto next_field = wrong_next.find("\"next_nonce\":4294967296");
   require(next_field != std::string::npos, "test payload next_nonce missing");
