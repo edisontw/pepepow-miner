@@ -134,6 +134,14 @@ int main() {
                                    candidate(11, digest));
   require(!decode_cuda_search_result(out_of_range, header, 10, 2),
           "candidate outside processed range was accepted");
+  auto nonce_overflow = result("ok", "found", "null", 10, 1, 1, 11, 1, 1,
+                               candidate(10, digest));
+  const auto nonce_field = nonce_overflow.find("\"nonce\":10");
+  require(nonce_field != std::string::npos, "candidate nonce field missing");
+  nonce_overflow.replace(nonce_field, std::string("\"nonce\":10").size(),
+                         "\"nonce\":4294967296");
+  require(!decode_cuda_search_result(nonce_overflow, header, 10, 1),
+          "candidate nonce above uint32 was accepted");
   const auto cancelled_with_candidate =
       result("cancelled", "cancelled", "\"timeout\"", 10, 2, 1, 11, 1, 1,
              candidate(10, digest));
