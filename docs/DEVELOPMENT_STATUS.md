@@ -58,3 +58,14 @@ The Owner decisions record Windows 11 physical acceptance as PASS (84/84) on the
 ## Active CUDA session integration (2026-11-28)
 
 Draft [PR #41](https://github.com/edisontw/pepepow-miner/pull/41) is stacked on the reviewed live-session and bounded-search branches. The integration adds an opt-in CUDA child-process search path, strict bounded-search JSON decoding, pinned-Core CPU recheck of each complete candidate digest and target, cancel-file handling, process-tree cleanup, and CPU-only mock contract tests. The Windows 11 native UCRT64 loopback replaces a job during CUDA-mode search and exercises disconnect/reconnect to a configured fallback endpoint. Tests verify child cancellation, stale classification, fresh fallback job startup, stable POOL mode, and no candidate or share submission. The expanded product loopback passed in Debug and Release, including three consecutive Release runs. No GPU was used, no pool was contacted, and G4 is not accepted. See [CUDA Stratum integration](CUDA_STRATUM_INTEGRATION.md) and the [process-bridge evidence](VALIDATION_EVIDENCE/G4/cuda-stratum-process-bridge-windows11-2026-11-28.md).
+## CUDA candidate-to-submit mock path (2026-11-28)
+
+Draft [PR #41](https://github.com/edisontw/pepepow-miner/pull/41) now tests a
+successful CUDA-mode product flow against a local Stratum mock. A pinned-Core
+CPU child fixture returns a complete digest for a nonzero nonce; the adapter
+performs its existing full-digest and target CPU recheck, then submits the
+matching job fields. The mock accepts exactly one request and the JSONL summary
+counts exactly one accepted response. Windows 11 Release passed three repeated
+runs and Debug passed once. No GPU was initialized and no public pool or real
+share was involved. CUDA digest parity and G4 remain unaccepted; G1 remains
+unpassed.

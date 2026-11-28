@@ -21,6 +21,7 @@ on:
       - 'tests/test_native_stratum_search.cpp'
       - 'tests/test_cuda_search_process.cpp'
       - 'tests/test_cuda_search_engine_cancel.cpp'
+      - 'tests/test_cuda_search_engine_candidate.cpp'
       - 'tests/test_cpu_worker_pool.cpp'
       - 'tests/test_cpu_benchmark_accounting.cpp'
       - 'tests/test_cpu_benchmark_cli.py'

@@ -80,3 +80,21 @@ that both children observe cancellation, the new Stratum handshake starts a
 search for the fallback job, the mode remains `POOL`, and no candidate or
 share is sent. The pinned-Core Linux workflow and Windows native workflow run
 these CPU-only product loopback cases without a CUDA toolkit or device.
+## CPU-only candidate submission loopback (2026-11-28)
+
+The CUDA-capable product loopback now drives the successful candidate path as
+well as failure, cancellation, and reconnect paths. Its child-process fixture
+uses the pinned PEPEPOW Core CPU implementation to find a target-meeting nonce
+and emit the bounded-search JSON contract. The live adapter verifies the
+child's nonce range, recomputes the complete 32-byte digest and target with its
+pinned-Core CPU worker pool, and only then emits and submits the candidate.
+
+The local mock asserts the complete 80-byte header, full digest field, little-
+endian nonce bytes in the header, the Stratum submit job/extranonce/time/nonce
+fields, and exactly one mock accepted reply. The fixture deliberately returns
+nonce 1 so the byte-order and submit-format checks are nonzero.
+
+Windows 11 Release passed the expanded product loopback three consecutive
+times; Debug passed once. This is a local TCP mock using CPU code only. It did
+not initialize CUDA, allocate VRAM, contact a public pool, or submit a real
+share. It is not physical GPU validation or G4 acceptance.

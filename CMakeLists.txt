@@ -217,12 +217,20 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
         tests/test_cuda_search_engine_failure.cpp)
       add_executable(test_cuda_search_engine_cancel
         tests/test_cuda_search_engine_cancel.cpp)
+      add_executable(test_cuda_search_engine_candidate
+        tests/test_cuda_search_engine_candidate.cpp)
+      target_compile_features(test_cuda_search_engine_candidate PRIVATE cxx_std_20)
+      target_include_directories(test_cuda_search_engine_candidate PRIVATE include)
+      target_link_libraries(test_cuda_search_engine_candidate PRIVATE
+        pepepow_core_reference)
       if(MSVC)
         target_compile_options(test_cuda_search_engine_failure PRIVATE /W4 /WX)
         target_compile_options(test_cuda_search_engine_cancel PRIVATE /W4 /WX)
+        target_compile_options(test_cuda_search_engine_candidate PRIVATE /W4 /WX)
       else()
         target_compile_options(test_cuda_search_engine_failure PRIVATE -Wall -Wextra -Werror -pedantic)
         target_compile_options(test_cuda_search_engine_cancel PRIVATE -Wall -Wextra -Werror -pedantic)
+        target_compile_options(test_cuda_search_engine_candidate PRIVATE -Wall -Wextra -Werror -pedantic)
       endif()
       add_test(NAME live_pool_miner_loopback
         COMMAND "${Python3_EXECUTABLE}"
@@ -234,7 +242,8 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
                 "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_live_pool_miner_loopback.py"
                 "$<TARGET_FILE:pepepow-live-miner>" --supports-cuda
                 --cuda-error-engine "$<TARGET_FILE:test_cuda_search_engine_failure>"
-                --cuda-cancel-engine "$<TARGET_FILE:test_cuda_search_engine_cancel>")
+                --cuda-cancel-engine "$<TARGET_FILE:test_cuda_search_engine_cancel>"
+                --cuda-candidate-engine "$<TARGET_FILE:test_cuda_search_engine_candidate>")
       set_tests_properties(live_pool_miner_cuda_product_loopback PROPERTIES TIMEOUT 30)
     endif()
   endif()

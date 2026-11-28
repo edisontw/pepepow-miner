@@ -466,12 +466,121 @@ def run_cuda_reconnect_failover(binary: str, cancel_engine: str) -> None:
         raise AssertionError(f"closed mock sessions emitted a share candidate: {events}")
 
 
+def serve_cuda_candidate(listener: socket.socket,
+                         errors: list[BaseException],
+                         submissions: list[dict]) -> None:
+    try:
+        listener.settimeout(10)
+        peer, _ = listener.accept()
+        with peer:
+            peer.settimeout(10)
+            subscribe = read_line(peer)
+            assert subscribe["method"] == "mining.subscribe"
+            send_line(peer, {"id": subscribe["id"], "result": [[
+                ["mining.set_difficulty", "mock"], ["mining.notify", "mock"]
+            ], "aabbccdd", 4], "error": None})
+
+            authorize = read_line(peer)
+            assert authorize["method"] == "mining.authorize"
+            send_line(peer, {"id": authorize["id"], "result": True, "error": None})
+            peer.sendall(
+                b'{"id":null,"method":"mining.set_difficulty","params":[0.0000015]}\n'
+                b'{"id":null,"method":"mining.notify","params":["cuda-candidate-job",'
+                b'"0000000000000000000000000000000000000000000000000000000000000000",'
+                b'"01000000","ffffffff",[],"20000000","1d00ffff","65a0bc00",true]}\n'
+            )
+
+            submit = read_line(peer)
+            assert submit["method"] == "mining.submit"
+            submissions.append(submit)
+            send_line(peer, {"id": submit["id"], "result": True, "error": None})
+    except BaseException as exc:  # Preserve server-thread assertions for the caller.
+        errors.append(exc)
+    finally:
+        listener.close()
+
+
+def run_cuda_candidate_submission(binary: str, candidate_engine: str) -> None:
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    port = listener.getsockname()[1]
+    errors: list[BaseException] = []
+    submissions: list[dict] = []
+    server = threading.Thread(
+        target=serve_cuda_candidate,
+        args=(listener, errors, submissions),
+        daemon=True,
+    )
+    server.start()
+    command = [
+        binary, "--mine", "--endpoint", f"stratum+tcp://127.0.0.1:{port}",
+        "--login", "mock-wallet.worker", "--extranonce2", "00000000",
+        "--mode", "POOL", "--threads", "1", "--responses", "1",
+        "--max-runtime-seconds", "10", "--device", "cuda",
+        "--cuda-engine", candidate_engine, "--cpu-oracle", binary,
+        "--cuda-batch-size", "128",
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=15)
+    finally:
+        server.join(timeout=12)
+    if server.is_alive():
+        raise AssertionError("CUDA candidate loopback server did not stop")
+    if errors:
+        raise errors[0]
+    if result.returncode != 0:
+        raise AssertionError(
+            f"CUDA candidate loopback failed: stdout={result.stdout}; stderr={result.stderr}"
+        )
+
+    events = [json.loads(line) for line in result.stdout.splitlines()
+              if line.startswith("{")]
+    candidates = [item for item in events if item.get("event") == "candidate"]
+    if len(candidates) != 1:
+        raise AssertionError(f"expected one CPU-rechecked CUDA candidate: {events}")
+    candidate = candidates[0]
+    if candidate.get("job_id") != "cuda-candidate-job" or \
+            candidate.get("nonce") != "00000001":
+        raise AssertionError(f"candidate identity or nonce was incorrect: {candidate}")
+    header_hex = candidate.get("header_hex", "")
+    digest_hex = candidate.get("digest_raw", "")
+    if len(header_hex) != 160 or any(ch not in "0123456789abcdef" for ch in header_hex):
+        raise AssertionError(f"candidate did not expose the full 80-byte header: {candidate}")
+    if header_hex[-8:] != "01000000":
+        raise AssertionError(f"candidate nonce was not encoded little-endian in the header: {candidate}")
+    if len(digest_hex) != 64 or any(ch not in "0123456789abcdef" for ch in digest_hex):
+        raise AssertionError(f"candidate did not expose the complete 32-byte digest: {candidate}")
+    if any(item.get("event") in {"search_error", "duplicate_candidate"}
+           for item in events):
+        raise AssertionError(f"candidate path reported a search/duplicate error: {events}")
+
+    if len(submissions) != 1:
+        raise AssertionError(f"expected exactly one mock submit: {submissions}")
+    submit = submissions[0]
+    if submit.get("params") != [
+        "mock-wallet.worker", "cuda-candidate-job", "00000000", "65a0bc00", "00000001"
+    ]:
+        raise AssertionError(f"submit did not preserve job fields and nonce: {submit}")
+    accepted = [item for item in events if item.get("event") == "share_accepted"]
+    summary = next((item for item in events if item.get("event") == "summary"), None)
+    if len(accepted) != 1 or summary is None or summary.get("accepted") != 1:
+        raise AssertionError(f"mock accepted reply was not accounted once: {events}")
+    if summary.get("hashes", 0) < 2:
+        raise AssertionError(f"CPU recheck/search accounting omitted processed work: {summary}")
+    if any(item.get("event") == "submit_sent" and
+           (item.get("job_id") != candidate["job_id"] or
+            item.get("nonce") != candidate["nonce"]) for item in events):
+        raise AssertionError(f"miner submitted work other than the candidate: {events}")
+
 def main() -> int:
     args = sys.argv[2:]
     binary = str(Path(sys.argv[1]).resolve())
     supports_cuda = False
     error_engine = None
     cancel_engine = None
+    candidate_engine = None
     index = 0
     while index < len(args):
         if args[index] == "--supports-cuda" and not supports_cuda:
@@ -483,9 +592,12 @@ def main() -> int:
         elif args[index] == "--cuda-cancel-engine" and cancel_engine is None and index + 1 < len(args):
             cancel_engine = str(Path(args[index + 1]).resolve())
             index += 2
+        elif args[index] == "--cuda-candidate-engine" and candidate_engine is None and index + 1 < len(args):
+            candidate_engine = str(Path(args[index + 1]).resolve())
+            index += 2
         else:
             raise SystemExit("invalid live miner loopback test arguments")
-    if (error_engine or cancel_engine) and not supports_cuda:
+    if (error_engine or cancel_engine or candidate_engine) and not supports_cuda:
         raise SystemExit("CUDA engine fixtures require --supports-cuda")
     invalid_batch = subprocess.run(
         [
@@ -593,7 +705,9 @@ def main() -> int:
     if cancel_engine:
         run_cuda_job_replacement(binary, cancel_engine)
         run_cuda_reconnect_failover(binary, cancel_engine)
-    print("PASS: opt-in live-mode loopback handshake, continuous nonce advance, bounded replies, and JSON events")
+    if candidate_engine:
+        run_cuda_candidate_submission(binary, candidate_engine)
+    print("PASS: opt-in live-mode and CUDA candidate loopback contracts")
     return 0
 
 
