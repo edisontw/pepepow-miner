@@ -1,0 +1,32 @@
+{
+  "batch_count": 1,
+  "batch_size": 1,
+  "candidates": [],
+  "cpu_recheck": "pinned_core_full_digest_and_target",
+  "cuda_versions": {
+    "driver_api": 13030,
+    "runtime_api": 13030,
+    "toolkit_build": "13.3.1"
+  },
+  "device": {
+    "compute_capability": "8.6",
+    "index": 0,
+    "name": "NVIDIA GeForce RTX 3060"
+  },
+  "engine": "cuda_hoohash_v110_bounded_search",
+  "error": null,
+  "matrix_cache": {
+    "builds": 1,
+    "key": "80-byte header with nonce bytes 76..79 zeroed",
+    "reuses": 0
+  },
+  "next_nonce": 7,
+  "nonce_count": 1,
+  "nonce_start": 6,
+  "processed_count": 1,
+  "schema_version": 1,
+  "search_status": "cancelled",
+  "status": "cancelled",
+  "stop_reason": "timeout",
+  "target_encoding": "little_endian_uint256"
+}

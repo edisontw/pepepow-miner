@@ -32,6 +32,8 @@ option(PEPEPOW_CUDA_FULL_DIGEST_TESTS
   "Build the experimental CUDA full HooHash V110 digest parity stage" OFF)
 option(PEPEPOW_CUDA_FULL_DIGEST_10000_TESTS
   "Run the bounded 10,000-nonce CUDA full-digest parity test" OFF)
+option(PEPEPOW_CUDA_BOUNDED_SEARCH_TESTS
+  "Build the opt-in bounded CUDA nonce search engine and Core candidate-recheck contract" OFF)
 set(PEPEPOW_CPU_ORACLE "" CACHE FILEPATH
   "Path to pepepow-kat built against the pinned PEPEPOW Core/OpenLibm reference")
 set(PEPEPOW_CORE_SOURCE_DIR "" CACHE PATH
@@ -53,6 +55,11 @@ endif()
 if(PEPEPOW_CUDA_FULL_DIGEST_10000_TESTS AND NOT PEPEPOW_CUDA_FULL_DIGEST_TESTS)
   message(FATAL_ERROR
     "PEPEPOW_CUDA_FULL_DIGEST_10000_TESTS requires PEPEPOW_CUDA_FULL_DIGEST_TESTS")
+endif()
+if(PEPEPOW_CUDA_BOUNDED_SEARCH_TESTS AND
+   (NOT PEPEPOW_CUDA_FULL_DIGEST_TESTS OR NOT BUILD_TESTING))
+  message(FATAL_ERROR
+    "PEPEPOW_CUDA_BOUNDED_SEARCH_TESTS requires PEPEPOW_CUDA_FULL_DIGEST_TESTS and BUILD_TESTING=ON")
 endif()
 if(BUILD_TESTING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -383,6 +390,44 @@ if(PEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS)
     add_executable(pepepow-hoohash-digest-core-oracle IMPORTED GLOBAL)
     set_target_properties(pepepow-hoohash-digest-core-oracle PROPERTIES
       IMPORTED_LOCATION "${_pepepow_digest_oracle}")
+
+    if(PEPEPOW_CUDA_BOUNDED_SEARCH_TESTS)
+      add_executable(pepepow-cuda-slow-oracle-proxy
+        ../../tests/cuda_slow_oracle_proxy.cpp)
+      target_compile_features(pepepow-cuda-slow-oracle-proxy PRIVATE cxx_std_17)
+
+      add_executable(pepepow-cuda-hoohash-search
+        cuda_hoohash_digest_stage.cu)
+      configure_cuda_probe_target(pepepow-cuda-hoohash-search)
+      target_include_directories(pepepow-cuda-hoohash-search PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../include")
+      target_compile_definitions(pepepow-cuda-hoohash-search PRIVATE
+        PEPEPOW_CUDA_BOUNDED_SEARCH_ENGINE=1)
+      target_compile_options(pepepow-cuda-hoohash-search PRIVATE
+        "$<$<COMPILE_LANGUAGE:CUDA>:--fmad=false>"
+        "$<$<COMPILE_LANGUAGE:CUDA>:--ftz=false>"
+        "$<$<COMPILE_LANGUAGE:CUDA>:--prec-div=true>"
+        "$<$<COMPILE_LANGUAGE:CUDA>:--prec-sqrt=true>")
+      set_target_properties(pepepow-cuda-hoohash-search PROPERTIES
+        CUDA_ARCHITECTURES "${PEPEPOW_CUDA_TEST_ARCHITECTURE}")
+      add_dependencies(pepepow-cuda-hoohash-search
+        pepepow-hoohash-digest-core-oracle-build)
+
+      add_test(NAME cuda_hoohash_bounded_search_core_recheck
+        COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/../../tests/test_cuda_bounded_search.py"
+                --engine "$<TARGET_FILE:pepepow-cuda-hoohash-search>"
+                --oracle "${_pepepow_digest_oracle}"
+                --cpu-oracle "${_pepepow_digest_oracle}"
+                --slow-oracle-proxy "$<TARGET_FILE:pepepow-cuda-slow-oracle-proxy>"
+                --evidence-dir
+                "${CMAKE_CURRENT_BINARY_DIR}/cuda-bounded-search-evidence")
+      set_tests_properties(cuda_hoohash_bounded_search_core_recheck
+        PROPERTIES
+          TIMEOUT 180
+          ENVIRONMENT_MODIFICATION
+            "PATH=path_list_prepend:${_pepepow_transform_compiler_dir};PATH=path_list_prepend:${CUDAToolkit_BIN_DIR}")
+    endif()
 
     add_executable(pepepow-cuda-hoohash-digest-stage
       cuda_hoohash_digest_stage.cu)

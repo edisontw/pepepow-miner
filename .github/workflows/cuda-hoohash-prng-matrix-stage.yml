@@ -9,6 +9,7 @@ on:
       - "tests/test_cuda_matrix_stage.py"
       - "tests/test_cuda_hoohash_digest.py"
       - "tests/test_cuda_hoohash_transforms.py"
+      - "tests/test_cuda_bounded_search.py"
   push:
     branches: [main]
     paths:
@@ -18,6 +19,7 @@ on:
       - "tests/test_cuda_matrix_stage.py"
       - "tests/test_cuda_hoohash_digest.py"
       - "tests/test_cuda_hoohash_transforms.py"
+      - "tests/test_cuda_bounded_search.py"
   workflow_dispatch:
 
 concurrency:
@@ -119,13 +121,14 @@ jobs:
             -DPEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS=ON \
             -DPEPEPOW_CUDA_FULL_DIGEST_TESTS=ON \
             -DPEPEPOW_CUDA_FULL_DIGEST_10000_TESTS=ON \
+            -DPEPEPOW_CUDA_BOUNDED_SEARCH_TESTS=ON \
             -DPEPEPOW_CORE_SOURCE_DIR="$GITHUB_WORKSPACE/core" \
             -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 \
             -DPEPEPOW_OPENLIBM_SOURCE_DIR="$GITHUB_WORKSPACE/openlibm" \
             -DPEPEPOW_OPENLIBM_LIBRARY="$GITHUB_WORKSPACE/build/openlibm/libopenlibm.a" \
             -DPEPEPOW_CUDA_TEST_ARCHITECTURE=75
 
-      - name: Build FP64 diagnostics, full-digest experiment, and CPU oracles
+      - name: Build FP64 diagnostics, full-digest experiment, bounded search, and CPU oracles
         if: steps.fp64-transform.outputs.enabled == 'true'
         run: cmake --build build/cuda-hoohash-fp64-transform --parallel 2
 
@@ -158,4 +161,5 @@ jobs:
             build/cuda-hoohash-fp64-transform/cuda-transform-evidence/
             build/cuda-hoohash-fp64-transform/cuda-full-digest-evidence/
             build/cuda-hoohash-fp64-transform/cuda-full-digest-10000-evidence/
+            build/cuda-hoohash-fp64-transform/cuda-bounded-search-evidence/
             build/openlibm/libopenlibm.a

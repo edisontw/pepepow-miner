@@ -413,6 +413,73 @@ The digest transcript starts with `PPWDIG1\0`, a little-endian count, and
 exactly 32 bytes per nonce. The stage makes no network connection and does
 not submit shares or benchmark mining throughput.
 
+## Bounded CUDA nonce search experiment
+
+`PEPEPOW_CUDA_BOUNDED_SEARCH_TESTS=ON` adds the opt-in
+`pepepow-cuda-hoohash-search` executable. It accepts one immutable 80-byte job
+header, a little-endian `uint256` target, and a non-wrapping uint32 nonce range
+whose count is tracked as uint64 (up to the remaining 2^32 nonce space). It
+processes at most 256 nonces per CUDA batch, allocates the device job context
+once, builds the nonce-zero 64×64 FP64 matrix once, and reuses that matrix for
+the subsequent batches of that job. The kernel returns complete 32-byte
+digests for target candidates only.
+
+Every returned device candidate is synchronously rehashed by the unmodified
+pinned PEPEPOW Core HooHash implementation and checked against the same target
+before it appears in the JSON result. The Core oracle is built from the
+separately pinned Core/OpenLibm checkouts; the search process invokes that
+native oracle executable with a bounded candidate nonce interval and checks
+its complete digest transcript.
+The contract tests also independently compare every reported candidate with
+the pinned Core oracle, check target−1/equality/target+1, reject nonce wrap,
+exercise the `UINT32_MAX` boundary, and enforce a batch-boundary deadline.
+SIGINT/SIGTERM cancellation (plus SIGBREAK on Windows) and an optional
+cancel-file request stop between CUDA batches. A signal, cancel-file request,
+or timeout discards candidates from the in-flight batch. If cancellation or the
+deadline arrives during the pinned-Core CPU recheck, the verified candidates
+are still discarded before JSON publication. Deadline tests validate progress
+and batch accounting without assuming a fixed number of batches per millisecond.
+The physical-device test creates the cancel file during a long no-hit range and
+uses a delayed CPU-oracle fixture to verify cancellation during candidate
+recheck.
+
+This executable handles one job template per invocation and has no Stratum,
+pool, share submission, automatic startup, or background-mining path. It is a
+bounded offline search experiment, not an accepted GPU miner; tested digest
+parity remains corpus-scoped, and G4 remains NOT PASSED. The default CPU build
+does not configure or require CUDA. The bounded-search source head was
+rechecked on the Windows RTX 3060 against 10,000 nonces across four header
+templates in both Debug and Release; see the [bounded-search evidence
+report](../../docs/validation/cuda-bounded-search-windows-rtx3060-2026-11-27.md).
+
+Enable the search contract in the full-digest configuration:
+
+```powershell
+cmake -S tools/gpu -B build/cuda-hoohash-transform `
+  -DPEPEPOW_CUDA_HOOHASH_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_CORE_MATRIX_ORACLE_TESTS=ON `
+  -DPEPEPOW_CUDA_MATRIX_STAGE_TESTS=ON `
+  -DPEPEPOW_CUDA_TRANSFORM_DIAGNOSTICS=ON `
+  -DPEPEPOW_CUDA_FULL_DIGEST_TESTS=ON `
+  -DPEPEPOW_CUDA_FULL_DIGEST_10000_TESTS=ON `
+  -DPEPEPOW_CUDA_BOUNDED_SEARCH_TESTS=ON `
+  -DPEPEPOW_CORE_SOURCE_DIR=D:/Dev/pepepow-deps/PePe-core `
+  -DPEPEPOW_CORE_EXPECTED_SHA=bc08108ceccd957c79040dc7fedc1d56d8d47f97 `
+  -DPEPEPOW_OPENLIBM_SOURCE_DIR=D:/Dev/pepepow-deps/openlibm `
+  -DPEPEPOW_OPENLIBM_LIBRARY=D:/path/to/libopenlibm.a `
+  -DPEPEPOW_TRANSFORM_ORACLE_COMPILER=D:/Dev/msys64/ucrt64/bin/gcc.exe `
+  -DPEPEPOW_CUDA_TEST_ARCHITECTURE=86
+cmake --build build/cuda-hoohash-transform --config Release
+$env:PEPEPOW_CUDA_REQUIRE_DEVICE = "1"
+ctest --test-dir build/cuda-hoohash-transform -C Release --output-on-failure
+```
+
+The no-GPU CI job explicitly allows only recognized device-unavailable errors
+to skip the live-device portion; the pinned Core verifier, range validation,
+and target-boundary contracts still run. Search JSON reports processed range,
+matrix build/reuse counts, device/toolkit identity, and full candidate digests.
+Do not submit a candidate outside a separately validated mining session.
+
 Build and run the stage contract with CUDA Toolkit 13.3.x and a pinned Core
 checkout:
 
