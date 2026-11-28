@@ -212,6 +212,16 @@ if(PEPEPOW_NATIVE_STRATUM_SEARCH)
     endif()
     add_test(NAME stratum_endpoint_contract COMMAND test_stratum_endpoint)
 
+    add_executable(test_stratum_nonce_cursor tests/test_stratum_nonce_cursor.cpp)
+    target_compile_features(test_stratum_nonce_cursor PRIVATE cxx_std_20)
+    target_include_directories(test_stratum_nonce_cursor PRIVATE include)
+    if(MSVC)
+      target_compile_options(test_stratum_nonce_cursor PRIVATE /W4 /WX)
+    else()
+      target_compile_options(test_stratum_nonce_cursor PRIVATE -Wall -Wextra -Werror -pedantic)
+    endif()
+    add_test(NAME stratum_nonce_cursor_contract COMMAND test_stratum_nonce_cursor)
+
     if(PEPEPOW_ENABLE_LIVE_POOL_MINER)
       add_executable(test_cuda_search_engine_failure
         tests/test_cuda_search_engine_failure.cpp)

@@ -78,3 +78,14 @@ job. Release passed three consecutive runs and Debug passed once. The test
 observed stale classification for the old job and no candidate or submit event.
 This validates the CPU-only process/session race contract, not physical CUDA,
 G4 acceptance, G1 acceptance, or pool interoperability.
+
+## Live Stratum nonce cursor boundary contract (2026-11-28)
+
+The live session now uses a directly testable 64-bit cursor for bounded
+32-bit nonce ranges. The final reservation at `UINT32_MAX` contains exactly
+one nonce, and exhausting or finding that nonce advances to the `2^32`
+sentinel without wrapping to zero. Extranonce2 rollover is atomic: malformed
+hex and all-`f` overflow leave the input unchanged. Windows 11 Release and
+Debug both passed the new cursor contract and the existing CPU-only live
+Stratum/CUDA-mode product loopback. No GPU or pool was used. G4 and G1 remain
+unpassed. See [nonce cursor validation evidence](VALIDATION_EVIDENCE/G4/cuda-stratum-nonce-cursor-windows11-2026-11-28.md).

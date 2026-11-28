@@ -29,6 +29,7 @@
 | [Windows 11 CPU benchmark evidence](VALIDATION_EVIDENCE/G1/cpu-benchmark-windows11-2026-11-25.md) | Reproducible offline hashrate, resource measurements, worker parity, and current integration limits |
 | [Windows 11 UCRT64 benchmark and stability report](VALIDATION_EVIDENCE/G1/cpu-benchmark-windows11-ucrt64-gcc-2026-11-25.md) | 60-second thread matrix, 30-minute bounded stability run, 256-worker smoke test, stale-job switching, profiling evidence, and local regression results |
 | [CUDA Stratum process bridge evidence](VALIDATION_EVIDENCE/G4/cuda-stratum-process-bridge-windows11-2026-11-28.md) | Windows 11 Debug/Release CPU/mock contract, compile checks, and explicit GPU/pool test limits |
+| [CUDA Stratum nonce cursor evidence](VALIDATION_EVIDENCE/G4/cuda-stratum-nonce-cursor-windows11-2026-11-28.md) | Windows 11 Debug/Release nonce coverage at UINT32_MAX and atomic extranonce2 rollover contract |
 | [Native evidence archive](VALIDATION_EVIDENCE/G0/) | Archived focused validation evidence |
 | [Offline CLI usage](../tools/README.md) | KAT/search/replay build and test commands |
 | [Coding agent rules](../AGENTS.md) | Security, evidence, and English documentation policy |

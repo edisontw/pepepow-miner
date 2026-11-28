@@ -5,6 +5,7 @@
 #include "pepepow/cuda_search_process.hpp"
 #endif
 #include "pepepow/offline_stratum_search.hpp"
+#include "pepepow/stratum_nonce_cursor.hpp"
 #include "pepepow/stratum_endpoint.hpp"
 
 #include <atomic>
@@ -321,21 +322,6 @@ std::string nonce_hex(std::uint32_t nonce) {
   return out;
 }
 
-bool increment_hex_nonce(std::string& value) {
-  constexpr char digits[] = "0123456789abcdef";
-  for (auto it = value.rbegin(); it != value.rend(); ++it) {
-    const auto ch = *it;
-    unsigned nibble = 0;
-    if (ch >= '0' && ch <= '9') nibble = static_cast<unsigned>(ch - '0');
-    else if (ch >= 'a' && ch <= 'f') nibble = static_cast<unsigned>(ch - 'a' + 10);
-    else if (ch >= 'A' && ch <= 'F') nibble = static_cast<unsigned>(ch - 'A' + 10);
-    else return false;
-    *it = digits[(nibble + 1) & 15];
-    if (nibble != 15) return true;
-  }
-  return false;
-}
-
 bool clean_events(const OfflineStratumController::WorkEvents& received) {
   return received.framing_rejected == 0 && received.ignored == 0;
 }
@@ -462,7 +448,7 @@ int mine_session(Socket socket, OfflineStratumController& controller,
   int exit_code = 1;
   std::optional<std::uint64_t> attempted_job_generation;
   std::optional<std::uint64_t> cursor_job_generation;
-  std::uint64_t nonce_cursor = options.start;
+  pepepow::StratumNonceCursor nonce_cursor;
   std::string extranonce2 = options.extranonce2;
   const std::string initial_extranonce2 = options.extranonce2;
   auto next_submit_at = Clock::time_point::min();
@@ -491,27 +477,32 @@ int mine_session(Socket socket, OfflineStratumController& controller,
 
     if (options.live_pool && cursor_job_generation != job->generation) {
       cursor_job_generation = job->generation;
-      nonce_cursor = 0;
+      nonce_cursor.reset();
       extranonce2 = initial_extranonce2;
     }
-    if (options.live_pool && nonce_cursor == (std::uint64_t{1} << 32)) {
-      if (!increment_hex_nonce(extranonce2)) {
+    if (options.live_pool && nonce_cursor.exhausted()) {
+      if (!pepepow::increment_stratum_extranonce2(extranonce2)) {
         event("nonce_space_exhausted", "\"job_id\":\"" + job->id + "\"");
         exit_code = 3;
         failed = true;
         break;
       }
-      nonce_cursor = 0;
+      nonce_cursor.reset();
       event("extranonce2_advanced", "\"job_id\":\"" + job->id + "\"");
     }
 
     std::uint32_t batch_start = options.start;
     std::uint32_t batch_count = options.count;
     if (options.live_pool) {
-      const auto remaining = (std::uint64_t{1} << 32) - nonce_cursor;
-      batch_start = static_cast<std::uint32_t>(nonce_cursor);
-      batch_count = static_cast<std::uint32_t>((std::min)(
-          static_cast<std::uint64_t>(options.count), remaining));
+      const auto batch = nonce_cursor.reserve(options.count);
+      if (!batch) {
+        event("nonce_cursor_error", "\"job_id\":\"" + job->id + "\"");
+        exit_code = 3;
+        failed = true;
+        break;
+      }
+      batch_start = batch->start;
+      batch_count = batch->count;
     }
 
     auto work = pepepow::OfflineStratumSearch::capture(
@@ -656,10 +647,15 @@ int mine_session(Socket socket, OfflineStratumController& controller,
     }
     if (search_status == SearchStatus::Exhausted) {
       if (options.live_pool) {
-        nonce_cursor += batch_count;
+        if (!nonce_cursor.advance_exhausted_batch(batch_count)) {
+          event("nonce_cursor_error", "\"job_id\":\"" + job->id + "\"");
+          exit_code = 3;
+          failed = true;
+          break;
+        }
         event("nonce_batch_exhausted", "\"job_id\":\"" + job->id +
                                          "\",\"next_nonce\":" +
-                                         std::to_string(nonce_cursor));
+                                         std::to_string(nonce_cursor.next_nonce()));
       } else {
         attempted_job_generation = job->generation;
         event("range_exhausted", "\"job_id\":\"" + job->id + "\"");
@@ -678,13 +674,17 @@ int mine_session(Socket socket, OfflineStratumController& controller,
       failed = true;
       break;
     }
+    if (options.live_pool && !nonce_cursor.advance_after_candidate(candidate->nonce)) {
+      event("nonce_cursor_error", "\"job_id\":\"" + job->id + "\"");
+      exit_code = 3;
+      failed = true;
+      break;
+    }
+
     event("candidate", "\"job_id\":\"" + job->id + "\",\"nonce\":\"" +
                        nonce_hex(candidate->nonce) + "\",\"header_hex\":\"" +
                        hex(candidate->header) + "\",\"digest_raw\":\"" +
                        hex(candidate->digest) + "\"");
-
-    if (options.live_pool)
-      nonce_cursor = static_cast<std::uint64_t>(candidate->nonce) + 1;
 
     // A failed/ambiguous write must never be replayed after reconnect.
     const auto key = job->id + ':' + hex(candidate->header);
