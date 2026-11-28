@@ -31,6 +31,17 @@ int main() {
 
   cursor.reset();
   CHECK(cursor.next_nonce() == 0 && !cursor.exhausted());
+  batch = cursor.reserve(8);
+  CHECK(batch && batch->start == 0 && batch->count == 8);
+  CHECK(cursor.advance_after_candidate(7));
+  CHECK(cursor.next_nonce() == 8);
+  CHECK(!cursor.advance_after_candidate(7));
+  batch = cursor.reserve(4);
+  CHECK(batch && batch->start == 8 && batch->count == 4);
+  CHECK(cursor.advance_exhausted_batch(batch->count));
+  CHECK(cursor.next_nonce() == 12);
+
+  cursor.reset();
   CHECK(cursor.advance_exhausted_batch(UINT32_MAX));
   CHECK(cursor.next_nonce() == UINT32_MAX);
   CHECK(cursor.advance_after_candidate(UINT32_MAX));
