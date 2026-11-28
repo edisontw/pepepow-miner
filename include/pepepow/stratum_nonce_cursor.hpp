@@ -52,6 +52,7 @@ class StratumNonceCursor {
 };
 
 inline bool increment_stratum_extranonce2(std::string& value) {
+  if (value.size() % 2 != 0) return false;
   constexpr char digits[] = "0123456789abcdef";
   std::size_t increment_index = value.size();
 

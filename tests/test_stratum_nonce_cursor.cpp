@@ -52,6 +52,9 @@ int main() {
   extranonce = "01g0";
   CHECK(!pepepow::increment_stratum_extranonce2(extranonce));
   CHECK(extranonce == "01g0");
+  extranonce = "00f";
+  CHECK(!pepepow::increment_stratum_extranonce2(extranonce));
+  CHECK(extranonce == "00f");
   extranonce.clear();
   CHECK(!pepepow::increment_stratum_extranonce2(extranonce));
   CHECK(extranonce.empty());
